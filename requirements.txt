@@ -1,0 +1,6 @@
+django>=2.0.0
+django-rest-framework>=0.1.0
+channels-api>=0.4.1
+
+django-model-utils>=3.1.2
+

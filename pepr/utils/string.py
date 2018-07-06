@@ -1,5 +1,8 @@
 
 def camel_to_snake(value, sep = '_'):
+    """
+    Return snake cased string based on camel case one.
+    """
     # we avoid regexps to be lighter
     i_ = 0
     r = ''
@@ -15,6 +18,9 @@ def camel_to_snake(value, sep = '_'):
     return r
 
 def camel_to_verbose(value):
+    """
+    Return verbose version of a camel cased string.
+    """
     i_ = 0
     r = ''
     for i, c in enumerate(value):

@@ -10,7 +10,6 @@ ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     'pepr.perms',
-    'pepr.utils',
 
     'rest_framework',
     # 'channels',

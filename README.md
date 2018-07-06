@@ -23,3 +23,9 @@ For the moment testing mode is activated and the one by default.
 - setup channels & rest api
 - integrate components and content
 
+- tests: write base models to allow tests
+- widgets: widget model: how do we set a container for widget? Do we use Content's Container as before?
+- widgets: tests
+- perms: write tests
+
+

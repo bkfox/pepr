@@ -9,5 +9,6 @@ def load_conf(*source_dirs, globals = None):
         files = glob.glob(os.path.join(src, '*.conf.py'))
         files.sort()
         for f in files:
+            print("load config ", f)
             exec(open(f).read(), globals)
 

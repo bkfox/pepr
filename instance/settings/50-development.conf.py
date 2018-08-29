@@ -1,4 +1,4 @@
-if RUNNING_MODE = Mode.Development:
+if RUNNING_MODE == Mode.Development:
     DEBUG = True
 
     DATABASES = {

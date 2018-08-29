@@ -3,16 +3,6 @@ from enum import IntEnum
 from pepr.utils.metaclass import RegisterMeta
 
 
-class Privilege(IntEnum):
-    """
-    Defines privilege for a specific Permission (if permission
-    is allowed or refused).
-    """
-    Default = 0x00
-    Refused = 0x01
-    Allowed = 0x02
-
-
 class Permissions(RegisterMeta):
     """
     Register class for permissions
@@ -37,17 +27,16 @@ class Permission(metaclass=Permissions):
     """[class] name displayed to user"""
     description = ''
     """[class] description displayed to user"""
-    privilege = Privilege.Refused
-    """Privilege set for this permission"""
+    is_allowed = False
+    """Allowance set for this permission"""
     model = None
     """
     Permission target a specific model. When None is specified, Permission
     is used as default for any models.
     """
 
-    def __init__(self, codename, model, privilege = None):
+    def __init__(self, codename, model, is_allowed = False):
         self.codename = codename
         self.model = model
-        self.privilege = Privilege.Default if privilege is None else \
-                         privilege
+        self.is_allowed = is_allowed
 

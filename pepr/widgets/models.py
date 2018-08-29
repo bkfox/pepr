@@ -19,11 +19,8 @@ class WidgetQuerySet(InheritanceQuerySet):
         return self.filter(enable = enabled)
 
 
-WidgetManager = models.Manager.from_queryset(WidgetQuerySet)
-
-
 class Widget(WidgetView):
-    objects = WidgetManager()
+    objects = WidgetQuerySet.as_manager()
 
     #container = models.ForeignKey(
     #    Container,
@@ -39,7 +36,7 @@ class Widget(WidgetView):
     position = models.PositiveSmallIntegerField(
         _('position'),
         choices = ( (v, _(k))
-            for k,v in WidgetPosition.__members__.items()
+            for k,v in Position.__members__.items()
         ),
     )
     order = models.SmallIntegerField(

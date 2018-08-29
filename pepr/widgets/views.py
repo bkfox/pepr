@@ -3,7 +3,7 @@ import itertools
 
 from django.dispatch import Signal
 
-from pepr.utils.component import ComponentMixin
+from pepr.utils.components import ComponentMixin
 
 
 class Position(IntEnum):
@@ -26,7 +26,7 @@ class WidgetView(ComponentMixin):
     Order is a the priority between items of the same position.
     """
 
-    position = WidgetPosition.Default
+    position = Position.Default
     """
     Position in the list of items.
     """

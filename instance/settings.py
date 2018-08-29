@@ -15,9 +15,7 @@ Defines which mode is currently running in order to predefine somes
 values.
 """
 
-
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
 
 # load from current project's settings (instance/settings/*)
 load_conf(

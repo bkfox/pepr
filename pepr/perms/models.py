@@ -8,14 +8,22 @@ from django.db.models import F, Q
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
-from model_utils.managers import InheritanceManager
+from model_utils.managers import InheritanceManager, \
+        InheritanceQuerySetMixin
 
-from pepr.perms.permissions import Permission, Permissions, Privilege
+from pepr.perms.permissions import Permission, Permissions
 from pepr.perms.roles import Roles, Role
 from pepr.perms.defaults import AnonymousRole, DefaultRole, AdminRole
 
 
 class Context(models.Model):
+    visibility = models.SmallIntegerField(
+        verbose_name = _('access'),
+        choices = Roles.iter().as_choices('access','name'),
+        blank = True, null = True,
+    )
+
+
     def get_special_role(self, user):
         """
         Return user's role based on User's object (not subscription)
@@ -30,10 +38,11 @@ class Context(models.Model):
 
     def get_role(self, user):
         """
-        Return role for user.
+        Return role for user with related user subscription if present.
 
         :param User user: user whose access is being fetched
         """
+        # special roles overwrites subscriptions
         role = self.get_special_role(user)
         subscription = None
 
@@ -44,13 +53,25 @@ class Context(models.Model):
 
             # get role from subscription or from default only if role is
             # not yet given
-            if role is None and subscription:
+            if role is None:
                 role = Roles.get(subscription.access) if subscription \
                         else DefaultRole
 
         if role is None:
             role = AnonymousRole
         return role(self, user, subscription)
+
+
+
+class SubscriptionQuerySet(models.QuerySet,InheritanceQuerySetMixin):
+    def context(self, context):
+        return self.filter(context = context)
+
+    def access(self, access):
+        return self.filter(access = access)
+
+    def user(self, user):
+        return self.filter(user = user)
 
 
 class Subscription(models.Model):
@@ -63,13 +84,13 @@ class Subscription(models.Model):
     )
     access = models.SmallIntegerField(
         verbose_name = _('access'),
-        choices = Roles.as_choices('access','name'),
+        choices = Roles.iter().as_choices('access','name'),
     )
     user = models.ForeignKey(
         User, on_delete = models.CASCADE,
     )
 
-    objects = InheritanceManager()
+    objects = SubscriptionQuerySet.as_manager()
 
     def get_role(self, access = None):
         """
@@ -95,7 +116,7 @@ class Authorization(models.Model):
     )
     access = models.SmallIntegerField(
         verbose_name = _('access'),
-        choices = Roles.as_choices('access','name'),
+        choices = Roles.iter().as_choices('access','name'),
     )
     codename = models.CharField(
         verbose_name = _('permission'),
@@ -105,40 +126,45 @@ class Authorization(models.Model):
         ContentType, on_delete = models.CASCADE,
         blank = True, null = True,
     )
-    privilege = models.BooleanField(
+    is_allowed = models.BooleanField(
         default = False,
-        choices = [ (v, _(k)) for k,v in Privilege.__members__.items() ],
     )
 
     def as_permission(self):
-        model = self.model.model_class()
+        model = self.model.model_class() if self.model else None
         cl = Permissions.get(self.codename) or Permission
-        return cl(self.codename, model, self.privilege)
+        return cl(self.codename, model, self.is_allowed)
 
 
-class AccessibleQuerySet(models.QuerySet):
+class AccessibleQuerySet(models.QuerySet,InheritanceQuerySetMixin):
+    def context(self, context):
+        """
+        Filter in elements for the given context
+        """
+        return self.filter(context = context)
+
     def access(self, access):
         """
-        Filter in elements authorized for this access level.
+        Filter in elements accessible at this access level.
         """
         return self.filter(access__lte = access)
 
-    def for_user(self, user):
+    def user(self, user):
         """
         Filter accessibles based on related Subscription
         """
         if user.is_anonymous:
             # anonymous user
-            q = Q(access__lte = Roles.get(Access.Anonymous))
+            q = Q(access__lte = AnonymousRole)
         else:
             q = (
                 # user with registered access
-                Q(context__useraccess__access__gte = F('access'),
-                  context__useraccess__user = user) |
-                # user with no access, but is platform member
+                Q(context__subscription__access__gte = F('access'),
+                  context__subscription__user = user) |
+                # user with no access, but who is platform member
                 (
-                    ~Q(context__useraccess__user = user) &
-                    Q(access__lte = Roles.get(Access.Default).access)
+                    ~Q(context__subscription__user = user) &
+                    Q(access__lte = DefaultRole.access)
                 )
             )
         return self.filter(q).distinct()
@@ -155,8 +181,8 @@ class Accessible(models.Model):
     )
     access = models.SmallIntegerField(
         _('access'), default = 0,
-        choices = Roles.as_choices('access','name'),
-        help_text = _('minimal privilege to access this element')
+        choices = Roles.iter().as_choices('access','name'),
+        help_text = _('minimal level to access this element')
     )
 
     objects = AccessibleQuerySet.as_manager()

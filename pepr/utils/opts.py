@@ -39,8 +39,7 @@ from inspect import isclass
 #       update module doc (not _some_opts, but SomeOpts) => check also impact
 from django.db import models
 
-import foxcms.utils.utils as utils
-import foxcms.utils.metaclass as metaclass
+import pepr.utils.metaclass as metaclass
 
 
 class OptableMeta(metaclass.GenericMeta):

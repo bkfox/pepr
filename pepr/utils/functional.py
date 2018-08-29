@@ -1,3 +1,16 @@
+# FIXME: optimize -> set property as value, add __prop_method on value
+
+
+def reset_cache(cl, func, value = None):
+    """
+    Delete or update cache of a method decorated with `cached_result`.
+    """
+    key = '__' + func.__name__
+    if value is None:
+        if hasattr(cl, key):
+            delattr(cl, key)
+    else:
+        setattr(cl, key, value)
 
 def cached_result(func):
     """
@@ -14,19 +27,9 @@ def cached_result(func):
             v = func(cl, *args, **kwargs)
             setattr(cl, key, v)
         return getattr(cl, key)
+
+    decorator.reset = lambda value = None: reset_cache(cl, key, value)
     return decorator
-
-
-def reset_cache(cl, func, value = None):
-    """
-    Delete or update cache of a method decorated with `cached_result`.
-    """
-    key = '__' + func.__name__
-    if value is None:
-        if hasattr(cl, key):
-            delattr(cl, key)
-    else:
-        setattr(cl, key, value)
 
 
 # Class property: original code by Mahmoud Abdelkader's answer found on

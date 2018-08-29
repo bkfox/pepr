@@ -1,9 +1,13 @@
 from enum import IntEnum
+import logging
 
 from django.utils.functional import cached_property
 
-from pepr.perms.permissions import Permission, Privilege
+from pepr.perms.permissions import Permission
 from pepr.utils.metaclass import RegisterMeta
+
+
+logger = logging.getLogger(__name__)
 
 
 class Roles(RegisterMeta):
@@ -18,20 +22,27 @@ class Roles(RegisterMeta):
         return Role
 
     @classmethod
-    def register(cls, role):
-        # TODO: warning when key exists yet in items
+    def add(cls, role):
+        if role.access in cls.register:
+            logger.debug(
+                '[pepr/perms] register {}: another class is yet '
+                'registered for this access, it will be replaced.'
+                .format(role.__name__)
+            )
+
         if not isinstance(role.permissions, dict):
             role.defaults = {
                 role.perm_key(p): p for p in role.defaults
             }
-        super().register(role)
+        super().add(role)
 
 
 class Role(metaclass=Roles):
     access = 0
     """
     [class] Defines an access level for the role (used as key), that is
-    also used as a unique identifier.
+    also used as a unique identifier. Only one role per access level is
+    authorized.
 
     Lower means less access, higher means more access.
     """
@@ -57,7 +68,8 @@ class Role(metaclass=Roles):
     @cached_property
     def permissions(self):
         """
-        Permissions for this role instance (and its context).
+        Permissions for this role instance (and its context), as
+        a dict of { perm_key: role }
         """
         from pepr.perms.models import Authorization
 
@@ -66,7 +78,7 @@ class Role(metaclass=Roles):
             return perms
 
         qs = Authorization.objects.filter(
-            context = self.context, role = self.role
+            context = self.context, access = self.access
         ).select_related('model')
         qs = ( p.as_permission() for p in qs )
 
@@ -91,7 +103,7 @@ class Role(metaclass=Roles):
         :param Model model: if perm is a string, specifies model.
         """
         perm = self.get_perm(codename, model)
-        return perm and perm.privilege == Privilege.Allowed
+        return perm and perm.is_allowed
 
     @classmethod
     def register(cl, perm):

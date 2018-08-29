@@ -4,6 +4,10 @@ Provides metaclass utils
 from django.db import models
 from django.db.models.base import ModelBase
 
+from pepr.utils import register
+from pepr.utils.functional import cached_result, class_property
+
+
 class GenericMeta(ModelBase):
     """
     Metaclass usable for classes that can either or not be models. To
@@ -33,23 +37,24 @@ class RegisterMeta(type):
     """
     auto_register = True
     """ If True, automatically register new classes """
-    items = {}
-    """ Registered classes as a dict """
+    register_class = register.Register
+    """ Class to use as register """
     key = 'id'
-    """ Class attribute to use as key """
+    """ Register's `key` attribute  """
+
+    @class_property
+    @cached_result
+    def register(cls):
+        return cls.register_class(key = cls.key)
 
     def __new__(cls, name, base, attrs):
         cl = super().__new__(cls, name, base, attrs)
-        if cls.auto_register:
-            cls.register(cl)
+        try:
+            if cls.auto_register and cl != cls.get_base_class():
+                cls.add(cl)
+        except NameError:
+            pass
         return cl
-
-    @classmethod
-    def get_key(cls, cl):
-        """
-        Return key for a given item
-        """
-        return getattr(cl, cls.key)
 
     @classmethod
     def get_base_class(cls):
@@ -59,61 +64,22 @@ class RegisterMeta(type):
         return None
 
     @classmethod
-    def register(cls, cl):
-        """
-        Register an item
-        """
-        try:
-            key = cls.get_key(cl)
-            if cl != cls.get_base_class():
-                cls.items[key] = cl
-        except NameError:
-            pass
+    def add(cls, cl, key = None):
+        return cls.register.add(cl, key)
 
     @classmethod
-    def unregister(cls, cl):
-        """
-        Unregister a given item if present
-        """
-        key = cls.get_key(cl)
-        if cls.items.get(key) is cl:
-            del cls.items[key]
+    def remove(cls, cl):
+        return cls.register.remove(cl)
 
     @classmethod
-    def reset(cls):
-        """
-        Reset registry and remove all registered items
-        """
-        self.items = {}
+    def get(cls, value):
+        return cls.register.get(value)
 
     @classmethod
-    def filter(cls, **filters):
-        """
-        Return items that matches the given filters.
-        """
-        filters = tuple(filters.items())
-        def test(item):
-            for k,v in filters:
-                if not hasattr(item, k) or getattr(item, k) != v:
-                    return False
-            return True
-
-        return (item for item in self.items.values() if test(item))
+    def clear(cls):
+        return cls.register.clear()
 
     @classmethod
-    def as_choices(cls, value_attr, label_attr, **filters):
-        """
-        Return an iterator that can be used as ``choices`` attributes on
-        a model's field.
-        """
-        # FIXME: how can we use it lazily
-        if filters:
-            items = cls.filter(**filters)
-        else:
-            items = cls.items.values()
-
-        return (
-            (getattr(item, value_attr), getattr(item, label_attr))
-                for item in items
-        )
+    def iter(cls):
+        return cls.register.iter()
 

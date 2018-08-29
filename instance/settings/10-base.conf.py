@@ -10,10 +10,11 @@ ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     'pepr.perms',
+    'pepr.ui',
+    'pepr.content',
 
     'rest_framework',
-    # 'channels',
-    # 'channels_api',
+    'channels',
 
     'django.contrib.admin',
     'django.contrib.auth',
@@ -88,4 +89,6 @@ MEDIA_ROOT = BASE_DIR + '/media/'
 MEDIA_URL = '/media/'
 
 
+# Django Channels
+ASGI_APPLICATION = "instance.routing.application"
 

@@ -1,3 +1,9 @@
 from django.contrib import admin
 
-# Register your models here.
+import pepr.content.models as models
+
+
+admin.site.register(models.Container)
+admin.site.register(models.Content)
+admin.site.register(models.Service)
+

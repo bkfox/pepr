@@ -27,7 +27,8 @@ class BaseCase(TestCase):
         if user.is_anonymous: return defaults.AnonymousRole
         if user.is_superuser: return defaults.AdminRole
 
-        role = next(Roles.iter().filter(name = user.username))
+        role = next(filter(lambda r: r.name == user.username,
+                           Roles.values()))
         return role if role.access >= defaults.MemberRole.access \
                     else defaults.DefaultRole
 
@@ -61,7 +62,7 @@ class BaseCase(TestCase):
         self.anonymous_user = auth.get_user(Client())
 
         self.users = []
-        for role in Roles.iter():
+        for role in Roles.values():
             self.setup_role(role)
 
 
@@ -139,7 +140,7 @@ class RoleCase(BaseCase):
                 codename = str(role.access), model = None,
                 is_allowed = role.access == access
             )
-            for role in Roles.iter()
+            for role in Roles.values()
         ])
 
     def setup_role(self, role):

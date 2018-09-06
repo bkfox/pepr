@@ -4,12 +4,10 @@ from djangochannelsrestframework.mixins import (
     UpdateModelMixin
 )
 
-from channelsmultiplexer import AsyncJsonWebsocketDemultiplexer
 
 from pepr.content.models import Content
 from pepr.content.serializers import ContentSerializer
 from pepr.utils.functional import class_property
-from pepr.utils.metaclass import RegisterMeta
 
 
 class ContentConsumer( \

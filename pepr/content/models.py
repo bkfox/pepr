@@ -18,12 +18,30 @@ from pepr.utils.opts import Opts, OptableModel
 from pepr.utils.date import format_date
 
 
-# TODO: check django-autoslug if it is still maintained, and think of
-# using it if so.
-class Titled(models.Model):
-    """
-    Utility class in order to have a title and a slug.
-    """
+class ContentBase(OptableModel,Accessible):
+    uuid = models.UUIDField(
+        db_index = True, unique = True,
+        primary_key = True,
+        default=uuid.uuid4
+    )
+
+    class Meta:
+        abstract = True
+
+
+class Container(ContentBase,Context):
+    #POLICY_EVERYONE = 0x00
+    #POLICY_ON_REQUEST = 0x01
+    #POLICY_ON_INVITE = 0x02
+    #POLICY_CHOICES = (
+    #    (POLICY_EVERYONE, _('everyone')),
+    #    (POLICY_ON_REQUEST, _('on request')),
+    #    (POLICY_ON_INVITE, _('on invitation')),
+    #)
+    # subscription_policy = models.SmallIntegerField(
+    #    _('subscription policy'),
+    #    choices = POLICY_CHOICES,
+    #)
     title = models.CharField(
         _('title'), max_length = 128
     )
@@ -37,49 +55,6 @@ class Titled(models.Model):
             'It can only contain alphanumeric characters and "_-".'
         )
     )
-
-    class Meta:
-        abstract = True
-
-    def update_slug(self):
-        self.slug = slugify(self.title)[:64]
-        # TODO: unique
-
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.title)
-        return super().save(*args, **kwargs)
-
-
-class ContentBase(OptableModel,Accessible):
-    uuid = models.UUIDField(
-        db_index =True,
-        default=uuid.uuid4
-    )
-
-    class Meta:
-        abstract = True
-
-    @classmethod
-    def api_name(cl):
-        return cl._meta.db_table
-
-
-class Container(Context,ContentBase,Titled):
-    #POLICY_EVERYONE = 0x00
-    #POLICY_ON_REQUEST = 0x01
-    #POLICY_ON_INVITE = 0x02
-    #POLICY_CHOICES = (
-    #    (POLICY_EVERYONE, _('everyone')),
-    #    (POLICY_ON_REQUEST, _('on request')),
-    #    (POLICY_ON_INVITE, _('on invitation')),
-    #)
-
-    # subscription_policy = models.SmallIntegerField(
-    #    _('subscription policy'),
-    #    choices = POLICY_CHOICES,
-    #)
-
     # TODO: image & cover
     description = models.TextField(
         _('description'),
@@ -87,9 +62,10 @@ class Container(Context,ContentBase,Titled):
         max_length = 256,
     )
 
-    @classmethod
-    def get_edit_view(cl):
-        pass
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.title)
+        return super().save(*args, **kwargs)
 
 
 Container._meta.get_field('context').null = True
@@ -155,17 +131,14 @@ class Content(ContentBase,ComponentMixin):
             self.created_by = user
         self.mod_by = user
 
-    @classmethod
-    def get_template(cl, edit = False, **kwargs):
+    def get_template(self, edit = False, **kwargs):
         return super().get_template(template_name = 'edit_template_name') \
-                if edit else \
-                super().get_template()
+                if edit else super().get_template()
 
 
 class Service(ContentBase,ComponentMixin):
     # TODO/FIXME:
     # - widgets inclusion into container menus & sidebars
-    # - providing new content types
     is_enabled = models.BooleanField(
         _('enabled'),
         default = False,

@@ -14,14 +14,15 @@ from model_utils.managers import InheritanceManager, \
 from pepr.perms.permissions import Permission, Permissions
 from pepr.perms.roles import Roles, Role
 from pepr.perms.defaults import AnonymousRole, DefaultRole, AdminRole
+from pepr.utils.iter import as_choices
 
 
 class Context(models.Model):
-    visibility = models.SmallIntegerField(
-        verbose_name = _('access'),
-        choices = Roles.iter().as_choices('access','name'),
-        blank = True, null = True,
-    )
+    #visibility = models.SmallIntegerField(
+    #    verbose_name = _('visibility'),
+    #    choices = as_choices('access','name', Roles.values()),
+    #    blank = True, null = True,
+    #)
 
 
     def get_special_role(self, user):
@@ -84,7 +85,7 @@ class Subscription(models.Model):
     )
     access = models.SmallIntegerField(
         verbose_name = _('access'),
-        choices = Roles.iter().as_choices('access','name'),
+        choices = as_choices('access','name', Roles.values()),
     )
     user = models.ForeignKey(
         User, on_delete = models.CASCADE,
@@ -116,7 +117,7 @@ class Authorization(models.Model):
     )
     access = models.SmallIntegerField(
         verbose_name = _('access'),
-        choices = Roles.iter().as_choices('access','name'),
+        choices = as_choices('access','name', Roles.values()),
     )
     codename = models.CharField(
         verbose_name = _('permission'),
@@ -155,7 +156,7 @@ class AccessibleQuerySet(models.QuerySet,InheritanceQuerySetMixin):
         """
         if user.is_anonymous:
             # anonymous user
-            q = Q(access__lte = AnonymousRole)
+            q = Q(access__lte = AnonymousRole.access)
         else:
             q = (
                 # user with registered access
@@ -181,7 +182,7 @@ class Accessible(models.Model):
     )
     access = models.SmallIntegerField(
         _('access'), default = 0,
-        choices = Roles.iter().as_choices('access','name'),
+        choices = as_choices('access','name', Roles.values()),
         help_text = _('minimal level to access this element')
     )
 

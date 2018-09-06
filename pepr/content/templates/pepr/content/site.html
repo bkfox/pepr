@@ -1,0 +1,42 @@
+{% load static i18n pepr_ui %}
+<html>
+    <head>
+        <meta charset="utf8">
+
+        <link href="{% static "vendor/css/bootstrap.min.css" %}" rel="stylesheet">
+
+        <script src="{% static "vendor/js/jquery.min.js" %}"></script>
+        <script src="{% static "vendor/js/bootstrap.bundle.min.js" %}"></script>
+
+        <link href="{% static "pepr/css/pepr.css" %}" rel="stylesheet">
+        <!-- <script src="{% static "pepr/js/pepr.js" %}"></script> -->
+
+
+        {% block head_extra %}{% endblock %}
+    </head>
+    <body>
+        <nav class="navbar navbar-dark bg-dark">
+            {% block navbar %}
+            <a class="navbar-brand" href="#">Pepr</a>
+
+            <ul class="navbar-nav">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#"
+                        id="navbar-user-menu" data-toggle="dropdown"
+                        aria-haspopup="true" aria-expanded="false">
+                        {{ user }}
+                    </a>
+                    <div class="dropdown-menu" aria-labelledby="navbar-user-menu">
+                      <a class="dropdown-item" href="#">Action</a>
+                    </div>
+                </li>
+            </ul>
+            {% endblock %}
+       </nav>
+       <main id="main">
+       {% block main %}
+       {% endblock %}
+       </main>
+    </body>
+</html>
+

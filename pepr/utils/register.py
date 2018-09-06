@@ -1,4 +1,3 @@
-from pepr.utils.iter import FilterIter
 
 class Register:
     entries = None
@@ -25,28 +24,35 @@ class Register:
             pass
 
     def remove(self, entry):
-        """
-        Unregister a given entry if present
-        """
+        """ Unregister a given entry if present """
         key = self.get_key(entry)
         if self.entries.get(key) is entry:
             del self.entries[key]
-
-    def iter(self):
-        """
-        Return FilterIter on self's entries
-        """
-        return FilterIter(self.entries.values())
 
     def get(self, key):
         """ Get entry by key """
         return self.entries.get(key)
 
     def clear(self):
-        """
-        Reset registry and remove all registered entries
-        """
+        """ Reset registry and remove all registered entries """
         self.entries = {}
+
+    def update(self, register):
+        """ Import entries from another register (by reference) or dict.
+        """
+        entries = register.entries if isinstance(register, Register) \
+                                   else register
+        self.entries.update(entries)
+
+    def values(self):
+        """ Return iterator on entries' values """
+        return self.entries.values()
+
+    def __iter__(self):
+        return self.entries.items()
+
+    def __getitem__(self, key):
+        return self.entries[key]
 
     def __contains__(self, key):
         return key in self.entries

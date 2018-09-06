@@ -80,6 +80,6 @@ class RegisterMeta(type):
         return cls.register.clear()
 
     @classmethod
-    def iter(cls):
-        return cls.register.iter()
+    def values(cls):
+        return cls.register.values()
 

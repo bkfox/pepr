@@ -22,11 +22,11 @@ class ContentSerializer(serializers.ModelSerializer):
             request = self.context.get('request')
             if not request:
                 return
-            return obj.render_to_string(request)
+            return obj.render(request)
 
         def get_form(self, obj):
             request = self.context.get('request')
             if not request:
                 return
-            return obj.render_to_string(request, edit = True, obj = obj)
+            return obj.render(request, edit = True)
 

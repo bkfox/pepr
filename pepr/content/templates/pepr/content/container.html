@@ -1,18 +1,15 @@
 {% extends "pepr/content/site.html" %}
 {% load i18n pepr_ui %}
 
-{% block main %}
-
-{% block container_header %}
-<header class="uk-heading-primary">
-    {% block header %}
-    <h1>{{ container.title }}</h1>
-    {% endblock %}
-</header>
+{% block header %}
+<h1>
+    <a href="{% url 'pepr.container' pk=container.uuid %}">
+    {{ container.title }}
+    </a>
+</h1>
 {% endblock %}
 
-{% block content %}
-<section class="container container-body">
+{% block main %}
 {% if object %}
     {% component object %}
 {% else %}
@@ -20,10 +17,5 @@
     {% trans "no service enabled" %}
     </div>
 {% endif %}
-</section>
 {% endblock %}
-
-
-{% endblock %}
-
 

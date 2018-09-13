@@ -5,7 +5,7 @@ from django.utils.translation import ugettext, ugettext_lazy as _
 from model_utils.managers import InheritanceQuerySetMixin
 
 from pepr.perms.models import Accessible, AccessibleQuerySet, Context
-from pepr.ui.views import Position, WidgetView
+from pepr.ui.views import Position, WidgetComp
 
 
 class WidgetQuerySet(AccessibleQuerySet):
@@ -13,9 +13,9 @@ class WidgetQuerySet(AccessibleQuerySet):
         return self.filter(enable = enabled)
 
 
-class Widget(Accessible,WidgetView):
+class Widget(Accessible,WidgetComp):
     """
-    A Widget is a WidgetView that can be stored in database in order
+    A Widget is a WidgetComp that can be stored in database in order
     to allow users to configure interface.
 
     Widget is an accessible, in order to allow filtering based on user's

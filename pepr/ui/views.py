@@ -13,6 +13,10 @@ class ComponentMixin(TemplateResponseMixin,ContextMixin):
     """
     A Component is an element that aims to be rendered in other views.
     It allows rendering item into a string for this purpose.
+
+    A Component should never handle POST actions, but only be used to
+    render data. This must be done at the view level, in order to ensure
+    separate concerns.
     """
     template_name = ''
     """
@@ -90,12 +94,12 @@ class ComponentDetailView(View,SingleObjectMixin):
         return HttpResponse(self.render_object(request))
 
 
-class WidgetView(ComponentMixin, slots.SlotItem):
+class WidgetComp(ComponentMixin, slots.SlotItem):
     """ Base class for widgets. """
     pass
 
 
-class WidgetsView(ComponentMixin, slots.Slot):
+class WidgetsComp(ComponentMixin, slots.Slot):
     tag_name = 'div'
     """
     Tag name for the HTML container; if empty, renders items only.

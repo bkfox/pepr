@@ -1,0 +1,23 @@
+{% extends "pepr/content/service.html" %}
+{% load i18n pepr_ui %}
+
+{% block header %}
+Activity Stream!
+{% endblock %}
+
+{% block content_ext %}
+<form class="box mb-3 p-1" method="POST" action="">
+{% component create_form %}
+<hr>
+<div class="text-right">
+    <button class="btn btn-primary">{% trans "Publish" %}</button>
+</div>
+</form>
+
+
+{% for obj in object_list %}
+{% component obj expand=False %}
+{% endfor %}
+
+{% endblock %}
+

@@ -1,16 +1,18 @@
 {% load i18n humanize %}
 
-<div class="box p-1">
+<div class="box mb-3 p-1">
     {% block header %}
     <header class="p-1">
         {{ view.created_by|default_if_none:view.mod_by }},
         {{ view.mod_date|naturaltime }}
     </header>
     {% endblock %}
+    {% block content_ext %}
     <div class="p-2">
-        {% block body %}
+        {% block content %}
         {{ view.text }}
         {% endblock %}
     </div>
+    {% endblock %}
 </div>
 

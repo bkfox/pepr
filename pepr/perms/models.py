@@ -8,12 +8,9 @@ from django.db.models import F, Q
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
-from model_utils.managers import InheritanceManager, \
-        InheritanceQuerySetMixin
-
 from pepr.perms.permissions import Permission, Permissions
-from pepr.perms.roles import Roles, Role
-from pepr.perms.defaults import AnonymousRole, DefaultRole, AdminRole
+from pepr.perms.roles import Roles, Role, AnonymousRole, DefaultRole, \
+        AdminRole
 from pepr.utils.iter import as_choices
 
 
@@ -32,10 +29,10 @@ class Context(models.Model):
 
         This is used to get special roles as for admin or anonymous user.
         """
+        if user is None or user.is_anonymous:
+            return AnonymousRole
         if user.is_superuser:
             return AdminRole
-        if user.is_anonymous:
-            return AnonymousRole
 
     def get_role(self, user):
         """
@@ -47,7 +44,7 @@ class Context(models.Model):
         role = self.get_special_role(user)
         subscription = None
 
-        if not user.is_anonymous:
+        if user is not None and not user.is_anonymous:
             subscription = Subscription.objects.filter(
                 context = self, user = user
             ).select_subclasses().first()
@@ -63,8 +60,7 @@ class Context(models.Model):
         return role(self, user, subscription)
 
 
-
-class SubscriptionQuerySet(models.QuerySet,InheritanceQuerySetMixin):
+class SubscriptionQuerySet(models.QuerySet):
     def context(self, context):
         return self.filter(context = context)
 
@@ -95,8 +91,8 @@ class Subscription(models.Model):
 
     def get_role(self, access = None):
         """
-        Return a Role instance for self. Get Role subclass using
-        ``self.access`` or the given access.
+        Return an instance of Role for this subscription. If ``access``
+        is given, it overrides ``self.access``.
         """
         if access is None:
             access = self.access
@@ -132,12 +128,16 @@ class Authorization(models.Model):
     )
 
     def as_permission(self):
+        """
+        Return an instance of Permission using informations from this
+        Authorization.
+        """
         model = self.model.model_class() if self.model else None
         cl = Permissions.get(self.codename) or Permission
         return cl(self.codename, model, self.is_allowed)
 
 
-class AccessibleQuerySet(models.QuerySet,InheritanceQuerySetMixin):
+class AccessibleQuerySet(models.QuerySet):
     def context(self, context):
         """
         Filter in elements for the given context
@@ -154,7 +154,7 @@ class AccessibleQuerySet(models.QuerySet,InheritanceQuerySetMixin):
         """
         Filter accessibles based on related Subscription
         """
-        if user.is_anonymous:
+        if user is None or user.is_anonymous:
             # anonymous user
             q = Q(access__lte = AnonymousRole.access)
         else:
@@ -185,8 +185,6 @@ class Accessible(models.Model):
         choices = as_choices('access','name', Roles.values()),
         help_text = _('minimal level to access this element')
     )
-
-    objects = AccessibleQuerySet.as_manager()
 
     class Meta:
         abstract = True

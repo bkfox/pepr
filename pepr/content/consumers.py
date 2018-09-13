@@ -25,6 +25,6 @@ class ContentConsumer( \
 
     def get_queryset(self, **kwargs):
         user = self.scope['user']
-        return self.model.objects.for_user(user)
+        return self.model.objects.user(user)
 
 

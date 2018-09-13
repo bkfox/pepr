@@ -12,6 +12,7 @@ INSTALLED_APPS = [
     'pepr.perms',
     'pepr.ui',
     'pepr.content',
+    'pepr.bootstrap',
 
     'rest_framework',
     'channels',

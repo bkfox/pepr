@@ -4,29 +4,22 @@ from pepr.content.models import Container, Content, Service
 
 
 class ContentSerializer(serializers.ModelSerializer):
-    content = serializers.SerializerMethodField(method_name='get_content')
-    form = serializers.SerializerMethodField(method_name='get_form')
+    content = serializers.SerializerMethodField()
 
     class Meta:
         model = Content
         fields = (
-            'uuid',
-            'created_date' 'created_by',
+            'created_date', 'created_by',
             'mod_date', 'mod_by',
-            'text',
+            'context', 'text',
+            'content',
         )
-        readonly_fields = ('uuid', 'created_date','created_by',
-                           'mod_date','mod_by')
+        read_only_fields = ('context', 'created_date','created_by',
+                            'mod_date','mod_by')
 
-        def get_content(self, obj):
-            request = self.context.get('request')
-            if not request:
-                return
-            return obj.render(request)
-
-        def get_form(self, obj):
-            request = self.context.get('request')
-            if not request:
-                return
-            return obj.render(request, edit = True)
+    def get_content(self, obj):
+        request = self.context.get('request')
+        if not request:
+            return
+        return obj.render(request)
 

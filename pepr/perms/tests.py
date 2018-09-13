@@ -3,10 +3,10 @@ from django.test import Client, TestCase
 
 # tests use `pepr.content` models in order to have concrete classes.
 from pepr.content.models import Container, Content
+from pepr.perms import roles
 from pepr.perms.models import Authorization, Context, Subscription
 from pepr.perms.roles import Roles
 
-import pepr.perms.defaults as defaults
 
 # TODO:
 # - test authorizations/permissions with *and* without a model
@@ -24,13 +24,13 @@ class BaseCase(TestCase):
         """
         Return Role expected for the given user
         """
-        if user.is_anonymous: return defaults.AnonymousRole
-        if user.is_superuser: return defaults.AdminRole
+        if user.is_anonymous: return roles.AnonymousRole
+        if user.is_superuser: return roles.AdminRole
 
         role = next(filter(lambda r: r.name == user.username,
                            Roles.values()))
-        return role if role.access >= defaults.MemberRole.access \
-                    else defaults.DefaultRole
+        return role if role.access >= roles.MemberRole.access \
+                    else roles.DefaultRole
 
     def setup_user(self, role):
         access = role.access
@@ -41,7 +41,7 @@ class BaseCase(TestCase):
         user.save()
 
         # member subscription
-        if access >= defaults.MemberRole.access:
+        if access >= roles.MemberRole.access:
             Subscription(
                 context = self.context, access = access, user = user
             ).save()
@@ -77,8 +77,8 @@ class ContextCase(BaseCase):
             self.assertIsNone(role, 'no role expected')
 
     def test_get_special_role(self):
-        self.do_get_special_role(self.super_user, defaults.AdminRole)
-        self.do_get_special_role(self.anonymous_user, defaults.AnonymousRole)
+        self.do_get_special_role(self.super_user, roles.AdminRole)
+        self.do_get_special_role(self.anonymous_user, roles.AnonymousRole)
 
         for user in self.users:
             self.do_get_special_role(user, None)
@@ -97,8 +97,8 @@ class ContextCase(BaseCase):
 
     def test_get_role(self):
         # - special roles: admin, anonymous, default
-        self.do_get_role(self.super_user, defaults.AdminRole)
-        self.do_get_role(self.anonymous_user, defaults.AnonymousRole)
+        self.do_get_role(self.super_user, roles.AdminRole)
+        self.do_get_role(self.anonymous_user, roles.AnonymousRole)
 
         # - self.users
         for user in self.users:
@@ -161,7 +161,7 @@ class RoleCase(BaseCase):
     def test_permissions(self):
         for user in self.users:
             role = self.context.get_role(user)
-            if isinstance(role, defaults.AdminRole):
+            if isinstance(role, roles.AdminRole):
                 continue
             self.do_permissions(role)
 

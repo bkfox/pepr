@@ -10,6 +10,9 @@ from django.utils.functional import cached_property
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 
+from model_utils.managers import InheritanceManager, \
+        InheritanceQuerySetMixin
+
 from pepr.perms.models import Context, Accessible, AccessibleQuerySet
 from pepr.ui.views import ComponentMixin
 from pepr.ui.models import Widget, WidgetQuerySet
@@ -18,18 +21,24 @@ from pepr.utils.opts import Opts, OptableModel
 from pepr.utils.date import format_date
 
 
-class ContentBase(OptableModel,Accessible):
+class ContainerItemQuerySet(InheritanceQuerySetMixin,AccessibleQuerySet):
+    pass
+
+
+class ContainerItem(OptableModel,Accessible):
     uuid = models.UUIDField(
         db_index = True, unique = True,
         primary_key = True,
         default=uuid.uuid4
     )
 
+    objects = ContainerItemQuerySet.as_manager()
+
     class Meta:
         abstract = True
 
 
-class Container(ContentBase,Context):
+class Container(ContainerItem,Context):
     #POLICY_EVERYONE = 0x00
     #POLICY_ON_REQUEST = 0x01
     #POLICY_ON_INVITE = 0x02
@@ -42,6 +51,11 @@ class Container(ContentBase,Context):
     #    _('subscription policy'),
     #    choices = POLICY_CHOICES,
     #)
+    uuid = models.UUIDField(
+        db_index = True, unique = True,
+        primary_key = True,
+        default=uuid.uuid4
+    )
     title = models.CharField(
         _('title'), max_length = 128
     )
@@ -72,7 +86,7 @@ Container._meta.get_field('context').null = True
 Container._meta.get_field('context').blank = True
 
 
-class Content(ContentBase,ComponentMixin):
+class Content(ContainerItem,ComponentMixin):
     """
     Content is the actual content created by user. It is a component
     rendered by a channel.
@@ -131,12 +145,18 @@ class Content(ContentBase,ComponentMixin):
             self.created_by = user
         self.mod_by = user
 
-    def get_template(self, edit = False, **kwargs):
+    def get_template(self):
+        edit = self.kwargs.get('edit') or False
         return super().get_template(template_name = 'edit_template_name') \
                 if edit else super().get_template()
 
+    @classmethod
+    def get_serializer_class(cl):
+        from pepr.content.serializers import ContentSerializer
+        return ContentSerializer
 
-class Service(ContentBase,ComponentMixin):
+
+class Service(ContainerItem,ComponentMixin):
     # TODO/FIXME:
     # - widgets inclusion into container menus & sidebars
     is_enabled = models.BooleanField(
@@ -154,23 +174,16 @@ class Service(ContentBase,ComponentMixin):
     queryset = Content.objects.all()
     template_name = 'pepr/content/service.html'
 
-    class Options(Opts):
-        type = 'channel'
-        icon = 'fa-stream'
-
-#    class Meta:
-#        unique_together = ('context','slug')
-
-    def get_queryset(self, user, queryset = None):
+    def get_queryset(self):
         """
         Return a queryset of Content objects
         """
-        queryset = self.queryset if queryset is None else queryset
-        return queryset.for_user(user)
+        return self.queryset.user(self.request.user) \
+                   .select_subclasses()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['object_list'] = self.get_queryset(**kwargs)
+        context['object_list'] = self.get_queryset()
         return context
 
 

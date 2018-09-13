@@ -13,8 +13,10 @@ def do_component(context, component, *args, **kwargs):
     :param \*args: args to pass to `component.render`
     :param \**kwargs: kwargs to pass to `component.render`
     """
-    view = context['view']
-    return component.render(view.request, view, *args, **kwargs)
+    if not 'super_view' in kwargs:
+        kwargs['super_view'] = context['view']
+    view = kwargs['super_view']
+    return component.render(view.request, *args, **kwargs)
 
 @register.simple_tag(name="slot", takes_context=True)
 def do_widgets(context, widgets, **kwargs):
@@ -22,7 +24,7 @@ def do_widgets(context, widgets, **kwargs):
     Render a given widgets view, ``**kwargs`` is directlty forwarded to
     ``render()``.
 
-    :param WidgetsView widgets: widgets container to render
+    :param WidgetsComp widgets: widgets container to render
     :param \**kwargs: pass thoses values to ``render()``.
     """
     if not 'super_view' in kwargs:
@@ -33,7 +35,7 @@ def do_widgets(context, widgets, **kwargs):
 @register.simple_tag(name="slot", takes_context=True)
 def do_slot(context, slot_name, **kwargs):
     """
-    Render a WidgetsView by slot name (using context's "slots"
+    Render a WidgetsComp by slot name (using context's "slots"
     attribute).
 
     :param str slot_name: name of the slot on the container.

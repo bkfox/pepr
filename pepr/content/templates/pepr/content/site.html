@@ -1,4 +1,5 @@
 {% load static i18n pepr_ui %}
+{% if not standalone %}
 <html>
     <head>
         <meta charset="utf8">
@@ -9,6 +10,7 @@
         <script src="{% static "vendor/js/bootstrap.bundle.min.js" %}"></script>
 
         <link href="{% static "pepr/css/pepr.css" %}" rel="stylesheet">
+        <script src="{% static "pepr/js/pepr.js" %}"></script>
         <!-- <script src="{% static "pepr/js/pepr.js" %}"></script> -->
 
 
@@ -32,11 +34,20 @@
                 </li>
             </ul>
             {% endblock %}
-       </nav>
-       <main id="main">
-       {% block main %}
-       {% endblock %}
-       </main>
+        </nav>
+
+        {% block header_ext %}
+        <header class="uk-heading-primary">
+        {% block header %}{% endblock %}
+        </header>
+        {% endblock %}
+
+        <main class="container">
+{% endif %}
+        {% block main %}{% endblock %}
+{% if not standalone %}
+        </main>
     </body>
 </html>
+{% endif %}
 

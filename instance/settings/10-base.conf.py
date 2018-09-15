@@ -93,3 +93,18 @@ MEDIA_URL = '/media/'
 # Django Channels
 ASGI_APPLICATION = "instance.routing.application"
 
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
+#else:
+#    CHANNEL_LAYERS = {
+#        "default": {
+#            "BACKEND": "channels_redis.core.RedisChannelLayer",
+#            "CONFIG": {
+#                "hosts": [("127.0.0.1", 6379)],
+#            },
+#        },
+#    }
+

@@ -1,5 +1,3 @@
-from enum import IntEnum
-
 from django.apps import apps
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
@@ -8,10 +6,14 @@ from django.db.models import F, Q
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
+from model_utils.managers import InheritanceQuerySetMixin, \
+        InheritanceManager
+
 from pepr.perms.permissions import Permission, Permissions
 from pepr.perms.roles import Roles, Role, AnonymousRole, DefaultRole, \
         AdminRole
 from pepr.utils.iter import as_choices
+
 
 
 class Context(models.Model):
@@ -20,6 +22,8 @@ class Context(models.Model):
     #    choices = as_choices('access','name', Roles.values()),
     #    blank = True, null = True,
     #)
+
+    objects = InheritanceManager()
 
 
     def get_special_role(self, user):
@@ -47,7 +51,7 @@ class Context(models.Model):
         if user is not None and not user.is_anonymous:
             subscription = Subscription.objects.filter(
                 context = self, user = user
-            ).select_subclasses().first()
+            ).first()
 
             # get role from subscription or from default only if role is
             # not yet given
@@ -60,7 +64,7 @@ class Context(models.Model):
         return role(self, user, subscription)
 
 
-class SubscriptionQuerySet(models.QuerySet):
+class SubscriptionQuerySet(InheritanceQuerySetMixin,models.QuerySet):
     def context(self, context):
         return self.filter(context = context)
 
@@ -137,7 +141,7 @@ class Authorization(models.Model):
         return cl(self.codename, model, self.is_allowed)
 
 
-class AccessibleQuerySet(models.QuerySet):
+class AccessibleQuerySet(InheritanceQuerySetMixin,models.QuerySet):
     def context(self, context):
         """
         Filter in elements for the given context
@@ -185,6 +189,10 @@ class Accessible(models.Model):
         choices = as_choices('access','name', Roles.values()),
         help_text = _('minimal level to access this element')
     )
+
+    @cached_property
+    def related_context(self):
+        return Context.objects.get_subclass(id = self.context_id)
 
     class Meta:
         abstract = True

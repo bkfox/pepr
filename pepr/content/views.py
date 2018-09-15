@@ -83,7 +83,10 @@ class ContentFormComp(ComponentMixin):
     })
 
     form_class = None
-    """ used form class """
+    """
+    Form class used for rendering. If None, get serializer from Content
+    model and create a form using it.
+    """
     context_id = None
     """ context to post content on """
     form_kwargs = None
@@ -91,7 +94,12 @@ class ContentFormComp(ComponentMixin):
     template_name = 'pepr/content/content_form.html'
 
     def get_form_class(self):
-        return self.form_class
+        if self.form_class:
+            return self.form_class
+
+        serializer = self.model.get_serializer_class()
+        fields = serializer._writable_fields
+        return model_forms.modelform_factory(self.model, fields=fields)
 
     def get_form_kwargs(self):
         kwargs = self.form_kwargs

@@ -21,10 +21,6 @@ from pepr.utils.opts import Opts, OptableModel
 from pepr.utils.date import format_date
 
 
-class ContainerItemQuerySet(InheritanceQuerySetMixin,AccessibleQuerySet):
-    pass
-
-
 class ContainerItem(OptableModel,Accessible):
     uuid = models.UUIDField(
         db_index = True, unique = True,
@@ -32,7 +28,7 @@ class ContainerItem(OptableModel,Accessible):
         default=uuid.uuid4
     )
 
-    objects = ContainerItemQuerySet.as_manager()
+    objects = AccessibleQuerySet.as_manager()
 
     class Meta:
         abstract = True
@@ -122,7 +118,6 @@ class Content(ContainerItem,ComponentMixin):
     )
     # TODO: text format: raw, markdown, safe html, rst?
 
-    edit_template_name = 'pepr/content/content_edit.html'
     template_name = 'pepr/content/content.html'
 
     class Meta:
@@ -145,13 +140,11 @@ class Content(ContainerItem,ComponentMixin):
             self.created_by = user
         self.mod_by = user
 
-    def get_template(self):
-        edit = self.kwargs.get('edit') or False
-        return super().get_template(template_name = 'edit_template_name') \
-                if edit else super().get_template()
-
     @classmethod
     def get_serializer_class(cl):
+        """
+        Return serializer class used to return content to users.
+        """
         from pepr.content.serializers import ContentSerializer
         return ContentSerializer
 

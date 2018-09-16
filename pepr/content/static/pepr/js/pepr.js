@@ -1,54 +1,108 @@
 
 
-class Request {
-    constructor(stream, payload) {
+class Emitter {
+    /// Add listener to the emitter
+    on(type, listener, force = false) {
+        if(!this.listeners)
+            this.listeners = {};
+
+        if(!(type in this.listeners)) {
+            this.listeners[type] = [listener];
+            return;
+        }
+
+        var listeners = this.listeners[type];
+        if(force || listeners.indexOf(listener) == -1)
+            this.listeners[type].append(listener);
+    }
+
+    /// Remove listener from the emitter
+    off(type, listener) {
+        if(!(type in this.listeners))
+            return;
+
+        var listeners = this.listeners[type];
+        var index = listeners.indexOf(listener);
+        listeners.splice(index,1);
+
+        if(!listeners)
+            delete this.listeners[type];
+        if(!this.listeners)
+            delete this.listeners;
+    }
+
+    /// Return number of listeners for this event
+    listeners_count(type) {
+        if(!this.listeners || !(type in this.listeners))
+            return 0;
+        return this.listeners[type].length;
+    }
+
+    /// Emit event with the given data
+    emit(type, data) {
+        if(!this.listeners || !(type in this.listeners))
+            return;
+
+        var listeners = this.listeners[type];
+        for(var i in listeners)
+            listeners[i](this, data);
+    }
+}
+
+
+/// A Request sent over WebSocket. It can be kept alive in order to
+/// receive more than one message before closing, and it emits
+/// different events in order to allow users to add handlers (such as
+/// in Pubsub)
+class Request extends Emitter {
+    constructor(stream, payload, keep_alive = false) {
+        super();
         this.stanza = {
             'stream': stream,
             'payload': payload,
         };
-        console.log(this.stanza, this.stanza.payload);
+        this.stream = stream;
+        this.payload = payload;
         this.air_time = null;
+        this.keep_alive = keep_alive;
     }
 
-    get id() { return this.stanza.payload.request_id; }
-    set id(value) { this.stanza.payload.request_id = value; }
-    get stream() { return this.stanza.stream; }
+    get id() { return this.payload.request_id; }
+    set id(value) { this.payload.request_id = value; }
+    get action() { return this.stanza.action; }
+
+    /// Return request as a sendable stanza
+    serialize() {
+        return JSON.stringify({
+            'stream': this.stream,
+            'payload': this.payload,
+        });
+    }
 
     /// Return a new request object that use this request infos.
     reply(payload) {
         payload.request_id = this.id;
-        return new Request(this.stanza.stream, payload);
+        return new Request(this.stream, payload);
     }
 
     /// Called when a got a message back for this request. By default
     /// dispatch it to onsuccess/onerror
-    onmessage(socket, data) {
-        return data.response_status == 200 ?
-            this.onsuccess(socket, data) :
-            this.onerror(socket, data)
-        ;
-    }
-
-    /// Called when request was a success.
-    onsuccess(socket, data) {
-        console.log('success', socket, data);
-    }
-
-    /// Called when request has failed.
-    onerror(socket, data) {
-        console.log('error', socket, data);
+    onmessage(connection, data) {
+        data._connection = connection;
+        data._success = (data.response_status == 200);
+        this.emit('message', data)
     }
 
     /// Called when request has been closed/stopped.
-    onclose(socket) {
-        console.log('close', socket);
+    onclose(connection) {
+        this.emit('close', { _connection: connection });
     }
 }
 
 
 class Connection {
-    constructor(url, timeout = null, autoreconnect = false) {
-        this._request_id = 0;
+    constructor(url, timeout = null, autoreconnect = 0) {
+        this._last_id = 0;
         this.autoreconnect = autoreconnect;
         this.requests = {};
 
@@ -57,100 +111,132 @@ class Connection {
         this.connect(url);
     }
 
-    get is_open() { return this.ws !== undefined; }
+
+    get is_open() {
+        return this.ws !== undefined ||
+               this.ws && this.ws.readyState == WebSocket.OPEN;
+    }
     get timeout() { return this._timeout && this._timeout[0]; }
 
+
+    /// Get a unique id
     acquire_id() {
-        return this._request_id++;
+        return this._last_id++;
     }
 
-    _ontimeout(timeout) {
-        if(this.timeout != timeout)
-            return;
 
-        if(this.is_open)
-            this.timeout(timeout[0]);
-
-        var self = this;
-        window.setTimeout(function(e) { self._ontimeout(timeout); }, timeout[0]);
-    }
-
-    /// start timeout handler
+    /// Start request timeout handler
     start_timeout(timeout) {
-        var request_id = this.acquire_id();
-        this._timeout = [timeout, request_id];
-        this._ontimeout(timeout);
+        // timeout is internally stored as a tuple of (timeout, request_id),
+        // where request_id is the current one at the call of start_timeout.
+        // this allows to keep track over multiple call of start_timeout
+        var timeout_id = this.acquire_id();
+        this._timeout = [timeout, timeout_id];
+        this.ontimeout(this._timeout);
     }
 
-    /// stop timeout
+    /// Stop request timeout handler
     stop_timeout() {
         this.timeout = null;
     }
 
-    /// open connection
+    ontimeout(timeout) {
+        if(this._timeout != timeout)
+            // another timeout handler is running, so just leave
+            return;
+
+        if(this.is_open)
+            this.remove_old(timeout[0]);
+
+        var self = this;
+        window.setTimeout(function(e) { self.ontimeout(timeout); }, timeout[0]);
+    }
+
+
+    /// Open connection
     connect(url, force = false) {
         if(!force && this.is_open)
             return;
 
         var self = this;
         var ws = new WebSocket(url);
-        ws.onopen = function(e) { return self._onopen(e); };
-        ws.onclose = function(e) { return self._onclose(e); };
-        ws.onerror = function(e) { return self._onerror(e); };
-        ws.onmessage = function(e) { return self._onmessage(e); };
+        ws.onopen = function(e) { return self.onopen(e); };
+        ws.onclose = function(e) { return self.onclose(e); };
+        ws.onerror = function(e) { return self.onerror(e); };
+        ws.onmessage = function(e) { return self.onmessage(e); };
         this.ws = ws;
     }
 
-    /// close connection
-    close() {
-        this.ws.close();
-    }
-
-    _onopen(event) {
-        if(this.onopen !== undefined)
-            return this.onopen(event);
-    }
-
-    _onclose(event) {
-        console.log(event);
-        this.reset();
-        if(this.onclose)
-            return this.onclose(event);
-
+    onopen(event) {
         if(this.autoreconnect)
-            this.connect(this.ws.url, true);
+            // send previously sent awaiting requests again: it avoids
+            // to loose handlers on requests.
+            for(var i in this.requests)
+                this.send_request(this.requests[i]);
     }
 
-    _onerror(event) {
-        if(this.onclose)
-            return this.onclose(event);
+    onerror(event) {}
+
+    onclose(event) {
+        if(!this.autoreconnect) {
+            this.reset();
+            return;
+        }
+
+        var self = this;
+        var url = this.ws.url;
+        window.setTimeout(
+            function() { self.connect(url, true); },
+            this.autoreconnect
+        )
     }
 
-    _onmessage(event) {
+    onmessage(event) {
         var data = JSON.parse(event.data);
         var request_id = data.payload.request_id;
-        if(request_id in this.requests) {
-            var request = this.requests[request_id];
-            var r = request.onmessage(this, data.payload);
-            if(!r)
-                this.remove(request, false);
-        }
-    }
+        if(!(request_id in this.requests))
+            return;
 
-    /// cleanup running requests
-    reset(trigger = true) {
-        for(var id in this.requests)
-            this.remove(this.requests[id], trigger)
+        var request = this.requests[request_id];
+        request.onmessage(this, data.payload);
+        if(!request.keep_alive)
+            this.remove(request);
     }
 
     /// Send a Request
-    send(request) {
-        if(request.id === undefined)
-            request.id = this.acquire_id();
+    send_request(req) {
+        req.air_time = Date.now();
+        this.requests[req.id] = req;
+        this.ws.send(req.serialize());
+    }
 
-        request.air_time = Date.now();
-        this.requests[request.id] = request;
-        this.ws.send(JSON.stringify(request.stanza))
+    /// Create a request, send and return it.
+    send(stream, payload, keep_alive = false) {
+        payload.request_id = this.acquire_id();
+        var req = new Request(stream, payload, keep_alive);
+        this.send_request(req);
+        return req;
+    }
+
+    /// Find request
+    find(stream, payload, keep_alive) {
+        return Object.values(this.requests).find(function(req) {
+            return req.stream == stream && req.payload == payload &&
+                   req.keep_alive == keep_alive;
+        });
+    }
+
+    /// Find a request; if not present, send a new request before
+    /// returning it.
+    find_or_send(stream, payload, keep_alive = false) {
+        return this.find(stream, payload, keep_alive) ||
+               this.send(stream, payload, keep_alive);
+    }
+
+    /// Cleanup running requests
+    reset(trigger = true) {
+        for(var id in this.requests)
+            this.remove(this.requests[id], trigger)
     }
 
     /// Remove a request from the running requests
@@ -161,100 +247,98 @@ class Connection {
     }
 
     /// Remove all request older than given timeout (in milliseconds).
-    timeout(delta) {
+    remove_old(delta) {
         var min = Date.now() - delta;
         for(var id in this.requests) {
             var req = this.requests[id];
-            if(req.air_time < min)
+            if(!req.keep_alive && req.air_time < min)
                 this.remove(req);
         }
     }
 
+
+    /// Subscribe to given object on stream, and add listener to it.
+    subscribe(stream, pk, listener) {
+        var req = this.find_or_send(stream, { action: 'subscribe', pk: pk },
+                                    true);
+        req.on('message', listener);
+        return req;
+    }
+
+    /// Unsubscribe given listener from object on stream
+    unsubscribe(stream, pk, listener) {
+        var req = this.find(stream, { action: 'subscribe', pk: pk }, true);
+        req.off('message', listener);
+
+        if(req.listeners_count('message'))
+            return;
+
+        // no more listeners: close & unsubscribe
+        this.remove(req);
+        this.send(stream, { action: 'unsubscribe', pk: pk });
+    }
 }
 
 
+/// Collection built around a pubsub
 class Collection {
-    constructor(connection, stream) {
-        this.connection = connection;
-        this.stream = stream;
-        this.items = [];
-        /// subscription request
+    constructor(items = null) {
         this.subscription = null;
+        this.items = items || {};
     }
 
-    _reset() {
-        this.subscription = undefined;
-        this.target = undefined;
-    }
-
-    subscribe(pk) {
+    subscribe(stream, pk) {
         if(this.subscription)
-            return;
+            throw "Yet subscribed";
 
         var self = this;
-        var req = new Request('pepr_container', {
-            action: 'subscribe',
-            pk: this.context_id
-        });
-        req.onsuccess = function(c, d) {
-            self.target = pk;
-            req.onsuccess = function(c, d) { self.dispatch(c, d); };
-            return true;
-        };
-        req.onerror = function(c, d) { return self._reset(); };
-
-        this.subscription = req;
-        this.connection.send(req)
+        this.subscription = [stream, pk, function(req, data) {
+            self.onmessage(req, data);
+        }];
+        this.connection.subscribe(this.subscription[0], this.subscription[1],
+                                  this.subscription[2]);
     }
 
-    unsubscribe() {
-        if(this.subscription == undefined)
-            return
-
-        var req = this.subscription.reply({
-            action: 'unsubscribe', pk: this.target
-        });
-        this.connection.send(req);
-        this._reset();
+    unsubscribe(stream, pk) {
+        this.connection.unsubscribe(this.subscription[0], this.subscription[1],
+                                    this.subscription[2]);
     }
 
-    /// get item index
-    _index_of(d) {
-        return this.items.findIndex(function(item) {
-            return item.pk == d.data.pk ||
-                   item.id == d.data.id;
-        });
+    /// Return true if item should be kept in collection
+    /// (used in pubsub events from the server)
+    keep_item(item, deleled = false) {
+        return !deleted;
     }
 
-    /// handle a pubsub message
-    dispatch(c, d) {
+    /// Handle a pubsub message and update collection accordingly
+    onmessage(req, d) {
+        item = d.data;
         switch(d.action) {
             case 'create':
-                self.items.append(d.data);
+                if(this.keep_item(item))
+                    this.items.append(d.data);
                 break;
             case 'update':
-                this.items[this._index_of(d)] = d.data;
+                if(this.keep_item(item))
+                    this.items[item.pk] = item;
+                else
+                    delete this.items[item.pk];
                 break;
             case 'delete':
-                delete this.items[this._index_of(d)];
+                if(!this.keep_item(item, true))
+                    delete this.items[item.id];
                 break;
         }
     }
-
 }
 
 
-con = new Connection("ws://127.0.0.1:8000", autoreconnect = true);
+con = new Connection("ws://127.0.0.1:8000", null, 5000);
 con.onopen = function(e) {
-    var req = new Request("pepr_content", { action: "retrieve", pk: "b58ac358-478e-4acf-b53f-239ecddf8785" });
-    con.send(req);
-
-    req = new Request('pepr_container', { action: 'subscribe', pk: 'a140c301-3616-4c13-9902-82d2f57eb2ba' });
-    req.onmessage = function(c, m) {
-        console.log('pubsub', m);
-        return true;
-    }
-    con.send(req);
+    var pk = 'a140c301-3616-4c13-9902-82d2f57eb2ba';
+    var req = con.subscribe('pepr_container', pk, function(req, data) {
+        console.log('pubsub: ', data);
+    });
 }
 
 

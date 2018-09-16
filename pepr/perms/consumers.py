@@ -55,7 +55,7 @@ class ContextConsumer(AsyncAPIConsumer):
         async_to_sync(self.channel_layer.group_add)(
             self.get_group_name(pk), self.channel_name
         )
-        return {}, 200
+        return { 'subscription': pk }, 200
 
     @action()
     def unsubscribe(self, pk, **kwargs):
@@ -63,13 +63,13 @@ class ContextConsumer(AsyncAPIConsumer):
             return { 'info': 'not subscribed' }, 200
 
         del self.subscription[pk]
-        self.channel_layer.group_add(self.get_group_name(pk),
-                                     self.channel_name)
+        self.channel_layer.group_discard(self.get_group_name(pk),
+                                         self.channel_name)
         return {}, 200
 
     #
     # Group & Pubsub events
-    #
+    # TODO: role update
     def serialize(self, subscription, instance):
         return {}
 
@@ -95,7 +95,7 @@ class ContextConsumer(AsyncAPIConsumer):
     @_check_access
     async def content_deleted(self, event, context, subscription):
         await self.reply('delete',
-            { 'id': event['instance'].id },
+            { 'pk': event['instance'].pk },
             request_id = subscription.request_id,
         )
 

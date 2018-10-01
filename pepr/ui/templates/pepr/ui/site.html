@@ -1,19 +1,18 @@
-{% load static i18n pepr_ui %}
+{% load static i18n assets pepr_ui %}
 {% if not standalone %}
 <html>
     <head>
         <meta charset="utf8">
 
-        <link href="{% static "vendor/css/bootstrap.min.css" %}" rel="stylesheet">
+        {% assets "pepr_js" %}
+        <script type="text/javascript" src="{{ ASSET_URL }}"></script>
+        {% endassets %}
 
-        <script src="{% static "vendor/js/jquery.min.js" %}"></script>
-        <script src="{% static "vendor/js/bootstrap.bundle.min.js" %}"></script>
-        <script src="{% static "vendor/js/vue.min.js" %}"></script>
+        {% assets "pepr_css" %}
+        <link href="{{ ASSET_URL }}" rel="stylesheet">
+        {% endassets %}
 
-        <link href="{% static "pepr/css/pepr.css" %}" rel="stylesheet">
-        <script src="{% static "pepr/js/pepr.js" %}"></script>
-        <!-- <script src="{% static "pepr/js/pepr.js" %}"></script> -->
-
+        {% slot "head" %}
 
         {% block head_extra %}{% endblock %}
     </head>
@@ -36,18 +35,19 @@
             </ul>
             {% endblock %}
         </nav>
+        <div id="app">
+            {% block header_ext %}
+            <header class="uk-heading-primary">
+            {% block header %}{% endblock %}
+            </header>
+            {% endblock %}
 
-        {% block header_ext %}
-        <header class="uk-heading-primary">
-        {% block header %}{% endblock %}
-        </header>
-        {% endblock %}
-
-        <main class="container">
-{% endif %}
-        {% block main %}{% endblock %}
-{% if not standalone %}
-        </main>
+            <main class="container">
+    {% endif %}
+            {% block main %}{% endblock %}
+    {% if not standalone %}
+            </main>
+        </div>
     </body>
 </html>
 {% endif %}

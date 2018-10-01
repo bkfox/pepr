@@ -6,18 +6,22 @@ Activity Stream!
 {% endblock %}
 
 {% block content_ext %}
-<form class="box mb-3 p-1" method="POST" action="">
+<ws-form class="box mb-3 p-1" stream="content" action="create">
 {% component create_form %}
 <hr>
 <div class="text-right">
     <button class="btn btn-primary">{% trans "Publish" %}</button>
 </div>
-</form>
+</ws-form>
 
-
-{% for obj in object_list %}
-{% component obj expand=False %}
-{% endfor %}
+<ws-stream stream="content" context="a140c301-3616-4c13-9902-82d2f57eb2ba">
+    <hr>
+    {% for obj in object_list %}
+    <div data-pk="{{ obj.pk }}" >
+    {% component obj expand=False %}
+    </div>
+    {% endfor %}
+</ws-stream>
 
 {% endblock %}
 

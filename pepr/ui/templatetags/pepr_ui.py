@@ -4,7 +4,7 @@ register = template.Library()
 
 
 @register.simple_tag(name='component', takes_context=True)
-def do_component(context, component, *args, **kwargs):
+def do_component(context, component, **kwargs):
     """
     Render the given component here. parent view will be set to the
     current view.
@@ -15,22 +15,7 @@ def do_component(context, component, *args, **kwargs):
     """
     if not 'super_view' in kwargs:
         kwargs['super_view'] = context['view']
-    view = kwargs['super_view']
-    return component.render(view.request, *args, **kwargs)
-
-@register.simple_tag(name="slot", takes_context=True)
-def do_widgets(context, widgets, **kwargs):
-    """
-    Render a given widgets view, ``**kwargs`` is directlty forwarded to
-    ``render()``.
-
-    :param WidgetsComp widgets: widgets container to render
-    :param \**kwargs: pass thoses values to ``render()``.
-    """
-    if not 'super_view' in kwargs:
-        kwargs['super_view'] = context['view']
-    return widgets_view.render(context['request'], **kwargs)
-
+    return component.render(context['user'], **kwargs)
 
 @register.simple_tag(name="slot", takes_context=True)
 def do_slot(context, slot_name, **kwargs):
@@ -44,7 +29,8 @@ def do_slot(context, slot_name, **kwargs):
     slot = context['slots'][slot_name]
     if not 'super_view' in kwargs:
         kwargs['super_view'] = context['view']
-    return slot.render(context['request'], **kwargs)
+    return slot.render(context['user'], **kwargs)
+
 
 
 

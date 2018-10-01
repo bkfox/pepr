@@ -1,55 +1,3 @@
-
-
-class Emitter {
-    /// Add listener to the emitter
-    on(type, listener, force = false) {
-        if(!this.listeners)
-            this.listeners = {};
-
-        if(!(type in this.listeners)) {
-            this.listeners[type] = [listener];
-            return;
-        }
-
-        var listeners = this.listeners[type];
-        if(force || listeners.indexOf(listener) == -1)
-            this.listeners[type].append(listener);
-    }
-
-    /// Remove listener from the emitter
-    off(type, listener) {
-        if(!(type in this.listeners))
-            return;
-
-        var listeners = this.listeners[type];
-        var index = listeners.indexOf(listener);
-        listeners.splice(index,1);
-
-        if(!listeners)
-            delete this.listeners[type];
-        if(!this.listeners)
-            delete this.listeners;
-    }
-
-    /// Return number of listeners for this event
-    listeners_count(type) {
-        if(!this.listeners || !(type in this.listeners))
-            return 0;
-        return this.listeners[type].length;
-    }
-
-    /// Emit event with the given data
-    emit(type, data) {
-        if(!this.listeners || !(type in this.listeners))
-            return;
-
-        var listeners = this.listeners[type];
-        for(var i in listeners)
-            listeners[i](this, data);
-    }
-}
-
-
 /// A Request sent over WebSocket. It can be kept alive in order to
 /// receive more than one message before closing, and it emits
 /// different events in order to allow users to add handlers (such as
@@ -155,29 +103,38 @@ class Connection {
 
     /// Open connection
     connect(url, force = false) {
-        if(!force && this.is_open)
-            return;
+        if(!force && this.ws && this.ws.readyState != WebSocket.CLOSED)
+                return;
 
         var self = this;
         var ws = new WebSocket(url);
-        ws.onopen = function(e) { return self.onopen(e); };
-        ws.onclose = function(e) { return self.onclose(e); };
-        ws.onerror = function(e) { return self.onerror(e); };
-        ws.onmessage = function(e) { return self.onmessage(e); };
+        ws.onopen = function(e) { return self._onopen(e); };
+        ws.onclose = function(e) { return self._onclose(e); };
+        ws.onerror = function(e) { return self._onerror(e); };
+        ws.onmessage = function(e) { return self._onmessage(e); };
         this.ws = ws;
     }
 
-    onopen(event) {
+    /// onopen: called after requests resend have been proceed
+    _onopen(event) {
         if(this.autoreconnect)
             // send previously sent awaiting requests again: it avoids
             // to loose handlers on requests.
             for(var i in this.requests)
                 this.send_request(this.requests[i]);
+
+        if(this.onopen)
+            this.onopen(event);
     }
 
-    onerror(event) {}
+    _onerror(event) {
+        if(this.onerror)
+            this.onerror(event);
+    }
 
-    onclose(event) {
+    /// onclose: called after cleanup and autoreconnect have been
+    /// handled.
+    _onclose(event) {
         if(!this.autoreconnect) {
             this.reset();
             return;
@@ -189,25 +146,35 @@ class Connection {
             function() { self.connect(url, true); },
             this.autoreconnect
         )
+
+        if(this.onclose)
+            this.onclose(event);
     }
 
-    onmessage(event) {
+    /// onmessage: called only when message has not been yet handled by
+    /// an opened request.
+    _onmessage(event) {
         var data = JSON.parse(event.data);
         var request_id = data.payload.request_id;
-        if(!(request_id in this.requests))
-            return;
 
-        var request = this.requests[request_id];
-        request.onmessage(this, data.payload);
-        if(!request.keep_alive)
-            this.remove(request);
+        if(request_id in this.requests) {
+            var request = this.requests[request_id];
+            request.onmessage(this, data.payload);
+            if(!request.keep_alive)
+                this.remove(request);
+            return;
+        }
+        if(this.onmessage)
+            this.onmessage(event, data);
     }
 
     /// Send a Request
     send_request(req) {
         req.air_time = Date.now();
         this.requests[req.id] = req;
-        this.ws.send(req.serialize());
+
+        if(this.ws.readyState == WebSocket.OPEN)
+            this.ws.send(req.serialize());
     }
 
     /// Create a request, send and return it.
@@ -278,69 +245,5 @@ class Connection {
         this.send(stream, { action: 'unsubscribe', pk: pk });
     }
 }
-
-
-/// Collection built around a pubsub
-class Collection {
-    constructor(items = null) {
-        this.subscription = null;
-        this.items = items || {};
-    }
-
-    subscribe(stream, pk) {
-        if(this.subscription)
-            throw "Yet subscribed";
-
-        var self = this;
-        this.subscription = [stream, pk, function(req, data) {
-            self.onmessage(req, data);
-        }];
-        this.connection.subscribe(this.subscription[0], this.subscription[1],
-                                  this.subscription[2]);
-    }
-
-    unsubscribe(stream, pk) {
-        this.connection.unsubscribe(this.subscription[0], this.subscription[1],
-                                    this.subscription[2]);
-    }
-
-    /// Return true if item should be kept in collection
-    /// (used in pubsub events from the server)
-    keep_item(item, deleled = false) {
-        return !deleted;
-    }
-
-    /// Handle a pubsub message and update collection accordingly
-    onmessage(req, d) {
-        item = d.data;
-        switch(d.action) {
-            case 'create':
-                if(this.keep_item(item))
-                    this.items.append(d.data);
-                break;
-            case 'update':
-                if(this.keep_item(item))
-                    this.items[item.pk] = item;
-                else
-                    delete this.items[item.pk];
-                break;
-            case 'delete':
-                if(!this.keep_item(item, true))
-                    delete this.items[item.id];
-                break;
-        }
-    }
-}
-
-
-con = new Connection("ws://127.0.0.1:8000", null, 5000);
-con.onopen = function(e) {
-    var pk = 'a140c301-3616-4c13-9902-82d2f57eb2ba';
-    var req = con.subscribe('pepr_container', pk, function(req, data) {
-        console.log('pubsub: ', data);
-    });
-}
-
-
 
 

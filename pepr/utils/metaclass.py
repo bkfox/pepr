@@ -5,7 +5,7 @@ from django.db import models
 from django.db.models.base import ModelBase
 
 from pepr.utils import register
-from pepr.utils.functional import cached_result, class_property
+from pepr.utils.functional import cache_method, class_property
 
 
 class GenericMeta(ModelBase):
@@ -30,7 +30,17 @@ class GenericMeta(ModelBase):
         return cls.default_meta.__new__(cls, name, bases, attrs)
 
 
-class RegisterMeta(type):
+class RegisterMetaMeta(type):
+    """ Metaclass of metaclass! """
+    def __new__(cls, name, bases, attrs):
+        cl = super().__new__(cls, name, bases, attrs)
+        cl.register = cl.register_class(entry_key_attr=cl.entry_key_attr)
+        return cl
+
+    # __getattr__ and class level will not be called when using super()
+    # proxy objects (cf. SO#12047847)
+
+class RegisterMeta(type,metaclass=RegisterMetaMeta):
     """
     Metaclass that register classes by a given key. It can exclude a class
     from the registry if some is returned from `get_base_class()`
@@ -39,13 +49,9 @@ class RegisterMeta(type):
     """ If True, automatically register new classes """
     register_class = register.Register
     """ Class to use as register """
-    key = 'id'
+    entry_key_attr = 'id'
     """ Register's `key` attribute  """
-
-    @class_property
-    @cached_result
-    def register(cls):
-        return cls.register_class(key = cls.key)
+    register = None
 
     def __new__(cls, name, base, attrs):
         cl = super().__new__(cls, name, base, attrs)
@@ -64,8 +70,8 @@ class RegisterMeta(type):
         return None
 
     @classmethod
-    def add(cls, cl, key = None):
-        return cls.register.add(cl, key)
+    def add(cls, cl, key=None, force=None):
+        return cls.register.add(cl, key, force)
 
     @classmethod
     def remove(cls, cl):

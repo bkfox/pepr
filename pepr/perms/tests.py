@@ -138,7 +138,7 @@ class RoleCase(BaseCase):
             Authorization(
                 context = self.context, access = access,
                 codename = str(role.access), model = None,
-                is_allowed = role.access == access
+                granted = role.access == access
             )
             for role in Roles.values()
         ])
@@ -156,7 +156,7 @@ class RoleCase(BaseCase):
 
         for perm in perms.values():
             expected = perm.codename == str(role.access)
-            self.assertEqual(perm.is_allowed, expected)
+            self.assertEqual(perm.granted, expected)
 
     def test_permissions(self):
         for user in self.users:

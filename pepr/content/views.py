@@ -4,40 +4,22 @@ from django.views.generic.base import View
 from django.views.generic.detail import DetailView
 from django.http import HttpResponse
 
+from rest_framework import viewsets
+
 from pepr.content.models import Container, Content, Service
 from pepr.perms.views import AccessibleMixin
-from pepr.ui.views import ComponentMixin, Slots, WidgetsComp
+from pepr.ui.views import ComponentMixin, Slots, WidgetsComp, SiteView
 
 
-class SiteView(View):
-    """
-    Base view for rendering the website. This can be inherited by other
-    views in order to have common widget slots among other things.
-    """
-    slots = Slots({
-        'top': WidgetsComp('nav'),
-        'footer': WidgetsComp('footer'),
-    })
-    can_standalone = True
 
-    def get_context_data(self, *args, **kwargs):
-        context = super().get_context_data(*args, **kwargs)
-        context['slots'] = self.slots
-
-        if self.can_standalone and 'standalone' in self.request.GET:
-            context['standalone'] = True
-        return context
-
-
-class BaseDetailView(SiteView,AccessibleMixin,DetailView):
+class BaseDetailView(SiteView, AccessibleMixin, DetailView):
     """
     Base class for ContainerItem elements.
     """
     template_name = 'pepr/content/container.html'
 
     def get_container(self):
-        return Container.objects.select_subclasses() \
-                        .get(id = self.object.context_id)
+        return self.object.related_context
 
     def get_queryset(self):
         # FIXME: prefetch context select_subclasses()
@@ -61,7 +43,7 @@ class ContainerDetailView(BaseDetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['object'] = Service.objects.filter(
-            context = self.object, is_enabled = True,
+            context=self.object, is_enabled=True,
         ).select_subclasses().order_by('-is_default').first()
         return context
 
@@ -69,7 +51,6 @@ class ContainerDetailView(BaseDetailView):
 class ServiceDetailView(BaseDetailView):
     def get_queryset(self):
         return super().get_queryset().filter(is_enabled=True)
-
 
 
 class ContentFormComp(ComponentMixin):
@@ -81,6 +62,11 @@ class ContentFormComp(ComponentMixin):
     """
     slots = Slots({
     })
+
+    model = None
+    """
+    Model concerned by the form.
+    """
 
     form_class = None
     """
@@ -112,6 +98,7 @@ class ContentFormComp(ComponentMixin):
         return form
 
     def prepare_form(self, form):
+        form.fields['context'].widget = HiddenInput()
         pass
 
     def get_context_data(self, **kwargs):
@@ -119,10 +106,25 @@ class ContentFormComp(ComponentMixin):
         context['form'] = self.get_form()
         return context
 
-    def __init__(self, form_class, template_name = template_name, **form_kwargs
-        ):
+    def __init__(self, form_class, template_name=template_name,
+                 **form_kwargs):
         self.form_class = form_class
         self.template_name = template_name
         self.form_kwargs = form_kwargs
 
+
+#
+# API
+#
+from .serializers import ContentSerializer
+
+class ContentViewSet(viewsets.ModelViewSet):
+    model = Content
+    serializer_class = ContentSerializer
+
+    def get_serializer(self, *args, **kwargs):
+        return super().get_serializer(*args, request=self.request, **kwargs)
+
+    def get_queryset(self):
+        return self.model.objects.user(self.request.user)
 

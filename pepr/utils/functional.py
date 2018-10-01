@@ -1,34 +1,21 @@
 # FIXME: optimize -> set property as value, add __prop_method on value
 
 
-def reset_cache(cl, func, value = None):
+def cache_method(func):
     """
-    Delete or update cache of a method decorated with `cached_result`.
+    Cache result of a method, including at class level. It assumes that
+    input parameters wont change (look at `functools.lru_cache` for
+    such usage).
     """
-    key = '__' + func.__name__
-    if value is None:
-        if hasattr(cl, key):
-            delattr(cl, key)
-    else:
-        setattr(cl, key, value)
-
-def cached_result(func):
-    """
-    Decorator to allow caching result of a method call as the Django's
-    `cached_property` does for instances, but including class methods.
-
-    Through user should be carefull, arguments can be provided to the
-    wrapped function whiches will thus be passed only when no cache is
-    present.
-    """
-    key = '__' + func.__name__
-    def decorator(cl, *args, **kwargs):
-        if not hasattr(cl, key):
+    key = '__cache_' + func.__name__
+    def decorator(cl, *args, _cache_reset=False, **kwargs):
+        # use on dict level: avoid clash on class inheritance
+        if _cache_reset or (key not in cl.__dict__):
             v = func(cl, *args, **kwargs)
             setattr(cl, key, v)
+            decorator.reset = lambda value=None: delattr(cl, key)
         return getattr(cl, key)
 
-    decorator.reset = lambda value = None: reset_cache(cl, key, value)
     return decorator
 
 
@@ -63,7 +50,7 @@ class ClassProperty:
 def class_property(func):
     """
     Transform class/static method into a class property. It can be
-    combined with `cached_result` in order to cache results
+    combined with `cache_method` in order to cache results
     """
     if not isinstance(func, (classmethod, staticmethod)):
         func = classmethod(func)

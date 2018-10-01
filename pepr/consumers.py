@@ -1,10 +1,10 @@
 from channelsmultiplexer import AsyncJsonWebsocketDemultiplexer
 
-from pepr.content.consumers import ContentConsumer, ContainerConsumer
+from pepr.content.consumers import ContentConsumer
+
 
 class MultiplexedConsumers(AsyncJsonWebsocketDemultiplexer):
     applications = {
-        'pepr_content': ContentConsumer,
-        'pepr_container': ContainerConsumer,
+        'content': ContentConsumer,
     }
 

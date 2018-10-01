@@ -16,10 +16,8 @@ class Permissions(RegisterMeta):
 
 class Permission(metaclass=Permissions):
     """
-    As a class: define a new type of Permission.
-
-    As an instance: used by Access in order to define
-    its default permissions.
+    This class is used to describe permissions and also to grant
+    (or not) permission to roles.
     """
     codename = ''
     """[class/instance] permission id"""
@@ -27,7 +25,7 @@ class Permission(metaclass=Permissions):
     """[class] name displayed to user"""
     description = ''
     """[class] description displayed to user"""
-    is_allowed = False
+    granted = False
     """Allowance set for this permission"""
     model = None
     """
@@ -35,8 +33,8 @@ class Permission(metaclass=Permissions):
     is used as default for any models.
     """
 
-    def __init__(self, codename, model, is_allowed = False):
-        self.codename = codename
+    def __init__(self, codename, model, granted=False):
+        self.codename=codename
         self.model = model
-        self.is_allowed = is_allowed
+        self.granted = granted
 

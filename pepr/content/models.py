@@ -16,15 +16,12 @@ from model_utils.managers import InheritanceManager, \
 from pepr.perms.models import Context, Accessible, AccessibleQuerySet
 from pepr.ui.views import ComponentMixin
 from pepr.ui.models import Widget, WidgetQuerySet
-from pepr.utils.functional import cached_result
-from pepr.utils.opts import Opts, OptableModel
-from pepr.utils.date import format_date
 
 
-class ContainerItem(OptableModel,Accessible):
+class ContainerItem(Accessible):
     uuid = models.UUIDField(
-        db_index = True, unique = True,
-        primary_key = True,
+        db_index=True, unique=True,
+        primary_key=True,
         default=uuid.uuid4
     )
 
@@ -34,33 +31,33 @@ class ContainerItem(OptableModel,Accessible):
         abstract = True
 
 
-class Container(ContainerItem,Context):
-    #POLICY_EVERYONE = 0x00
-    #POLICY_ON_REQUEST = 0x01
-    #POLICY_ON_INVITE = 0x02
-    #POLICY_CHOICES = (
+class Container(ContainerItem, Context):
+    # POLICY_EVERYONE = 0x00
+    # POLICY_ON_REQUEST = 0x01
+    # POLICY_ON_INVITE = 0x02
+    # POLICY_CHOICES = (
     #    (POLICY_EVERYONE, _('everyone')),
     #    (POLICY_ON_REQUEST, _('on request')),
     #    (POLICY_ON_INVITE, _('on invitation')),
-    #)
+    # )
     # subscription_policy = models.SmallIntegerField(
     #    _('subscription policy'),
     #    choices = POLICY_CHOICES,
-    #)
+    # )
     uuid = models.UUIDField(
-        db_index = True, unique = True,
-        primary_key = True,
+        db_index=True, unique=True,
+        primary_key=True,
         default=uuid.uuid4
     )
     title = models.CharField(
-        _('title'), max_length = 128
+        _('title'), max_length=128
     )
     slug = models.SlugField(
         _('slug'),
-        null = True, blank = True,
-        max_length = 64,
-        unique = True,
-        help_text = _(
+        null=True, blank=True,
+        max_length=64,
+        unique=True,
+        help_text=_(
             'Slug is used to generate url to this content. '
             'It can only contain alphanumeric characters and "_-".'
         )
@@ -82,39 +79,39 @@ Container._meta.get_field('context').null = True
 Container._meta.get_field('context').blank = True
 
 
-class Content(ContainerItem,ComponentMixin):
+class Content(ContainerItem, ComponentMixin):
     """
     Content is the actual content created by user. It is a component
     rendered by a channel.
     """
     created_date = models.DateTimeField(
         _('creation date'),
-        auto_now_add = True,
-        null = True, blank = True,
-        help_text = _('date of creation'),
+        auto_now_add=True,
+        null=True, blank=True,
+        help_text=_('date of creation'),
     )
     created_by = models.ForeignKey(
         auth.User,
-        on_delete = models.SET_NULL,
-        verbose_name = _('created by'),
-        null = True, blank = True,
+        on_delete=models.SET_NULL,
+        verbose_name=_('created by'),
+        null=True, blank=True,
         related_name='+',
     )
     mod_date = models.DateTimeField(
         _('modification date'),
-        auto_now = True,
-        help_text = _('date of last modification'),
+        auto_now=True,
+        help_text=_('date of last modification'),
     )
     mod_by = models.ForeignKey(
         auth.User,
-        on_delete = models.SET_NULL,
-        verbose_name = _('modified by'),
-        null = True, blank = True,
+        on_delete=models.SET_NULL,
+        verbose_name=_('modified by'),
+        null=True, blank=True,
         related_name='+',
     )
     text = models.TextField(
-        verbose_name = _('text'),
-        null = True, blank = True,
+        verbose_name=_('text'),
+        null=True, blank=True,
     )
     # TODO: text format: raw, markdown, safe html, rst?
 
@@ -149,17 +146,17 @@ class Content(ContainerItem,ComponentMixin):
         return ContentSerializer
 
 
-class Service(ContainerItem,ComponentMixin):
+class Service(ContainerItem, ComponentMixin):
     # TODO/FIXME:
     # - widgets inclusion into container menus & sidebars
     is_enabled = models.BooleanField(
         _('enabled'),
-        default = False,
+        default=False,
     )
     is_default = models.BooleanField(
         _('default'),
-        default = False,
-        help_text = _(
+        default=False,
+        help_text=_(
             'use this as service shown by default on container'
         )
     )
@@ -171,7 +168,7 @@ class Service(ContainerItem,ComponentMixin):
         """
         Return a queryset of Content objects
         """
-        return self.queryset.user(self.request.user) \
+        return self.queryset.user(self.current_user) \
                    .select_subclasses()
 
     def get_context_data(self, **kwargs):

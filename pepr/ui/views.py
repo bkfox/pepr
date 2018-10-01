@@ -1,6 +1,20 @@
+"""
+This module provides basic views and mixin for Pepr user interfaces.
+It provides the ``Component`` interface (as ``ComponentMixin``), that
+can be used to render templates into string; which is usefull to embed
+rendered content into webpages.
+
+Based on this component model, and using ``pepr.utils.slots``, this
+module also provides an extensible and dynamic widget system that can
+be used to offer configurable interfaces (by both developers and end-
+users).
+
+It also provides basic website page view with common elements to all
+pages rendered on the website.
+"""
 from django.http import HttpResponse
-from django.shortcuts import render
-from django.template import loader, Template, Context
+from django.core.exceptions import ImproperlyConfigured
+from django.template import loader, RequestContext
 from django.views.generic.base import ContextMixin, TemplateResponseMixin, View
 from django.views.generic.detail import SingleObjectMixin
 
@@ -9,7 +23,7 @@ from pepr.utils import slots
 from pepr.utils.slots import Position, Slots
 
 
-class ComponentMixin(TemplateResponseMixin,ContextMixin):
+class ComponentMixin(TemplateResponseMixin, ContextMixin):
     """
     A Component is an element that aims to be rendered in other views.
     It allows rendering item into a string for this purpose.
@@ -24,11 +38,12 @@ class ComponentMixin(TemplateResponseMixin,ContextMixin):
     single string.
     """
 
-    request = None
-    super_view = None
+    current_user = None
+    """ Current user rendering this component """
     kwargs = None
+    """ Extra-kwargs passed to this componenent """
 
-    def get_template(self, template_name = None):
+    def get_template(self, template_name=None):
         """
         Return Template instance to be used to render the component.
 
@@ -43,30 +58,32 @@ class ComponentMixin(TemplateResponseMixin,ContextMixin):
         return loader.get_template(name) if isinstance(name, str) else \
                     loader.select_template(name)
 
-    def render_to_string(self, request, **kwargs):
-        """
+    def render_to_string(self, **kwargs):
+        r"""
         Render the component into a string (called by render), override
         this method for specialization instead of 'render()'.
 
-        :py:param django.http.Request http request
         :py:param \**kwargs: arguments passed to `get_template` and \
                 `get_context_data`
         """
         context = self.get_context_data(**kwargs)
         if context is None:
             return ''
+        context['user'] = self.current_user
+        # return self.get_template().template.render(context)
         return self.get_template().render(context)
 
-    def render(self, request, super_view = None, **kwargs):
+    def render(self, user, super_view=None, **kwargs):
         """
         Render ComponentMixin into a string and return it
         """
-        self.request = request
+        self.current_user = user
         self.super_view = super_view
         self.kwargs = kwargs
-        return self.render_to_string(request, **kwargs)
+        return self.render_to_string(**kwargs)
 
-class ComponentDetailView(View,SingleObjectMixin):
+
+class ComponentDetailView(View, SingleObjectMixin):
     """
     View used to render a component model (that is ``self.object``).
 
@@ -82,12 +99,12 @@ class ComponentDetailView(View,SingleObjectMixin):
     def render_object(self, request):
         """ Returned rendered component """
         kwargs = {
-            k: kwargs.get(k) for k in self.map_kwargs
-                if k in kwargs
+            k: self.kwargs.get(k) for k in self.map_kwargs
+            if k in self.kwargs
         }
-        if not 'super_view' in kwargs:
+        if 'super_view' not in kwargs:
             kwargs['super_view'] = self
-        return self.object.render(request, **kwargs)
+        return self.object.render(request.user, **kwargs)
 
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
@@ -100,6 +117,7 @@ class WidgetComp(ComponentMixin, slots.SlotItem):
 
 
 class WidgetsComp(ComponentMixin, slots.Slot):
+    """ Slot for widgets """
     tag_name = 'div'
     """
     Tag name for the HTML container; if empty, renders items only.
@@ -110,14 +128,13 @@ class WidgetsComp(ComponentMixin, slots.Slot):
     """
     template_name = 'pepr/ui/widgets_view.html'
 
-
-    def __init__(self, tag_name = tag_name, tag_attrs = None,
-                    **kwargs):
+    def __init__(self, tag_name=tag_name, tag_attrs=None,
+                 **kwargs):
         super().__init__(**kwargs)
         self.tag_name = tag_name
         self.tag_attr = tag_attrs or None
 
-    def get_context_data(self, sender = None, items = None,
+    def get_context_data(self, sender=None, items=None,
             **kwargs):
         """
         :param [WidgetMixin] items: if given, use this list instead of \
@@ -125,13 +142,33 @@ class WidgetsComp(ComponentMixin, slots.Slot):
         """
         context = super().get_context_data(**kwargs)
 
-        items = items or self.fetch(self.request, sender, **kwargs)
+        items = items or self.fetch(self.current_user, sender, **kwargs)
         context['tag_name'] = self.tag_name
         context['tag_attrs'] = self.tag_attrs
         context["items"] = (
-            item.render(self.request, **kwargs) for item in items
+            item.render(self.current_user, **kwargs) for item in items
             if isinstance(item, ComponentMixin)
         )
         return context
 
+
+class SiteView(View):
+    """
+    Base view for rendering the website. This can be inherited by other
+    views in order to have common slots and other things.
+    """
+    slots = Slots({
+        'head': WidgetsComp(''),
+        'top': WidgetsComp('nav'),
+        'footer': WidgetsComp('footer'),
+    })
+    can_standalone = True
+
+    def get_context_data(self, *args, **kwargs):
+        context = super().get_context_data(*args, **kwargs)
+        context['slots'] = self.slots
+
+        if self.can_standalone and 'standalone' in self.request.GET:
+            context['standalone'] = True
+        return context
 

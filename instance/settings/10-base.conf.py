@@ -1,10 +1,10 @@
 import os
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '*ok)e*c5c1nje!d$0(6gnbiub+ru8+p!kt+99)#r6=^g9i(eb^'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# avoid overriding: config depends a lot upon this settings.
+try: a = DEBUG
+except NameError: DEBUG = True
+
 
 ALLOWED_HOSTS = []
 
@@ -14,6 +14,7 @@ INSTALLED_APPS = [
     'pepr.content',
     'pepr.bootstrap',
 
+    'django_assets',
     'rest_framework',
     'channels',
 
@@ -89,6 +90,8 @@ STATIC_URL = '/static/'
 MEDIA_ROOT = BASE_DIR + '/media/'
 MEDIA_URL = '/media/'
 
+# Django Assets
+ASSETS_DEBUG = DEBUG
 
 # Django Channels
 ASGI_APPLICATION = "instance.routing.application"

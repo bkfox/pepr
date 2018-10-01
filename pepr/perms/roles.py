@@ -1,12 +1,11 @@
-from enum import IntEnum
 import logging
+from enum import IntEnum
 
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
 from pepr.perms.permissions import Permission, Permissions
 from pepr.utils.metaclass import RegisterMeta
-
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +15,7 @@ class Roles(RegisterMeta):
     Register class that list all defined Role for the project. It also
     keeps track of which role is related to a specific role.
     """
-    key = 'access'
+    entry_key_attr = 'access'
 
     @classmethod
     def get_base_class(cls):
@@ -79,14 +78,14 @@ class Role(metaclass=Roles):
             return perms
 
         qs = Authorization.objects.filter(
-            context = self.context, access = self.access
+            context=self.context, access=self.access
         ).select_related('model')
-        qs = ( p.as_permission() for p in qs )
+        qs = (p.as_permission() for p in qs)
 
-        perms.update({ self.perm_key(p): p for p in qs })
+        perms.update({self.perm_key(p): p for p in qs})
         return perms
 
-    def get_perm(self, codename, model = None):
+    def get_perm(self, codename, model=None):
         """
         Return Permision object corresponding to the given info, get
         default permission if permission for the given model is not
@@ -94,9 +93,9 @@ class Role(metaclass=Roles):
         """
         permissions = self.permissions
         return permissions.get((codename, model)) or \
-                model and permissions.get((codename, None))
+               model and permissions.get((codename, None))
 
-    def has_perm(self, codename, model = None):
+    def has_perm(self, codename, model=None):
         """
         Return True if user has the given permission allowed.
 
@@ -104,7 +103,7 @@ class Role(metaclass=Roles):
         :param Model model: if perm is a string, specifies model.
         """
         perm = self.get_perm(codename, model)
-        return perm and perm.is_allowed
+        return perm and perm.granted
 
     @classmethod
     def register(cl, perm):
@@ -187,8 +186,3 @@ class AdminRole(Role):
 
     def has_perm(self, codename, model = None):
         return True
-
-
-
-
-

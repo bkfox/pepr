@@ -2,8 +2,10 @@
 class Register:
     entries = None
     """ the objects """
-    key = 'id'
+    entry_key_attr = 'id'
     """ use this attribute as key for objects """
+    entry_overwrite = False
+    """ if True, silently overwrite entries """
 
     def __init__(self, **kwargs):
         self.entries = {}
@@ -13,24 +15,36 @@ class Register:
         """
         Return key for a given entry
         """
-        return getattr(entry, self.key)
+        return getattr(entry, self.entry_key_attr)
 
-    def add(self, entry, key = None):
-        """ Register an entry """
+    def _add_entry(self, entry, key):
+        self.entries[key] = entry
+
+    def add(self, entry, key=None, force=False):
+        """ Add an entry and return registered entry if success """
         try:
             key = self.get_entry_key(entry) if key is None else key
-            self.entries[key] = entry
+
+            if not (force or self.entry_overwrite) and key in self.entries:
+                raise KeyError('entry exists yet for this key {}'
+                               .format(key))
+            self._add_entry(entry, key)
+            return entry
         except NameError:
             pass
 
+    def _remove_entry(self, entry, key):
+        del self.entries[key]
+
     def remove(self, entry):
         """ Unregister a given entry if present """
-        key = self.get_key(entry)
+        key = self.get_entry_key(entry)
         if self.entries.get(key) is entry:
-            del self.entries[key]
+            self._remove_entry(entry, key)
 
     def get(self, key):
         """ Get entry by key """
+        # TODO: default using lambda
         return self.entries.get(key)
 
     def clear(self):

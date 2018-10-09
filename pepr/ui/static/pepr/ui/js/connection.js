@@ -48,6 +48,8 @@ class Request extends Emitter {
 }
 
 
+// TODO: handle disconnect event from the webbrower/computer and better
+//       heuristic for autoreconnect
 class Connection {
     constructor(url, timeout = null, autoreconnect = 0) {
         this._last_id = 0;

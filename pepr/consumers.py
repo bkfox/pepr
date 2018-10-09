@@ -1,10 +1,9 @@
-from channelsmultiplexer import AsyncJsonWebsocketDemultiplexer
+from pepr.api import consumers as api
+from pepr.urls import router
 
-from pepr.content.consumers import ContentConsumer
+
+class PeprRouter(api.RouterConsumer):
+    pass
 
 
-class MultiplexedConsumers(AsyncJsonWebsocketDemultiplexer):
-    applications = {
-        'content': ContentConsumer,
-    }
-
+PeprRouter.register(router.urls)

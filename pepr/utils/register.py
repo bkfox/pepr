@@ -17,8 +17,15 @@ class Register:
         """
         return getattr(entry, self.entry_key_attr)
 
-    def _add_entry(self, entry, key):
-        self.entries[key] = entry
+    def reset_entry(self, key, entry=None):
+        """
+        Update entry at the given key. If ``entry`` is None, delete
+        entry at the given position.
+        """
+        if entry:
+            self.entries[key] = entry
+        else:
+            del self.entries[key]
 
     def add(self, entry, key=None, force=False):
         """ Add an entry and return registered entry if success """
@@ -28,19 +35,16 @@ class Register:
             if not (force or self.entry_overwrite) and key in self.entries:
                 raise KeyError('entry exists yet for this key {}'
                                .format(key))
-            self._add_entry(entry, key)
+            self.reset_entry(key, entry)
             return entry
         except NameError:
             pass
 
-    def _remove_entry(self, entry, key):
-        del self.entries[key]
-
     def remove(self, entry):
-        """ Unregister a given entry if present """
+        """ Unregister a given entry if present and if is this one """
         key = self.get_entry_key(entry)
         if self.entries.get(key) is entry:
-            self._remove_entry(entry, key)
+            self.reset_entry(key)
 
     def get(self, key):
         """ Get entry by key """

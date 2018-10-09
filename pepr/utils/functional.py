@@ -57,4 +57,41 @@ def class_property(func):
     return ClassProperty(func)
 
 
+def bind_property(obj_attr, value_attr, default=None, is_dict=False):
+    """
+    Creates a property bound to an object's attribute owned by an
+    instance.
+
+    :param str obj_attr: object attribute name
+    :param str value_attr: attribute on object to return
+    :param object default: default value if not found
+    :param bool is_dict: if True, obj is considered as a dict
+
+    Example::
+
+        class MyComponent:
+            a = 13
+            b = 12
+
+        class MyClass:
+            component = MyComponent()
+
+            # bind value to component.a
+            a = bind_property('component', 'a')
+
+        my_class = MyClass()
+        print(my_class.a)
+
+    """
+    if is_dict:
+        def getter(self):
+            obj = getattr(self, obj_attr)
+            return obj.get(value_attr, default)
+    else:
+        def getter(self):
+            obj = getattr(self, obj_attr)
+            return getattr(obj, value_attr, default)
+    return property(getter)
+
+
 

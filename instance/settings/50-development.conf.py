@@ -7,7 +7,7 @@ if RUNNING_MODE == Mode.Development:
             'NAME': os.path.join(BASE_DIR, 'dev.sqlite3'),
         }
     }
-
+    ALLOWED_HOSTS = ['127.0.0.1:8000','localhost:8000']
 
 
 

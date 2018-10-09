@@ -122,9 +122,6 @@ class ContentViewSet(viewsets.ModelViewSet):
     model = Content
     serializer_class = ContentSerializer
 
-    def get_serializer(self, *args, **kwargs):
-        return super().get_serializer(*args, request=self.request, **kwargs)
-
     def get_queryset(self):
         return self.model.objects.user(self.request.user)
 

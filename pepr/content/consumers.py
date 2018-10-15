@@ -1,53 +1,23 @@
-from enum import Enum
-from collections import namedtuple
 
-from djangochannelsrestframework.decorators import action
-from djangochannelsrestframework.generics import GenericAsyncAPIConsumer
-from djangochannelsrestframework.mixins import (
-    CreateModelMixin,
-    ListModelMixin,
-    RetrieveModelMixin,
-    UpdateModelMixin
-)
+from channels.generic.websocket import AsyncWebsocketConsumer
 
-from pepr.content.models import Content, Container
-from pepr.content.serializers import ContentSerializer
-from pepr.perms.models import Context
-from pepr.perms.consumers import AccessibleConsumer
-from pepr.utils.functional import class_property
+from .models import Container, Content
+from pepr.perms.consumers import ContextObserver
 
 
-
-class ContentConsumer( \
-        RetrieveModelMixin, ListModelMixin,
-        CreateModelMixin, UpdateModelMixin,
-        AccessibleConsumer,
-        GenericAsyncAPIConsumer
-        ):
-    """
-    Consumer base class for content objects.
-    """
-    permission_classes = []
+# TODO: has_perm / get_perm action (with/without model)
+class ContainerConsumer(ContextObserver, AsyncWebsocketConsumer):
     context_class = Container
     model = Content
-    serializer_class = ContentSerializer
 
-    def get_serializer(self, *args, current_user=None, **kwargs):
-        user = current_user or self.scope.get('user')
-        return super().get_serializer(*args, current_user=user, **kwargs)
-
-    @class_property
-    def stream_name(cl):
-        return cl.model._meta.db_table
-
-    def get_queryset(self, **kwargs):
-        user = self.scope['user']
-        return self.model.objects.user(user)
+    def get_serializer(self, instance, **initkwargs):
+        serializer_class = instance.get_serializer_class()
+        return serializer_class(instance, current_user=self.scope['user'],
+                                **initkwargs)
 
 
-ContentConsumer.connect_signals()
-
-# ContainerConsumer.connect_signals(Content)
+# ContentConsumer.connect_signals()
+ContainerConsumer.connect_signals()
 
 
 

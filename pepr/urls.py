@@ -18,7 +18,6 @@ urlpatterns = [
          name='pepr.container'),
     path('c/<uuid:pk>', BaseDetailView.as_view(model=Content),
          name='pepr.content'),
-    path('api', include(router.urls)),
 ]
 
 

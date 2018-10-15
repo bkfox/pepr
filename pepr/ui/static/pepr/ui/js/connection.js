@@ -1,142 +1,139 @@
-/// A Request sent over WebSocket. It can be kept alive in order to
-/// receive more than one message before closing, and it emits
-/// different events in order to allow users to add handlers (such as
-/// in Pubsub)
-class Request extends Emitter {
-    constructor(stream, payload, keep_alive = false) {
-        super();
-        this.stanza = {
-            'stream': stream,
-            'payload': payload,
-        };
-        this.stream = stream;
-        this.payload = payload;
-        this.air_time = null;
-        this.keep_alive = keep_alive;
-    }
-
-    get id() { return this.payload.request_id; }
-    set id(value) { this.payload.request_id = value; }
-    get action() { return this.stanza.action; }
-
-    /// Return request as a sendable stanza
-    serialize() {
-        return JSON.stringify({
-            'stream': this.stream,
-            'payload': this.payload,
-        });
-    }
-
-    /// Return a new request object that use this request infos.
-    reply(payload) {
-        payload.request_id = this.id;
-        return new Request(this.stream, payload);
-    }
-
-    /// Called when a got a message back for this request. By default
-    /// dispatch it to onsuccess/onerror
-    onmessage(connection, data) {
-        data._connection = connection;
-        data._success = (data.response_status == 200);
-        this.emit('message', data)
-    }
-
-    /// Called when request has been closed/stopped.
-    onclose(connection) {
-        this.emit('close', { _connection: connection });
-    }
-}
-
-
 // TODO: handle disconnect event from the webbrower/computer and better
 //       heuristic for autoreconnect
-class Connection {
+
+
+/// This class manages requests and a connection to the server. It can
+/// auto-reconnect, and also remove old hanging requests.
+///
+/// Events
+/// ------
+/// - open: connection has been opened
+/// - error: an error occured
+/// - close: connection has been closed
+/// - message: a message was received and was not passed to a request
+///
+class Connection extends Emitter {
+    /**
+     * Creates a new Connection.
+     * @param {String} url server url to connect to
+     * @param {Number} timeout request timeout in milliseconds
+     * @param {Number} autoreconnect if > 0, reconnect to server when
+     *     connection is closed.
+     */
     constructor(url, timeout = null, autoreconnect = 0) {
-        this._last_id = 0;
+        super();
+
+        this._lastId = 0;
         this.autoreconnect = autoreconnect;
         this.requests = {};
 
         if(timeout)
-            this.start_timeout(timeout);
+            this.startTimeout(timeout);
         this.connect(url);
     }
 
-
-    get is_open() {
+    /**
+     * Is connection open
+     */
+    get isOpen() {
         return this.ws !== undefined ||
                this.ws && this.ws.readyState == WebSocket.OPEN;
     }
+
+    /**
+     * Requests timeout
+     */
     get timeout() { return this._timeout && this._timeout[0]; }
 
 
-    /// Get a unique id
-    acquire_id() {
-        return this._last_id++;
+    /**
+     * Get a unique id
+     */
+    acquireId() {
+        return this._lastId++;
     }
 
-
-    /// Start request timeout handler
-    start_timeout(timeout) {
-        // timeout is internally stored as a tuple of (timeout, request_id),
-        // where request_id is the current one at the call of start_timeout.
-        // this allows to keep track over multiple call of start_timeout
-        var timeout_id = this.acquire_id();
-        this._timeout = [timeout, timeout_id];
+    /**
+     * Start request timeout handler
+     */
+    startTimeout(timeout) {
+        // timeout is internally stored as a tuple of (timeout, requestId),
+        // where requestId is the current one at the call of startTimeout.
+        // this allows to keep track over multiple call of startTimeout
+        var timeoutId = this.acquireId();
+        this._timeout = [timeout, timeoutId];
         this.ontimeout(this._timeout);
     }
 
-    /// Stop request timeout handler
-    stop_timeout() {
+    /**
+     * Stop request timeout handler
+     */
+    stopTimeout() {
         this.timeout = null;
     }
 
+    /**
+     *  Callback handling requests timeout
+     */
     ontimeout(timeout) {
         if(this._timeout != timeout)
             // another timeout handler is running, so just leave
             return;
 
-        if(this.is_open)
-            this.remove_old(timeout[0]);
+        if(this.isOpen)
+            this.removeOld(timeout[0]);
 
         var self = this;
         window.setTimeout(function(e) { self.ontimeout(timeout); }, timeout[0]);
     }
 
 
-    /// Open connection
+    /**
+     * Open connection to server if not yet connected.
+     * @param {String} url websocket connection's url;
+     * @param {Boolean} force close previous connection if opened;
+     */
     connect(url, force = false) {
-        if(!force && this.ws && this.ws.readyState != WebSocket.CLOSED)
+        if(this.ws && this.ws.readyState != WebSocket.CLOSED) {
+            if(force)
+                this.ws.close();
+            else
                 return;
+        }
 
         var self = this;
         var ws = new WebSocket(url);
-        ws.onopen = function(e) { return self._onopen(e); };
-        ws.onclose = function(e) { return self._onclose(e); };
-        ws.onerror = function(e) { return self._onerror(e); };
-        ws.onmessage = function(e) { return self._onmessage(e); };
+        ws.onopen = function(e) { return self.onopen(e); };
+        ws.onclose = function(e) { return self.onclose(e); };
+        ws.onerror = function(e) { return self.onerror(e); };
+        ws.onmessage = function(e) { return self.onmessage(e); };
         this.ws = ws;
     }
 
-    /// onopen: called after requests resend have been proceed
-    _onopen(event) {
+    /**
+     *  Callback for WebSocket's `open` event
+     */
+    onopen(event) {
         if(this.autoreconnect)
             // send previously sent awaiting requests again: it avoids
             // to loose handlers on requests.
             for(var i in this.requests)
-                this.send_request(this.requests[i]);
-
-        if(this.onopen)
-            this.onopen(event);
+                this.sendRequest(this.requests[i]);
+        this.emit('open', {}, event );
     }
 
-    _onerror(event) {
-        if(this.onerror)
-            this.onerror(event);
+    /**
+     *  Callback for Websocket's `error` event.
+     */
+    onerror(event) {
+        this.emit('error', {});
     }
 
-    /// onclose: called after cleanup and autoreconnect have been
-    /// handled.
-    _onclose(event) {
+    /**
+     *  Callback for Websocket's `close` event, handles clean-up, autoreconnect,
+     *  etc.
+     */
+    onclose(event) {
         if(!this.autoreconnect) {
             this.reset();
             return;
@@ -148,103 +145,167 @@ class Connection {
             function() { self.connect(url, true); },
             this.autoreconnect
         )
-
-        if(this.onclose)
-            this.onclose(event);
+        this.emit('close', {'code': event.code, 'reason': event.reason});
     }
 
-    /// onmessage: called only when message has not been yet handled by
-    /// an opened request.
-    _onmessage(event) {
-        var data = JSON.parse(event.data);
-        var request_id = data.payload.request_id;
-
-        if(request_id in this.requests) {
-            var request = this.requests[request_id];
-            request.onmessage(this, data.payload);
-            if(!request.keep_alive)
+    /**
+     * Callback for Websocket's `message` event, that handle message
+     * dispatching to corresponding requests.
+     */
+    onmessage(event) {
+        event = {
+            message: JSON.parse(event.data),
+        };
+        var requestId = event.message.request_id;
+        if(requestId in this.requests) {
+            var request = this.requests[requestId];
+            this.prepareEvent('message', event);
+            request.onmessage(event);
+            if(!request.keepAlive)
                 this.remove(request);
             return;
         }
-        if(this.onmessage)
-            this.onmessage(event, data);
+        this.emit('message', event);
     }
 
-    /// Send a Request
-    send_request(req) {
-        req.air_time = Date.now();
+
+    /**
+     * Just send data to socket if opened.
+     * Returns 0 if success, -1 if socket was not opened
+     */
+    send_raw(data) {
+        if(this.ws.readyState != WebSocket.OPEN)
+            return -1;
+
+        this.ws.send(data);
+        return 0;
+    }
+
+    /**
+     * Send a Request and keep it `requests` list.
+     */
+    sendRequest(req) {
+        req.updateTime = Date.now();
         this.requests[req.id] = req;
-
-        if(this.ws.readyState == WebSocket.OPEN)
-            this.ws.send(req.serialize());
+        this.send_raw(req.serialize());
     }
 
-    /// Create a request, send and return it.
-    send(stream, payload, keep_alive = false) {
-        payload.request_id = this.acquire_id();
-        var req = new Request(stream, payload, keep_alive);
-        this.send_request(req);
+    /**
+     * Create a request, send and return it.
+     */
+    send(path, payload, keepAlive = false) {
+        var req = new Request(this, path, payload, keepAlive);
+        this.sendRequest(req);
         return req;
     }
 
-    /// Find request
-    find(stream, payload, keep_alive) {
-        return Object.values(this.requests).find(function(req) {
-            return req.stream == stream && req.payload == payload &&
-                   req.keep_alive == keep_alive;
-        });
+    /**
+     * Create a GET request
+     */
+    GET(path, payload, keepAlive = false) {
+        payload.method = 'GET';
+        return this.send(path, payload, keepAlive);
     }
 
-    /// Find a request; if not present, send a new request before
-    /// returning it.
-    find_or_send(stream, payload, keep_alive = false) {
-        return this.find(stream, payload, keep_alive) ||
-               this.send(stream, payload, keep_alive);
+    /**
+     * Create a POST request
+     */
+    POST(path, payload, keepAlive = false) {
+        payload.method = 'POST';
+        return this.send(path, payload, keepAlive);
     }
 
-    /// Cleanup running requests
+    /**
+     * Create a PATCH request
+     */
+    PATCH(path, payload, keepAlive = false) {
+        payload.method = 'PATCH';
+        return this.send(path, payload, keepAlive);
+    }
+
+    /**
+     * Create a DELETE request
+     */
+    DELETE(path, payload, keepAlive = false) {
+        payload.method = 'DELETE';
+        return this.send(path, payload, keepAlive);
+    }
+
+    /**
+     * Find request with following informations. Match over `payload` or
+     * `keepAlive` if they are defined only.
+     */
+    find(path, payload = undefined, keepAlive = undefined) {
+        predicate = { path: path };
+        if(payload !== undefined)
+            predicate.payload = payload;
+        if(keepAlive !== undefined)
+            predicate.keepAlive = keepAlive;
+
+        return _.find(this.requests, predicate);
+    }
+
+    /**
+     * Send a request only once and return it: when a request is not yet
+     * present, it creates a new one and send it.
+     *
+     * @return [Request, Boolean] the request, and a boolean indicating if it
+     *      has been created in this call.
+     */
+    sendOnce(path, payload, keepAlive = false) {
+        var req = _.find(
+            this.requests,
+            { path: path, payload: payload, keepAlive: keepAlive }
+        );
+        if(req)
+            return [req, false];
+
+        return [this.send(path, payload, keepAlive), true]
+    }
+
+    /**
+     * Cleanup running requests
+     */
     reset(trigger = true) {
         for(var id in this.requests)
             this.remove(this.requests[id], trigger)
     }
 
-    /// Remove a request from the running requests
+    /**
+     * Remove a specific request from the running requests.
+     */
     remove(request, trigger = true) {
         if(trigger)
-            request.onclose(this);
+            request.onclose({});
         delete this.requests[request.id];
     }
 
-    /// Remove all request older than given timeout (in milliseconds).
-    remove_old(delta) {
+    /**
+     * Remove all request older than given timeout (in milliseconds).
+     */
+    removeOld(delta) {
         var min = Date.now() - delta;
         for(var id in this.requests) {
             var req = this.requests[id];
-            if(!req.keep_alive && req.air_time < min)
+            if(!req.keepAlive && req.updateTime < min)
                 this.remove(req);
         }
     }
 
-
-    /// Subscribe to given object on stream, and add listener to it.
-    subscribe(stream, pk, listener) {
-        var req = this.find_or_send(stream, { action: 'subscribe', pk: pk },
-                                    true);
-        req.on('message', listener);
-        return req;
-    }
-
-    /// Unsubscribe given listener from object on stream
-    unsubscribe(stream, pk, listener) {
-        var req = this.find(stream, { action: 'subscribe', pk: pk }, true);
-        req.off('message', listener);
-
-        if(req.listeners_count('message'))
-            return;
-
-        // no more listeners: close & unsubscribe
-        this.remove(req);
-        this.send(stream, { action: 'unsubscribe', pk: pk });
+    /**
+     *  Send a request to observe data using the given `path`. When
+     *  request will be closed, a request is made to remove observer
+     *  from server.
+     */
+    observe(path) {
+        var req = this.sendOnce(path, {'method': 'POST'}, true);
+        if(req[1])
+            req[0].on('close', function() {
+                if(!this.connection.isOpen())
+                    return;
+                this.create({'method':'DELETE'}, false).send();
+            });
+        return req[0];
     }
 }
 

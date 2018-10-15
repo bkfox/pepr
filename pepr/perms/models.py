@@ -11,11 +11,11 @@ from django.utils.translation import ugettext_lazy as _
 from model_utils.managers import InheritanceQuerySetMixin, \
         InheritanceManager
 
-from pepr.perms.permissions import Permission, Permissions
-from pepr.perms.roles import Roles, AnonymousRole, DefaultRole, \
+from .filters import IsAccessibleFilterBackend
+from .permissions import Permission, Permissions
+from .roles import Roles, AnonymousRole, DefaultRole, \
         AdminRole
 from pepr.utils.iter import as_choices
-
 
 
 class Context(models.Model):
@@ -23,11 +23,11 @@ class Context(models.Model):
     Each instance of ``Context`` defines a context in which permissions,
     subscriptions and access to objects take place.
     """
-    #visibility = models.SmallIntegerField(
-    #    verbose_name = _('visibility'),
-    #    choices = as_choices('access','name', Roles.values()),
-    #    blank = True, null = True,
-    #)
+    # visibility = models.SmallIntegerField(
+    #     verbose_name = _('visibility'),
+    #     choices = as_choices('access','name', Roles.values()),
+    #     blank = True, null = True,
+    # )
 
     objects = InheritanceManager()
 
@@ -176,31 +176,44 @@ class AccessibleQuerySet(InheritanceQuerySetMixin, models.QuerySet):
         """
         return self.filter(access__lte=access)
 
+    # We use a distinct function to get Q objet in order to allow
+    # extensibility of the user() method.
+    def get_user_q(self, user):
+        """
+        Return Q object that can be used to filter accessibles for the
+        given user.
+        """
+        # special user case
+        # FIXME: this is not extensible
+        role = Context.get_special_role(user)
+        if role:
+            return Q(access__lte=role.access)
+
+        # registered user
+        return (
+            # user with registered access
+            Q(context__subscription__access__gte=F('access'),
+              context__subscription__user=user) |
+            # user with no access, but who is platform member
+            (
+                ~Q(context__subscription__user=user) &
+                Q(access__lte=DefaultRole.access)
+            )
+        )
+
     def user(self, user):
         """
         Filter accessibles based on related Subscription
         """
-        if user is None or user.is_anonymous:
-            # anonymous user
-            q = Q(access__lte=AnonymousRole.access)
-        else:
-            q = (
-                # user with registered access
-                Q(context__subscription__access__gte=F('access'),
-                  context__subscription__user=user) |
-                # user with no access, but who is platform member
-                (
-                    ~Q(context__subscription__user=user) &
-                    Q(access__lte=DefaultRole.access)
-                )
-            )
-        return self.filter(q).distinct()
+        return self.filter(self.get_user_q(user)).distinct()
 
 
+# FIXME/TODO: add owners field?
 class Accessible(models.Model):
     """
     Simple abstract class used to define basic access control
     based on access's privilege.
+
     """
     context = models.ForeignKey(
         Context, on_delete=models.CASCADE,
@@ -211,6 +224,12 @@ class Accessible(models.Model):
         choices=as_choices('access', 'name', Roles.values()),
         help_text=_('minimal level to access this element')
     )
+
+    #
+    #
+    #
+    filter_backends = (IsAccessibleFilterBackend,)
+    objects = AccessibleQuerySet.as_manager()
 
     @cached_property
     def related_context(self):

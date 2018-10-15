@@ -2,6 +2,7 @@ import uuid
 from enum import IntEnum
 
 from django.db import models
+from django.db.models import Q
 from django.contrib.auth import models as auth
 from django.http import Http404, HttpResponse
 from django.urls import NoReverseMatch, reverse
@@ -13,9 +14,11 @@ from django.utils.translation import ugettext_lazy as _
 from model_utils.managers import InheritanceManager, \
         InheritanceQuerySetMixin
 
+from pepr.perms.filters import IsAccessibleFilterBackend
 from pepr.perms.models import Context, Accessible, AccessibleQuerySet
 from pepr.ui.views import ComponentMixin
 from pepr.ui.models import Widget, WidgetQuerySet
+
 
 
 class ContainerItem(Accessible):
@@ -24,8 +27,6 @@ class ContainerItem(Accessible):
         primary_key=True,
         default=uuid.uuid4
     )
-
-    objects = AccessibleQuerySet.as_manager()
 
     class Meta:
         abstract = True
@@ -65,8 +66,8 @@ class Container(ContainerItem, Context):
     # TODO: image & cover
     description = models.TextField(
         _('description'),
-        blank = True, null = True,
-        max_length = 256,
+        blank=True, null=True,
+        max_length=256,
     )
 
     def save(self, *args, **kwargs):
@@ -74,10 +75,16 @@ class Container(ContainerItem, Context):
             self.slug = slugify(self.title)
         return super().save(*args, **kwargs)
 
-
 Container._meta.get_field('context').null = True
 Container._meta.get_field('context').blank = True
 
+
+class ContentQuerySet(AccessibleQuerySet):
+    def user(self, user):
+        q = self.get_user_q(user)
+        if not user.is_anonymous:
+            q |= Q(created_by=user) | Q(mod_by=user)
+        return self.filter(q).distinct()
 
 class Content(ContainerItem, ComponentMixin):
     """
@@ -116,6 +123,8 @@ class Content(ContainerItem, ComponentMixin):
     # TODO: text format: raw, markdown, safe html, rst?
 
     template_name = 'pepr/content/content.html'
+
+    objects = ContentQuerySet.as_manager()
 
     class Meta:
         ordering = ('-mod_date',)

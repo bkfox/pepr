@@ -10,6 +10,7 @@ import pepr.urls
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('site/', include(pepr.urls)),
+    path('api/', include(pepr.urls.router.urls))
 ]
 
 

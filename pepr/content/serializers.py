@@ -15,12 +15,12 @@ class ContentSerializer(serializers.ModelSerializer):
             'created_date', 'created_by',
             'mod_date', 'mod_by',
             'context', 'text',
-            'html',
+            'html', 'access',
         )
         read_only_fields = ('pk', 'created_date', 'created_by',
                             'mod_date', 'mod_by')
 
-    def __init__(self, *args, request=None, current_user=None, **kwargs):
+    def __init__(self, *args, current_user=None, **kwargs):
         self.current_user = current_user
         super().__init__(*args, **kwargs)
 

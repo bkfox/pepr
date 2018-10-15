@@ -39,6 +39,8 @@ TODO & FIXME
 - split Permission description & Permission granting (or at least a clearer scheme)
 - Permission description can use format() argument on related model; or provide
   ``get_description`` instance (class?) method.
+- Add owner to accessible: many-to-many or one-to-many? However filtering accessibility on this criteria at the level of perm() model might cause problem (e.g. for containers).
+
 
 
 

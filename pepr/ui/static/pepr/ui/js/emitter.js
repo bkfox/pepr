@@ -1,27 +1,38 @@
 
+/**
+ *  Register listeners and emit events. This class is used since EventTarget
+ *  is quiete new.
+ */
 class Emitter {
-    /// Add listener to the emitter
-    on(type, listener, force = false) {
+    /**
+     * Add listener to the emitter. If `self` is given, use it as `this`
+     * on listener's call.
+     */
+    on(type, listener, self=null, force = false) {
         if(!this.listeners)
             this.listeners = {};
 
+        listener = {func: listener, self: self};
         if(!(type in this.listeners)) {
             this.listeners[type] = [listener];
             return;
         }
 
         var listeners = this.listeners[type];
-        if(force || listeners.indexOf(listener) == -1)
+        if(force || _.findIndex(listener) == -1)
             this.listeners[type].append(listener);
     }
 
-    /// Remove listener from the emitter
-    off(type, listener) {
+    /**
+     * Remove listener from the emitter.
+     */
+    off(type, listener, self=null) {
         if(!(type in this.listeners))
             return;
 
+        listener = {func: listener, self: self};
         var listeners = this.listeners[type];
-        var index = listeners.indexOf(listener);
+        var index = _.findIndex(listener);
         listeners.splice(index,1);
 
         if(!listeners)
@@ -30,21 +41,46 @@ class Emitter {
             delete this.listeners;
     }
 
-    /// Return number of listeners for this event
-    listeners_count(type) {
+    /**
+     * Return number of listeners for this event.
+     */
+    count_listeners(type) {
         if(!this.listeners || !(type in this.listeners))
             return 0;
         return this.listeners[type].length;
     }
 
-    /// Emit event with the given data
-    emit(type, data) {
+    /**
+     * Add informations to event before it can be propagated.
+     */
+    prepareEvent(type, event) {
+        // TODO: document thoses
+        event.type = type;
+        event.target = event.target == undefined ? this : event.target;
+        event.currentTarget = this;
+        event.propagate = true;
+    }
+
+    /**
+     * Emit event with the given data. Event will be prepared by
+     * {@link Emitter#prepareEvent} before being propagated.
+     */
+    emit(type, event={}) {
         if(!this.listeners || !(type in this.listeners))
             return;
 
+        this.prepareEvent(type, event);
+
         var listeners = this.listeners[type];
-        for(var i in listeners)
-            listeners[i](this, data);
+        for(var i in listeners) {
+            if(!event.propagate)
+                break;
+            var listener = listeners[i];
+            // not registering `this` as listener.self at init avoids bugs in
+            // case of `this.listeners` copy whatever, and also less code update
+            // in case of refactoring whatever.
+            listener.func.call(listener.self || this, event);
+        }
     }
 }
 

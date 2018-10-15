@@ -6,22 +6,23 @@ Activity Stream!
 {% endblock %}
 
 {% block content_ext %}
-<ws-form class="box mb-3 p-1" stream="content" action="create">
+<pepr-form class="box mb-3 p-1" action="/content/" method="POST">
 {% component create_form %}
 <hr>
 <div class="text-right">
     <button class="btn btn-primary">{% trans "Publish" %}</button>
 </div>
-</ws-form>
+</pepr-form>
 
-<ws-stream stream="content" context="a140c301-3616-4c13-9902-82d2f57eb2ba">
+
+<pepr-container collection-url="/container/{{ view.related_context.pk }}/" items-url="/content/">
     <hr>
     {% for obj in object_list %}
-    <div data-pk="{{ obj.pk }}" >
+    <div data-pk="{{ obj.pk }}" data-mod-by="{{ obj.mod_by }}">
     {% component obj expand=False %}
     </div>
     {% endfor %}
-</ws-stream>
+</pepr-container>
 
 {% endblock %}
 

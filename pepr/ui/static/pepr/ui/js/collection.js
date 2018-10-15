@@ -1,105 +1,149 @@
 
-/// Collection used to store items. It can subscribe to an object on
-/// given stream in order to be kept updated.
+/**
+ *  Store and manage items objects.
+ */
 class Collection {
-    constructor(items=[]) {
-        this.subscription = null;
-        this.items = items || {};
+    constructor(idAttr, sortAttr=null, items=null) {
+        /**
+         *  Item's attribute to use as object unique identifier.
+         *  @type {String}
+         */
+        this.idAttr = idAttr;
+        /**
+         *  Item's attribute to use to sort items
+         *  @type {String}
+         */
+        this.sortAttr = sortAttr;
+        /**
+         *  The actual list of items
+         *  @type {Array}
+         */
+        this.items = items || [];
     }
 
-    init(connection, stream, pk) {
-        this.connection = connection;
-        // this.get(stream, pk);
-        this.subscribe(stream, pk);
-    }
-
-    /// Subscribe to this object on stream. There can be only one
-    /// subscription for a collection.
-    subscribe(stream, pk) {
-        if(this.subscription)
-            throw "Yet subscribed";
-
-        var self = this;
-        this.subscription = [stream, pk, function(req, data) {
-            self.onmessage(req, data);
-        }];
-        this.connection.subscribe(this.subscription[0], this.subscription[1],
-                                  this.subscription[2]);
-    }
-
-    /// Unsubscribe from stream
-    unsubscribe() {
-        this.connection.unsubscribe(this.subscription[0], this.subscription[1],
-                                    this.subscription[2]);
-        this.subscription = null;
-    }
-
-
-    /// Extract item from DOM element
-    extract(elm) {
-        var pk = elm && elm.dataset && elm.dataset.pk;
-        console.log('pk:', pk);
-        if(!pk)
-            return;
-
-        var item = { html: elm.innerHTML, pk: pk };
-        this.add_item(item);
-        return item;
-    }
-
-    /// Sort items array
-    sort() {
-        this.items.sort(function(a,b) {
-            return a.mod_date < b.mod_date;
-        });
-    }
-
-    /// Return item's index in collection
-    index_of(item) {
-        return this.items.findIndex(function(a) {
-            return a.pk == item.pk;
-        });
-    }
-
-    /// Add a given item in the collection
-    add_item(item) {
+    /**
+     * Add a given item in the collection
+     */
+    add(item) {
         this.items.push(item);
         this.sort();
     }
 
-    /// Update an item in collection.
-    update_item(item) {
+    /**
+     * Update an item in collection.
+     */
+    update(item) {
         var index = this.index_of(item);
         if(index == -1)
-            return this.add_item(item);
+            return this.add(item);
 
         this.items.splice(index, 1, item);
         this.sort();
     }
 
-    /// Delete an item from collection
-    delete_item(item) {
+    /**
+     * Delete an item from collection
+     */
+    remove(item) {
         var index = this.index_of(item);
         if(index != -1)
             this.items.splice(index, 1);
     }
 
-    /// Handle a pubsub message and update collection accordingly
-    onmessage(req, d) {
-        console.log('message!', d);
-        var item = d.data;
-        switch(d.action) {
-            case 'create': this.add_item(item);
-                           break;
-            case 'update': this.update_item(item);
-                           break;
-            case 'delete': this.delete_item(item);
-                           break;
-            // ignore:
-            default:
-                break;
-        }
+    /**
+     * Clean up the entire collection.
+     */
+    reset() {
+        this.items = {};
     }
+
+    /**
+     * Return item's index in collection
+     */
+    index_of(item) {
+        var attr = this.idAttr;
+        return this.items.findIndex(function(a) {
+            return a[attr] == item[attr];
+        });
+    }
+
+    /**
+     * Sort items array
+     */
+    sort() {
+        var attr = this.sortAttr;
+        this.items.sort(function(a,b) {
+            return (attr && a[attr] < b[attr]) || a < b;
+        });
+    }
+
+    /**
+     * Extract an item from DOM element. Item attributes will be set to
+     * dataset values. Skip if the id attribute is not present.
+     */
+    extract(elm) {
+        var index = elm && elm.dataset && elm.dataset[this.idAttr];
+        if(!index)
+            return;
+
+        var item = elm.dataset;
+        item.html = elm.innerHTML;
+        this.add(item);
+        return item;
+    }
+
 }
+
+
+/**
+ *  VueJS Component that handles a collection.
+ */
+$pepr.comps.Collection = Vue.component('pepr-collection', {
+        template: `
+            <div>
+                <slot></slot>
+                <div v-for="item in collection.items" v-html="item.html"></div>
+                <slot name="bottom"></slot>
+            </div>
+        `,
+        props: {
+            /**
+             * Collection's idAttr.
+             */
+            'idAttr': { type: String, default: 'pk', },
+            /**
+             * Collection's sortAttr
+             */
+            'sortAttr': { type: String, default: 'modBy', },
+        },
+        data: function() {
+            return {
+                collection: new Collection(this.idAttr, this.sortAttr),
+            };
+        },
+        methods: {
+            /**
+             * Extract items from slot using `Collection.extract`.
+             */
+            to_collection(slot) {
+                if(slot.length == 0)
+                    return;
+
+                for(var i in slot) {
+                    var elm = slot[i];
+                    elm = elm.elm;
+                    if(this.collection.extract(elm))
+                        elm.parentNode.removeChild(elm);
+                }
+            }
+        },
+        mounted: function() {
+            this.to_collection(this.$slots.default);
+            // this.coll.init($pepr.connection, this.stream, this.context);
+        },
+        beforeDestroy: function() {
+            this.coll.unsubscribe();
+        },
+    });
 
 

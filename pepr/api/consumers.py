@@ -8,10 +8,9 @@ from django.urls.exceptions import Resolver404
 from django.urls.resolvers import RegexPattern, URLResolver
 from django.utils.functional import cached_property
 
-from channels.consumer import AsyncConsumer
-from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.consumer import AsyncConsumer, get_handler_name
 from channels.db import database_sync_to_async
-
+from channels.generic.websocket import AsyncWebsocketConsumer
 from rest_framework.response import Response as RestResponse
 
 from .switch import Switch
@@ -110,8 +109,9 @@ class RouterConsumerBase(AsyncWebsocketConsumer):
         serializer = self.get_serializer(data=data)
         if not serializer.is_valid():
             return await self.reply(data.get('request_id', None), 403, {
-                'reason': 'invalid request fields',
-                'errors': serializer.errors,
+                'content': 'invalid request: {}'.format(
+                    '\n'.join(serializer.errors)
+                ),
             })
 
         request = serializer.save()
@@ -119,30 +119,30 @@ class RouterConsumerBase(AsyncWebsocketConsumer):
             match = self.resolve(request.path)
         except Resolver404:
             return await self.reply(request.id, 404, {
-                'reason': '"{}" not found'.format(request.path)
+                'content': '"{}" not found'.format(request.path)
             })
 
         try:
             self.prepare_request(request, match)
-
             func, args, kwargs = match
             if not asyncio.iscoroutinefunction(func):
                 func = database_sync_to_async(func)
             response = await func(request, *args, **kwargs)
             await self.process_response(request, response)
-        except Exception as e:
+        except:
             if settings.DEBUG:
                 import traceback, sys
                 exc_type, exc_value, exc_traceback = sys.exc_info()
                 payload = {
-                    'reason': 'an exception occured',
-                    'content': traceback.format_exception(
-                        exc_type, exc_value, exc_traceback
+                    'content': 'an exception occured: {}'.format(
+                        traceback.format_exception(
+                            exc_type, exc_value, exc_traceback
+                        )
                     ),
                 }
             else:
-                payload = {'reason': 'internal error'}
-            self.reply(request.id, 500, payload)
+                payload = {'content': 'internal error'}
+            await self.reply(request.id, 500, payload)
 
     def prepare_request(self, request, match):
         """ Prepare request before calling target view """
@@ -161,7 +161,7 @@ class RouterConsumerBase(AsyncWebsocketConsumer):
         elif isinstance(response, tuple) and len(response) == 2:
             status, data = response
         else:
-            raise ValueError('invalid response from view')
+            raise ValueError('invalid response from view: {}'.format(response))
 
         await self.reply(request.id, status, data)
 
@@ -190,6 +190,7 @@ class RouterConsumerBase(AsyncWebsocketConsumer):
         """
         if extra_data:
             payload.update(extra_data)
+
         payload.update({
             'request_id': request_id,
             'status': status,
@@ -212,7 +213,7 @@ class RouterConsumer(RouterConsumerBase):
 
     def __init__(self, scope):
         super().__init__(scope)
-        self.switch = Switch(scope, self.send_data)
+        self.switch = Switch(scope, self.upstream_dispatch)
 
     async def __call__(self, receive, send):
         loop = asyncio.get_event_loop()
@@ -266,10 +267,26 @@ class RouterConsumer(RouterConsumerBase):
             if c_cls and c_cls not in cls.consumers:
                 cls.consumers.add(c_cls)
 
-    def prepare_request(self, request, view):
+    def prepare_request(self, request, match):
         # add consumer instance to request
+        view = match.func
         consumer_class = self.get_view_consumer_class(view)
         if consumer_class:
-            request.consumer = self.switch.get(consumer_class)
+            consumer = self.switch.get(consumer_class)
+            request.consumer = consumer and consumer.instance
         super().prepare_request(request, view)
+
+    #
+    # Switch message handling
+    #
+    async def upstream_dispatch(self, message):
+        handler = getattr(self, 'upstream_' + get_handler_name(message), None)
+        if handler:
+            await handler(message)
+
+    async def upstream_websocket_send(self, message):
+        await self.send(
+            self.render_data(message['text']) if 'text' in message else None,
+            self.render_data(message['bytes']) if 'bytes' in message else None
+        )
 

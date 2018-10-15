@@ -83,7 +83,6 @@ class RequestSerializer(serializers.Serializer):
     method = serializers.CharField(max_length=12, default='get')
     path = serializers.CharField(max_length=64)
     status = serializers.IntegerField(required=False)
-    reason = serializers.CharField(required=False)
     query = serializers.DictField(required=False)
     data = serializers.DictField(required=False)
 

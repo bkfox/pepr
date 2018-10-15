@@ -177,7 +177,7 @@ class Service(ContainerItem, ComponentMixin):
         """
         Return a queryset of Content objects
         """
-        return self.queryset.user(self.current_user) \
+        return self.queryset.user(self.request.user) \
                    .select_subclasses()
 
     def get_context_data(self, **kwargs):

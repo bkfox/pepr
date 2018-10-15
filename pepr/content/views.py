@@ -6,15 +6,16 @@ from django.http import HttpResponse
 
 from rest_framework import viewsets
 
-from pepr.content.models import Container, Content, Service
 from pepr.perms.views import AccessibleMixin
 from pepr.ui.views import ComponentMixin, Slots, WidgetsComp, SiteView
 
+from .models import Container, Content, Service
+from .serializers import ContentSerializer
 
 
 class BaseDetailView(SiteView, AccessibleMixin, DetailView):
     """
-    Base class for ContainerItem elements.
+    Base class for detail views of ContainerItem elements.
     """
     template_name = 'pepr/content/container.html'
 
@@ -33,9 +34,10 @@ class BaseDetailView(SiteView, AccessibleMixin, DetailView):
 
 class ContainerDetailView(BaseDetailView):
     """
-    Detail view for container
+    Detail view for container.
     """
     template_name = 'pepr/content/container.html'
+    model = Container
 
     def get_container(self):
         return self.object
@@ -49,6 +51,11 @@ class ContainerDetailView(BaseDetailView):
 
 
 class ServiceDetailView(BaseDetailView):
+    """
+    Detail view for Service.
+    """
+    model = Service
+
     def get_queryset(self):
         return super().get_queryset().filter(is_enabled=True)
 
@@ -112,11 +119,9 @@ class ContentFormComp(ComponentMixin):
         self.template_name = template_name
         self.form_kwargs = form_kwargs
 
-
 #
 # API
 #
-from .serializers import ContentSerializer
 
 class ContentViewSet(viewsets.ModelViewSet):
     model = Content

@@ -66,7 +66,7 @@ class RouterConsumerBase(AsyncWebsocketConsumer):
 
     @classmethod
     def register(cls, patterns):
-        """ Add patterns to route by this consumer """
+        """ Add patterns routed by this class' instances. """
         # ensure those class attributes are different from parent class'
         # ones in order to avoid side effects.
         if 'urlpatterns' not in cls.__dict__:

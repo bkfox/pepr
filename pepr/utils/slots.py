@@ -72,6 +72,10 @@ class Slot:
     Return value of receivers can either be None or an item to add to
     the fetched items.
     """
+    signal_props = ['request', 'slot', 'items']
+    """
+    Base attributed passed on signal.
+    """
 
     def __init__(self, signal_args=None, **kwargs):
         """
@@ -81,7 +85,7 @@ class Slot:
             self.__dict__.update(kwargs)
         self.items = []
         self.signal = Signal(
-            ['user', 'slot', 'items'] + (signal_args or [])
+            self.signal_props + (signal_args or [])
         )
 
     def add(self, item):

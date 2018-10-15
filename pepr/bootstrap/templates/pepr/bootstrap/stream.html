@@ -6,14 +6,15 @@ Activity Stream!
 {% endblock %}
 
 {% block content_ext %}
-<pepr-form class="box mb-3 p-1" action="/content/" method="POST">
-{% component create_form %}
-<hr>
-<div class="text-right">
-    <button class="btn btn-primary">{% trans "Publish" %}</button>
+<div class="box">
+    <pepr-form class="box mb-3 p-1" action="/content/" method="POST">
+        {% component create_form %}
+        <hr>
+        <div class="text-right">
+            <button class="btn btn-primary">{% trans "Publish" %}</button>
+        </div>
+    </pepr-form>
 </div>
-</pepr-form>
-
 
 <pepr-container collection-url="/container/{{ view.related_context.pk }}/" items-url="/content/">
     <hr>

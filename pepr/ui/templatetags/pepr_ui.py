@@ -15,7 +15,7 @@ def do_component(context, component, **kwargs):
     """
     if not 'super_view' in kwargs:
         kwargs['super_view'] = context['view']
-    return component.render(context['user'], **kwargs)
+    return component.render(context['request'], **kwargs)
 
 @register.simple_tag(name="slot", takes_context=True)
 def do_slot(context, slot_name, **kwargs):
@@ -29,7 +29,7 @@ def do_slot(context, slot_name, **kwargs):
     slot = context['slots'][slot_name]
     if not 'super_view' in kwargs:
         kwargs['super_view'] = context['view']
-    return slot.render(context['user'], **kwargs)
+    return slot.render(context['request'], **kwargs)
 
 
 

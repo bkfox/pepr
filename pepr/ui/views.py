@@ -38,8 +38,7 @@ class ComponentMixin(TemplateResponseMixin, ContextMixin):
     single string.
     """
 
-    current_user = None
-    """ Current user rendering this component """
+    request = None
     kwargs = None
     """ Extra-kwargs passed to this componenent """
 
@@ -69,15 +68,16 @@ class ComponentMixin(TemplateResponseMixin, ContextMixin):
         context = self.get_context_data(**kwargs)
         if context is None:
             return ''
-        context['user'] = self.current_user
+        context['request'] = self.request
+        context['user'] = self.request.user
         # return self.get_template().template.render(context)
         return self.get_template().render(context)
 
-    def render(self, user, super_view=None, **kwargs):
+    def render(self, request, super_view=None, **kwargs):
         """
         Render ComponentMixin into a string and return it
         """
-        self.current_user = user
+        self.request = request
         self.super_view = super_view
         self.kwargs = kwargs
         return self.render_to_string(**kwargs)
@@ -104,7 +104,7 @@ class ComponentDetailView(View, SingleObjectMixin):
         }
         if 'super_view' not in kwargs:
             kwargs['super_view'] = self
-        return self.object.render(request.user, **kwargs)
+        return self.object.render(request, **kwargs)
 
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
@@ -142,11 +142,11 @@ class WidgetsComp(ComponentMixin, slots.Slot):
         """
         context = super().get_context_data(**kwargs)
 
-        items = items or self.fetch(self.current_user, sender, **kwargs)
+        items = items or self.fetch(self.request, sender, **kwargs)
         context['tag_name'] = self.tag_name
         context['tag_attrs'] = self.tag_attrs
         context["items"] = (
-            item.render(self.current_user, **kwargs) for item in items
+            item.render(self.request, **kwargs) for item in items
             if isinstance(item, ComponentMixin)
         )
         return context

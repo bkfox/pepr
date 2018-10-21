@@ -15,6 +15,7 @@ INSTALLED_APPS = [
     'pepr.bootstrap',
 
     'django_assets',
+    'widget_tweaks',
     'rest_framework',
     'channels',
     'django_filters',

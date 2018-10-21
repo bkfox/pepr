@@ -114,7 +114,7 @@ $pepr.comps.Collection = Vue.component('pepr-collection', {
             /**
              * Collection's sortAttr
              */
-            'sortAttr': { type: String, default: 'modBy', },
+            'sortAttr': { type: String, default: 'modDate', },
         },
         data: function() {
             return {

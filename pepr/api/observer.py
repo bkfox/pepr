@@ -132,7 +132,7 @@ class ObserverConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
         def instance_post_save(sender, instance, created, **kwargs):
             return emit_event('POST' if created else 'PUT', instance)
 
-        def instance_post_delete(sender, instance, created, **kwargs):
+        def instance_post_delete(sender, instance, **kwargs):
             return emit_event('DELETE', instance)
 
         post_save.connect(instance_post_save, cls.model, False)

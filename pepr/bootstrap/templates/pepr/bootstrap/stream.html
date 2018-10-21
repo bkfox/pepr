@@ -5,17 +5,13 @@
 <div class="box mb-3 p-1">
     <pepr-form action="/content/" method="POST">
         {% component create_form %}
-        <hr>
-        <div class="text-right">
-            <button class="btn btn-primary">{% trans "Publish" %}</button>
-        </div>
     </pepr-form>
 </div>
 
 <pepr-container collection-url="/container/{{ service.related_context.pk }}/" items-url="/content/">
     <hr>
     {% for obj in object_list %}
-    <div data-pk="{{ obj.pk }}" data-mod-by="{{ obj.mod_by }}">
+    <div data-pk="{{ obj.pk }}" data-mod-by="{{ obj.mod_by }}" data-mod-date="{{ obj.mod_date|date:"U" }}">
     {% component obj expand=False %}
     </div>
     {% endfor %}

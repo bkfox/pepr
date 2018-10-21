@@ -1,24 +1,36 @@
 TODO & Roadmap
 ==============
 
+Permissions
+-----------
+- template tags has_perm
+
+UI
+--
+- Action widget & menus:
+   - is there sth to do to reduce work?
+   - permission check
+   - as form button only
+- Preset of multiple widgets
+
+Content
+-------
+- actions menu: delete, edit, bookmark, share
+- comments
+
 Observers & Collections
 -----------------------
-- Impl Observer at the level of objects not container => container as filter
+- Handle DELETE -> still not working for the moment
 - Impl Collection binding
 - Load list & pagination
+
 - Filters
 
-Stream & Content rendering
---------------------------
+Stream
+------
 - Create new post
 - Edit content
 
 Content
 -------
 - Attach resources: edit & rendering
-
-Service
--------
-- remove Accessible from parents of service: service is first more interface/app than content
-
-

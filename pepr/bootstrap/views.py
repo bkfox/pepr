@@ -20,8 +20,6 @@ class StreamView(ServiceView, ListView):
 
     def get_context_data(self):
         context = super().get_context_data()
-        context['create_form'] = ContentFormComp(self.content_form, data={
-            'context': self.service.context_id
-        })
+        context['create_form'] = ContentFormComp(self.content_form, self.container)
         return context
 

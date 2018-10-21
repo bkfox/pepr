@@ -8,7 +8,7 @@ from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 
 from pepr.perms.models import Context, Accessible, AccessibleQuerySet
-from pepr.ui.views import ComponentMixin
+from pepr.ui.views import ComponentMixin, Slots, WidgetsComp
 from pepr.utils.fields import ReferenceField
 
 
@@ -120,9 +120,12 @@ class Content(ContainerItem, ComponentMixin):
     )
     # TODO: text format: raw, markdown, safe html, rst?
 
-    template_name = 'pepr/content/content.html'
-
     objects = ContentQuerySet.as_manager()
+
+    template_name = 'pepr/content/content.html'
+    slots = Slots({
+        'actions-menu': WidgetsComp(''),
+    })
 
     class Meta:
         ordering = ('-mod_date',)
@@ -175,7 +178,7 @@ class Service(ContainerItem):
         )
     )
 
-    icon='fa-align-justify fas'
+    icon='fa-align-justify fa'
 
     class Meta:
         unique_together = ('slug', 'context')

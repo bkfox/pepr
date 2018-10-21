@@ -109,7 +109,7 @@ class ContentFormComp(ComponentMixin):
     Form class used for rendering. If None, get serializer from Content
     model and create a form using it.
     """
-    context_id = None
+    container = None
     """ context to post content on """
     form_kwargs = None
     """ form init kwargs """
@@ -124,7 +124,10 @@ class ContentFormComp(ComponentMixin):
         return model_forms.modelform_factory(self.model, fields=fields)
 
     def get_form_kwargs(self):
-        kwargs = self.form_kwargs
+        kwargs = self.form_kwargs or {}
+        initial = kwargs.setdefault('initial', {})
+        initial.setdefault('context', self.container.pk)
+        initial.setdefault('access', self.container.access)
         return kwargs
 
     def get_form(self):
@@ -141,11 +144,10 @@ class ContentFormComp(ComponentMixin):
         context['form'] = self.get_form()
         return context
 
-    def __init__(self, form_class, template_name=template_name,
-                 **form_kwargs):
+    def __init__(self, form_class, container, **kwargs):
         self.form_class = form_class
-        self.template_name = template_name
-        self.form_kwargs = form_kwargs
+        self.container = container
+        self.__dict__.update(kwargs)
 
 #
 # API
@@ -159,5 +161,8 @@ class ContentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return self.model.objects.user(self.request.user)
 
+    def get_serializer(self, *args, **kwargs):
+        kwargs.setdefault('current_user', self.request.user)
+        return super().get_serializer(*args, **kwargs)
 
 

@@ -1,4 +1,4 @@
-{% load rest_framework %}
+{% load i18n widget_tweaks %}
 
 {% csrf_token %}
 {% for hidden in form.hidden_fields %}
@@ -6,12 +6,34 @@
 {% endfor %}
 
 {% for field in form.visible_fields %}
+{% if field.name != 'access' %}
 <div class="form-group">
-    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+    <div class="input-group-prepend">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+    </div>
     {{ field|add_class:'form-control' }}
-    {% for error in field.errors %}
-        <span class="help-block">{{ error }}</span>
-    {% endfor %}
+
+    {% if field.errors %}
+        {% for error in field.errors %}
+            <span class="help-block">{{ error }}</span>
+        {% endfor %}
+    {% endif %}
 </div>
+{% endif %}
 {% endfor %}
+
+<hr>
+<div class="row">
+    <div class="col-9">
+    </div>
+    <div class="col-3 input-group">
+        {% with form.access as field %}
+        {% render_field field class+='form-control mr-2' aria-label=field.label title=field.label %}
+        {% endwith %}
+        <div class="input-group-append">
+            <button class="btn btn-primary">{% trans "Publish" %}</button>
+        </div>
+    </div>
+</div>
+
 

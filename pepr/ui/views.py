@@ -69,6 +69,7 @@ class ComponentMixin(TemplateResponseMixin, ContextMixin):
         if context is None:
             return ''
         context['user'] = self.current_user
+        context['slots'] = getattr(self, 'slots', None)
         # return self.get_template().template.render(context)
         return self.get_template().render(context)
 

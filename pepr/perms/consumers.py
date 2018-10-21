@@ -13,7 +13,7 @@ from pepr.perms.models import Context
 
 # TODO: has_perm / get_perm action (with/without model)
 # TODO: update role (on Subscription/Authorization change)
-class AccessibleObserver(ObserverConsumer):
+class ContextObserver(ObserverConsumer):
     """
     Observer on accessibles (filtered by their context's id)
     """

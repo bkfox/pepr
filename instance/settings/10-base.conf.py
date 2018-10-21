@@ -17,6 +17,7 @@ INSTALLED_APPS = [
     'django_assets',
     'rest_framework',
     'channels',
+    'django_filters',
 
     'django.contrib.admin',
     'django.contrib.auth',
@@ -88,27 +89,4 @@ USE_TZ = True
 STATIC_URL = '/static/'
 MEDIA_ROOT = BASE_DIR + '/media/'
 MEDIA_URL = '/media/'
-
-# Django Assets
-ASSETS_DEBUG = DEBUG
-
-# Django Channels
-ASGI_APPLICATION = "instance.routing.application"
-
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
-    },
-}
-#else:
-#    CHANNEL_LAYERS = {
-#        "default": {
-#            "BACKEND": "channels_redis.core.RedisChannelLayer",
-#            "CONFIG": {
-#                "hosts": [("127.0.0.1", 6379)],
-#            },
-#        },
-#    }
-
-
 

@@ -10,12 +10,23 @@
 {% endblock %}
 
 {% block main %}
-{% if object %}
-    {% component object %}
-{% else %}
-    <div class="alert alert-warning" role="alert">
-    {% trans "no service enabled" %}
+<div class="row">
+    {% if container %}
+    <div class="col-sm sidebar">
+        {% slot "sidebar" sender=view container=container service=service %}
     </div>
-{% endif %}
+    {% endif %}
+
+    <div class="col-10">
+    {% block app %}
+        {% if object %}
+            {% component object %}
+        {% else %}
+            <div class="alert alert-warning" role="alert">
+            {% trans "nothing here" %}
+            </div>
+        {% endif %}
+    {% endblock app %}
+    </div>
 {% endblock %}
 

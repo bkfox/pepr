@@ -3,12 +3,16 @@ body {
     background-color: #efefef;
 }
 
-main.container .box {
+.box > * {
+    margin: 0px;
+}
+
+.box {
     background-color: #fff;
     box-shadow: 0 0 0.1em rgba(0,0,0,0.2);
 }
 
-main.container .box > header {
+.box > header {
     color: #999;
     border-bottom: 0.1em rgba(0,0,0,0.2) dashed;
     margin-bottom: 0.2em;

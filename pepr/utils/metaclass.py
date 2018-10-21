@@ -78,8 +78,8 @@ class RegisterMeta(type,metaclass=RegisterMetaMeta):
         return cls.register.remove(cl)
 
     @classmethod
-    def get(cls, value):
-        return cls.register.get(value)
+    def get(cls, value, default=None):
+        return cls.register.get(value, default)
 
     @classmethod
     def clear(cls):

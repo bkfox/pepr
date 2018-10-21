@@ -17,5 +17,8 @@ Content
 -------
 - Attach resources: edit & rendering
 
+Service
+-------
+- remove Accessible from parents of service: service is first more interface/app than content
 
 

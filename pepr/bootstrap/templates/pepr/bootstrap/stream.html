@@ -1,13 +1,9 @@
-{% extends "pepr/content/service.html" %}
+{% extends "pepr/content/container.html" %}
 {% load i18n pepr_ui %}
 
-{% block header %}
-Activity Stream!
-{% endblock %}
-
-{% block content_ext %}
-<div class="box">
-    <pepr-form class="box mb-3 p-1" action="/content/" method="POST">
+{% block app %}
+<div class="box mb-3 p-1">
+    <pepr-form action="/content/" method="POST">
         {% component create_form %}
         <hr>
         <div class="text-right">
@@ -16,7 +12,7 @@ Activity Stream!
     </pepr-form>
 </div>
 
-<pepr-container collection-url="/container/{{ view.related_context.pk }}/" items-url="/content/">
+<pepr-container collection-url="/container/{{ service.related_context.pk }}/" items-url="/content/">
     <hr>
     {% for obj in object_list %}
     <div data-pk="{{ obj.pk }}" data-mod-by="{{ obj.mod_by }}">

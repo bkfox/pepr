@@ -44,10 +44,13 @@ class Container extends Collection {
      * Handle a pubsub message and update collection accordingly
      */
     onmessage(event) {
-        console.log('message', event);
         var message = event.message;
+        if(message.status != 200) {
+            console.info('error received from server', message.content);
+            return;
+        }
+
         var item = message.data;
-        // TODO handle error
         switch(message.method) {
             case 'POST': this.add(item);
                            break;

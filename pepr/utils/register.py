@@ -46,10 +46,10 @@ class Register:
         if self.entries.get(key) is entry:
             self.reset_entry(key)
 
-    def get(self, key):
+    def get(self, key, default=None):
         """ Get entry by key """
         # TODO: default using lambda
-        return self.entries.get(key)
+        return self.entries.get(key, default)
 
     def clear(self):
         """ Reset registry and remove all registered entries """

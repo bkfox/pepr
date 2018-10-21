@@ -65,28 +65,23 @@ class Slot:
     Signal used to gather items that have to be rendered, call:
 
         ```
-        signal(sender = Sender, items = [], user = None,
-                slot = '', **signal_args)
+        signal(sender = Sender, **signal_args)
         ```
 
     Return value of receivers can either be None or an item to add to
     the fetched items.
     """
-    signal_props = ['request', 'slot', 'items']
-    """
-    Base attributed passed on signal.
-    """
+    signal_args = ['request', 'slot', 'items']
+    """ Signal arguments """
 
-    def __init__(self, signal_args=None, **kwargs):
+    def __init__(self, signal_args=None, items=None, **kwargs):
         """
         :param [] signal_args: extra arguments for the signal instance.
         """
         if kwargs:
             self.__dict__.update(kwargs)
-        self.items = []
-        self.signal = Signal(
-            self.signal_props + (signal_args or [])
-        )
+        self.items = items or []
+        self.signal = Signal(self.signal_args + (signal_args or []))
 
     def add(self, item):
         """ Add an item to items list """
@@ -105,21 +100,28 @@ class Slot:
         """ Remove receiver from this Slot (forward call to signal) """
         self.signal.disconnect(*args, **kwargs)
 
-    def fetch(self, user, sender=None, **kwargs):
-        """
+    def trigger(self, **signal_args):
+        """ Send signal and return result """
+        return self.signal.send(sender=self, **{
+            k: v for k, v in signal_args.items()
+            if k in self.signal_args
+        })
+
+    def fetch(self, user, sender=None, items=None, **kwargs):
+        r"""
         Gather items by triggering signal, and return them sorted by
         priority as an iterator.
 
         :param auth.User user: user to who items are rendered
         :param sender: signal sender (if None, use self)
+        :param items: add thoses items to the returned ones
         :param \**kwargs: 'kwargs' attribute to pass to receivers
         """
-        items = []
+        items = items or []
         sender = sender or self
         results = (
-            v for r, v in self.signal.send(
-                sender=sender, items=items,
-                user=user, **kwargs
+            v for r, v in self.trigger(
+                items=items, user=user, **kwargs
             )
             if isinstance(v, SlotItem)
         )
@@ -134,8 +136,8 @@ class Slots(Register):
     key = 'slot_name'
 
     def __init__(self, *import_list):
-        """
-        :py:param \*import_list: list of Slots|dict to copy.
+        r"""
+        :param \*import_list: list of Slots|dict to copy.
         """
         super().__init__()
         for slots in import_list:

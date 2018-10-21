@@ -87,7 +87,6 @@ class Connection extends Emitter {
         window.setTimeout(function(e) { self.ontimeout(timeout); }, timeout[0]);
     }
 
-
     /**
      * Open connection to server if not yet connected.
      * @param {String} url websocket connection's url;

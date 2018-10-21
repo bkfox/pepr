@@ -4,21 +4,12 @@ from enum import IntEnum
 from django.db import models
 from django.db.models import Q
 from django.contrib.auth import models as auth
-from django.http import Http404, HttpResponse
-from django.urls import NoReverseMatch, reverse
-from django.utils import timezone as tz
-from django.utils.functional import cached_property
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 
-from model_utils.managers import InheritanceManager, \
-        InheritanceQuerySetMixin
-
-from pepr.perms.filters import IsAccessibleFilterBackend
 from pepr.perms.models import Context, Accessible, AccessibleQuerySet
 from pepr.ui.views import ComponentMixin
-from pepr.ui.models import Widget, WidgetQuerySet
-
+from pepr.utils.fields import ReferenceField
 
 
 class ContainerItem(Accessible):
@@ -45,11 +36,6 @@ class Container(ContainerItem, Context):
     #    _('subscription policy'),
     #    choices = POLICY_CHOICES,
     # )
-    uuid = models.UUIDField(
-        db_index=True, unique=True,
-        primary_key=True,
-        default=uuid.uuid4
-    )
     title = models.CharField(
         _('title'), max_length=128
     )
@@ -70,26 +56,38 @@ class Container(ContainerItem, Context):
         max_length=256,
     )
 
+    @property
+    def service_set(self):
+        return Service.objects.context(self)
+
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.title)
         return super().save(*args, **kwargs)
 
+# overwrites default Accessible's "context" field in order to make it
+# optionable. This allows to use the same base class (`Container`) for
+# both root Container, and sub-Containers.
 Container._meta.get_field('context').null = True
 Container._meta.get_field('context').blank = True
 
 
 class ContentQuerySet(AccessibleQuerySet):
     def user(self, user):
+        # we need to overwrite default `user` method in order to ensure
+        # that the author of some Content has always access to it.
         q = self.get_user_q(user)
         if not user.is_anonymous:
             q |= Q(created_by=user) | Q(mod_by=user)
         return self.filter(q).distinct()
 
+
 class Content(ContainerItem, ComponentMixin):
     """
-    Content is the actual content created by user. It is a component
-    rendered by a channel.
+    Content can be any kind of content created by user in a Container (or
+    Context).
+
+    Content is a component rendered inside a Container or Service view.
     """
     created_date = models.DateTimeField(
         _('creation date'),
@@ -155,34 +153,39 @@ class Content(ContainerItem, ComponentMixin):
         return ContentSerializer
 
 
-class Service(ContainerItem, ComponentMixin):
-    # TODO/FIXME:
-    # - widgets inclusion into container menus & sidebars
+class Service(ContainerItem):
+    """
+    A Service offers end-user level's application, that is enabled on a
+    per-container level.
+    """
+    title = models.CharField(_('title'), max_length=64)
+    slug = models.SlugField(_('slug'), max_length=64)
+    view = ReferenceField(_('view'))
+
+    in_menu = models.BooleanField(
+        _('in menu'), default=True,
+    )
     is_enabled = models.BooleanField(
-        _('enabled'),
-        default=False,
+        _('enabled'), default=False,
     )
     is_default = models.BooleanField(
-        _('default'),
-        default=False,
+        _('default'), default=False,
         help_text=_(
             'use this as service shown by default on container'
         )
     )
 
-    queryset = Content.objects.all()
-    template_name = 'pepr/content/service.html'
+    icon='fa-align-justify fas'
 
-    def get_queryset(self):
+    class Meta:
+        unique_together = ('slug', 'context')
+
+    def get_view(self):
         """
-        Return a queryset of Content objects
+        Return view instance for this request.
         """
-        return self.queryset.user(self.request.user) \
-                   .select_subclasses()
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['object_list'] = self.get_queryset()
-        return context
-
+        import inspect
+        if inspect.isclass(self.view):
+            return self.view.as_view()
+        return self.view
 

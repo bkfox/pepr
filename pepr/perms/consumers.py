@@ -11,7 +11,12 @@ from pepr.api.observer import ObserverConsumer
 from pepr.perms.models import Context
 
 
-class ContextObserver(ObserverConsumer):
+# TODO: has_perm / get_perm action (with/without model)
+# TODO: update role (on Subscription/Authorization change)
+class AccessibleObserver(ObserverConsumer):
+    """
+    Observer on accessibles (filtered by their context's id)
+    """
     context_class = Context
 
     async def get_observer_data(self, request, filter):
@@ -22,7 +27,7 @@ class ContextObserver(ObserverConsumer):
         return {'role': context.get_role(request.user)}
 
     @classmethod
-    def get_filter_value(self, instance):
+    def get_filter_value(cls, instance):
         return instance.related_context.pk
 
     async def propagate_observation(self, event, observer, instance):
@@ -30,11 +35,3 @@ class ContextObserver(ObserverConsumer):
         if not role or role.access < instance.access:
             return
         await super().propagate_observation(event, observer, instance)
-
-
-# TODO: role saving => update related subscriptions
-# TODO: - Subscription & Authorization saved => update related
-#         observer
-
-
-

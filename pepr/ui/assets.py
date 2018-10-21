@@ -22,7 +22,10 @@ js = Bundle(
 
 css = Bundle(
     # vendor
-    'vendor/css/fa-regular.css', 'vendor/css/bootstrap.css',
+    'vendor/css/fa-regular.css', 'vendor/css/fa-solid.css',
+    'vendor/css/fontawesome.css',
+    'vendor/css/bootstrap.css',
+
     # pepr/ui
     'pepr/ui/css/pepr.css',
     filters='cssmin', output='gen/packed.css'

@@ -237,5 +237,3 @@ class Accessible(models.Model):
 
     class Meta:
         abstract = True
-
-

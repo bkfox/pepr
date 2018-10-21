@@ -2,11 +2,14 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
 
 from .models import Container, Content
-from pepr.perms.consumers import ContextObserver
+from pepr.perms.consumers import AccessibleObserver
 
 
-# TODO: has_perm / get_perm action (with/without model)
-class ContainerConsumer(ContextObserver, AsyncWebsocketConsumer):
+class ContentObserver(AccessibleObserver, AsyncWebsocketConsumer):
+    """
+    Consumer class for container. This can be used to observe content
+    edition.
+    """
     context_class = Container
     model = Content
 
@@ -16,9 +19,4 @@ class ContainerConsumer(ContextObserver, AsyncWebsocketConsumer):
                                 **initkwargs)
 
 
-# ContentConsumer.connect_signals()
-ContainerConsumer.connect_signals()
-
-
-
-
+ContentObserver.connect_signals()

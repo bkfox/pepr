@@ -14,7 +14,7 @@ pages rendered on the website.
 """
 from django.http import HttpResponse
 from django.core.exceptions import ImproperlyConfigured
-from django.template import loader, RequestContext
+from django.template import loader
 from django.views.generic.base import ContextMixin, TemplateResponseMixin, View
 from django.views.generic.detail import SingleObjectMixin
 
@@ -37,8 +37,8 @@ class ComponentMixin(TemplateResponseMixin, ContextMixin):
     Name of the template to load from `get_template` can be a list of/a
     single string.
     """
-
-    request = None
+    current_user = None
+    """ Current user rendering this component """
     kwargs = None
     """ Extra-kwargs passed to this componenent """
 
@@ -68,16 +68,15 @@ class ComponentMixin(TemplateResponseMixin, ContextMixin):
         context = self.get_context_data(**kwargs)
         if context is None:
             return ''
-        context['request'] = self.request
-        context['user'] = self.request.user
+        context['user'] = self.current_user
         # return self.get_template().template.render(context)
         return self.get_template().render(context)
 
-    def render(self, request, super_view=None, **kwargs):
+    def render(self, user, super_view=None, **kwargs):
         """
         Render ComponentMixin into a string and return it
         """
-        self.request = request
+        self.current_user = user
         self.super_view = super_view
         self.kwargs = kwargs
         return self.render_to_string(**kwargs)
@@ -104,7 +103,7 @@ class ComponentDetailView(View, SingleObjectMixin):
         }
         if 'super_view' not in kwargs:
             kwargs['super_view'] = self
-        return self.object.render(request, **kwargs)
+        return self.object.render(request.user, **kwargs)
 
     def get(self, request, *args, **kwargs):
         self.object = self.get_object()
@@ -134,19 +133,17 @@ class WidgetsComp(ComponentMixin, slots.Slot):
         self.tag_name = tag_name
         self.tag_attr = tag_attrs or None
 
-    def get_context_data(self, sender=None, items=None,
-            **kwargs):
+    def get_context_data(self, sender=None, items=None, **kwargs):
         """
         :param [WidgetMixin] items: if given, use this list instead of \
             thoses from find_items
         """
         context = super().get_context_data(**kwargs)
-
-        items = items or self.fetch(self.request, sender, **kwargs)
+        items = items or self.fetch(self.current_user, sender, **kwargs)
         context['tag_name'] = self.tag_name
         context['tag_attrs'] = self.tag_attrs
         context["items"] = (
-            item.render(self.request, **kwargs) for item in items
+            item.render(self.current_user, **kwargs) for item in items
             if isinstance(item, ComponentMixin)
         )
         return context

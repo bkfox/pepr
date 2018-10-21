@@ -1,0 +1,11 @@
+{% load pepr_ui %}
+<nav class="nav flex-column box">
+{% for service in container.service_set %}
+<li class="nav-item">
+    <a href="{% url 'pepr.service' pk=container.pk service_slug=service.slug %}" class="nav-link {% if service.pk == service.pk %}active{% endif %}">
+        {% icon service.icon %}
+        {{ service.title }}
+    </a>
+</li>
+</nav>
+{% endfor %}

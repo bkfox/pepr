@@ -47,7 +47,14 @@ class Switch(Register):
     @property
     def consumer_tasks(self):
         """ Consumer tasks """
-        return (consumer.task for consumer in self.entries)
+        return (consumer.task for consumer in self.entries.values())
+
+    @property
+    def accept_frames(self):
+        """ Return True if at least one consumer accepts framesV. """
+        consumer = next((consumer for consumer in self.entries.values()
+                        if consumer.accept), None)
+        return consumer is not None
 
     @property
     def consumer_accepting_frames(self):
@@ -106,6 +113,8 @@ class Switch(Register):
         consumer = ConsumerInfo(slot, consumer, stream, task, False)
         self.entries[slot] = consumer
 
+        # FIXME: _connect_happened can be false if create is called while
+        # websocket_connect task is still running
         if self._connect_happened:
             consumer.stream.put_nowait({'type': 'websocket.connect'})
         return consumer
@@ -146,7 +155,7 @@ class Switch(Register):
         else:
             await self.send_downstream(message, consumer=consumer)
 
-    async def send_downstream(self, message, consumer):
+    async def send_downstream(self, message, consumer=None):
         """ Send message downstream """
         message['consumer'] = consumer
         if asyncio.iscoroutinefunction(self.base_send):
@@ -154,18 +163,32 @@ class Switch(Register):
         else:
             self.base_send(message)
 
+    async def accept_downstream(self, subprotocol=None):
+        """ Send `websocket.accept` upstream.  """
+        await self.send_downstream({
+            'type': 'websocket.accept', 'subprotocol': subprotocol
+        })
+
+    async def close_downstream(self):
+        """ Send `websocket.close` downstream.  """
+        await self.send_downstream({'type': 'websocket.close'})
+
     async def websocket_accept(self, message, consumer):
         """ Upstream consumer accepts connection """
+        # send downstream only when there is not consumer accepting
+        # frames.
+        send_downstream = not self.accept_frames
         consumer.accept = True
-        if self.consumer_accepting_frames == 1:
-            await self.send_downstream(message, consumer)
+        if send_downstream:
+            await self.accept_downstream(message.get('subprotocol'))
 
     async def websocket_close(self, message, consumer):
         """ Upstream consumer closes connection.  """
         consumer.accept = False
-        # emit 'close' event only when no more consumer
-        if not self.consumer_accepting_frames:
-            await self.send_downstream(message, consumer)
+        # send downstream only when there is no more consumer accepting
+        # frames
+        if self._connect_happened and not self.accept_frames:
+            await self.close_downstream()
 
     #
     # Downstream to upstream
@@ -180,7 +203,7 @@ class Switch(Register):
         for consumer in self.entries.values():
             await consumer.stream.put(message)
 
-    async def websocket_receive(self, message, slot=None):
+    async def receive(self, message, slot=None):
         """
         Dispatch received message to the upstream consumer on the given
         slot. Raises ``ValueError`` if the message can't be handled.
@@ -190,14 +213,18 @@ class Switch(Register):
             raise ValueError('not available')
         await self._dispatch_upstream(message, consumer)
 
-    async def websocket_connect(self, message):
-        """ Connection event from downstream """
+    async def connect(self):
+        """ Connection from downstream """
+        await self._dispatch_upstream({'type': 'websocket.connect'})
         self._connect_happened = True
-        await self._dispatch_upstream(message)
 
-    async def websocket_disconnect(self, message):
+        if not self.accept_frames:
+            await self.close_downstream()
+
+    async def disconnect(self, code=None):
         """ Disconnection from downstream """
-        await self._dispatch_upstream(message)
+        await self._dispatch_upstream({'type': 'websocket.disconnect',
+                                       'code': code})
         try:
             await asyncio.wait(
                 list(self.consumer_tasks),

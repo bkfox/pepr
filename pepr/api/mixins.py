@@ -18,9 +18,9 @@ from .request import RouterRequest
 action = decorators.action
 
 
-def is_action(obj):
+def is_extra_action(obj):
     """ Return True if the given object is a DRF action"""
-    return callable(obj) and hasattr(obj, 'bind_to_methods')
+    return hasattr(obj, 'mapping')
 
 
 class ConsumerSetMixin:
@@ -48,6 +48,7 @@ class ConsumerSetMixin:
 
     @classmethod
     def get_extra_actions(cls):
-        return [action for _, action in getmembers(cls, is_action)]
+        return [method for _, method in getmembers(cls, is_extra_action)]
 
+    # TODO: get_extra_action_url_map
 

@@ -277,6 +277,21 @@ class RouterConsumer(RouterConsumerBase):
         super().prepare_request(request, view)
 
     #
+    # Websocket events handling
+    #
+    async def accept(self):
+        await super().accept()
+        await self.switch.connect()
+
+    async def close(self):
+        await self.switch.disconnect()
+        await super().close()
+
+    async def disconnect(self, code):
+        await self.switch.disconnect()
+        await super().disconnect(code)
+
+    #
     # Switch message handling
     #
     async def upstream_dispatch(self, message):

@@ -27,8 +27,8 @@ class ContextObserver(ObserverConsumer):
         return {'role': context.get_role(request.user)}
 
     @classmethod
-    def get_filter_value(cls, instance):
-        return instance.related_context.pk
+    def get_observer_filter(cls, instance):
+        return str(instance.related_context.pk)
 
     async def propagate_observation(self, event, observer, instance):
         role = observer.data.get('role')

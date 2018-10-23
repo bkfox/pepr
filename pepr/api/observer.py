@@ -29,15 +29,10 @@ class ObserverConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
         return self.serializer_class(instance, **initkwargs)
 
     @classmethod
-    def get_observer_key(cls, filter=None):
-        """ Return observer key for the given filter value. """
-        return '{}'.format(filter)
-
-    @classmethod
     def get_observer_group(cls, filter):
         """ Get channels layer group name based on filter. """
-        name = 'pepr.{}.{}.{}'.format(cls.model._meta.db_table,
-                                      cls.filter_attr, filter)
+        name = '{}.{}.{}'.format(cls.model._meta.db_table,
+                                 cls.filter_attr, filter)
         return name.replace('_', '-')
 
     async def get_observer_data(self, request, filter):
@@ -47,61 +42,53 @@ class ObserverConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
         """
         return {}
 
-    @action(('get', 'post', 'delete'), detail=True)
+    @action(detail=True)
     async def observer(self, request, pk):
         """ Action: observe a Context """
-        # awaiting that PR#5605 on DRF is in release
-        if request.method.lower() == 'get':
-            func = self.observer_get
-        elif request.method.lower() == 'post':
-            func = self.observer_post
-        elif request.method.lower() == 'delete':
-            func = self.observer_delete
-        return await func(request, pk)
-
-    async def observer_get(self, request, filter):
-        key = self.get_observer_key(filter)
-        if key not in self.observers:
+        filter = str(pk)
+        if filter not in self.observers:
             return 404, {}
 
-        observer = self.observers.get(key)
+        observer = self.observers.get(filter)
         return 200, {'data': {'observer': {
             'request_id': observer.request_id
         }}}
 
-    async def observer_post(self, request, filter):
-        key = self.get_observer_key(filter)
-        if key in self.observers:
+    @observer.mapping.post
+    async def observer_post(self, request, pk):
+        filter = str(pk)
+        if filter in self.observers:
             return 403, {'content': 'yet observing'}
 
         data = await self.get_observer_data(request, filter)
         if data is None:
             return 405, {'content': 'can not observe'}
 
-        self.observers[key] = Observer(request.id, data)
+        self.observers[filter] = Observer(request.id, data)
         await self.channel_layer.group_add(
             self.get_observer_group(filter), self.channel_name,
         )
         return 200, {}
 
-    async def observer_delete(self, request, filter):
-        key = self.get_observer_key(filter)
-        if key not in self.observers:
+    @observer.mapping.delete
+    async def observer_delete(self, request, pk):
+        filter = str(pk)
+        if filter not in self.observers:
             return 200, {'content': 'not observed'}
 
-        del self.observers[key]
+        del self.observers[filter]
         await self.channel_layer.group_discard(
             self.get_observer_group(filter), self.channel_name
         )
         return 200, {}
 
     @classmethod
-    def get_filter_value(self, instance):
-        """ Return value for filter on instance. """
-        return getattr(instance, self.filter_attr, None)
+    def get_observer_filter(self, instance):
+        """ Return observer's filter value for given instance. """
+        return str(getattr(instance, self.filter_attr, None))
 
     async def propagate_observation(self, event, observer, instance):
-        """ Send update event ( = observation) to the client. """
+        """ Send update event (= observation) to the client. """
         await self.send({
             'request_id': observer.request_id,
             'status': 200,
@@ -111,15 +98,15 @@ class ObserverConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
 
     async def instance_changed(self, event):
         instance = event['instance']
-        key = self.get_observer_key(self.get_filter_value(instance))
-        observer = self.observers.get(key)
+        filter = self.get_observer_filter(instance)
+        observer = self.observers.get(filter)
         if observer:
             await self.propagate_observation(event, observer, instance)
 
     @classmethod
     def connect_signals(cls):
         def emit_event(method, instance):
-            filter = cls.get_filter_value(instance)
+            filter = cls.get_observer_filter(instance)
             group_name = cls.get_observer_group(filter)
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(group_name, {
@@ -137,5 +124,12 @@ class ObserverConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
         post_save.connect(instance_post_save, cls.model, False)
         post_delete.connect(instance_post_delete, cls.model, False)
 
-
+    #
+    # Websocket events
+    #
+    async def websocket_disconnect(self, message):
+        for filter, observer in self.observers.items():
+            await self.channel_layer.group_discard(
+                self.get_observer_group(filter), self.channel_name
+            )
 

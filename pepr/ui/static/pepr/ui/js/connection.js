@@ -155,6 +155,8 @@ class Connection extends Emitter {
         event = {
             message: JSON.parse(event.data),
         };
+        console.debug('message', event);
+
         var requestId = event.message.request_id;
         if(requestId in this.requests) {
             var request = this.requests[requestId];

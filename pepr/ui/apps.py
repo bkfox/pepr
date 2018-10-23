@@ -1,5 +1,6 @@
 from django.apps import AppConfig
 
 
-class PeprWidgetsConfig(AppConfig):
-    name = 'pepr_widgets'
+class PeprUIConfig(AppConfig):
+    name = 'pepr.ui'
+    label = 'pepr_ui'

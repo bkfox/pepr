@@ -8,11 +8,13 @@
     </pepr-form>
 </div>
 
+<hr>
+
 <pepr-container collection-url="/container/{{ service.related_context.pk }}/" items-url="/content/">
-    <hr>
     {% for obj in object_list %}
-    <div data-pk="{{ obj.pk }}" data-mod-by="{{ obj.mod_by }}" data-mod-date="{{ obj.mod_date|date:"U" }}">
-    {% component obj expand=False %}
+    <div data-id="{{ obj.pk }}">
+        {{ obj.as_data|json_script:obj.pk }}
+        {% component obj %}
     </div>
     {% endfor %}
 </pepr-container>

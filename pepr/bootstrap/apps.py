@@ -1,5 +1,7 @@
 from django.apps import AppConfig
 
 
-class ServicesConfig(AppConfig):
-    name = 'pepr_bootstrap'
+class PeprBootstrapConfig(AppConfig):
+    name = 'pepr.bootstrap'
+    label = 'pepr_bootstrap'
+

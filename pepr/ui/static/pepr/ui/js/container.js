@@ -75,7 +75,6 @@ $pepr.comps.Container = Vue.component('pepr-container', {
         }
     },
     mounted() {
-        console.log(this.collectionUrl);
         this.collection.bind(this.connection || $pepr.connection,
                              this.collectionUrl, this.itemsUrl);
     }

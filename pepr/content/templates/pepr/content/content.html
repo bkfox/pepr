@@ -1,32 +1,21 @@
-{% load i18n humanize pepr_ui %}
+{% load i18n pepr_ui humanize %}
 
+{% block content %}
 <div class="box mb-3 p-1">
-    {% block header %}
-    <header class="container-fluide">
-        <div class="row">
-            <div class="col-11">
-                {{ view.created_by|default_if_none:view.mod_by }},
-                {{ view.mod_date|naturaltime }}
-            </div>
+    <header>
+        {{ view.created_by|default_if_none:view.mod_by }},
+        {{ view.mod_date|naturaltime }}
 
-            <div class="col-1 text-right">
-                <div class="dropdown">
-                    <button class="btn btn-light dropdown-toggle" type="button" id="contentActions" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                    </button>
-                    <div class="dropdown-menu dropdown-menu-right" aria-labelledby="contentActions">
-                        {% slot "actions-menu" %}
-                    </div>
-                </div>
-            </div>
-        </div>
+        <b-dropdown right
+                toggle-class="btn-light"
+                class="float-right">
+            {% slot "actions-menu" view %}
+        </b-dropdown>
     </header>
-    {% endblock %}
-    {% block content_ext %}
-    <div class="p-2">
-        {% block content %}
-        {{ view.text }}
-        {% endblock %}
-    </div>
-    {% endblock %}
+
+    <section>
+    {{ view.text }}
+    </section>
 </div>
+{% endblock %}
 

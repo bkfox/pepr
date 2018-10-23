@@ -11,7 +11,7 @@ from django_filters import rest_framework as filters
 from rest_framework import viewsets
 
 from pepr.perms.views import AccessibleMixin
-from pepr.ui.views import ComponentMixin, Slots, WidgetsComp, SiteView
+from pepr.ui.views import ComponentMixin, Slots, Widgets, SiteView
 
 from .models import Container, Content, Service
 from .serializers import ContentSerializer
@@ -73,7 +73,7 @@ class ServiceView(SiteView, AccessibleMixin, View):
     service = None
 
     slots = Slots(SiteView.slots, {
-        'sidebar': WidgetsComp('', items=[
+        'sidebar': Widgets('', items=[
             ContainerServicesWidget()
         ]),
     })
@@ -126,7 +126,7 @@ class ContentFormComp(ComponentMixin):
     def get_form_kwargs(self):
         kwargs = self.form_kwargs or {}
         initial = kwargs.setdefault('initial', {})
-        initial.setdefault('context', self.container.pk)
+        initial.setdefault('context', self.container.id)
         initial.setdefault('access', self.container.access)
         return kwargs
 
@@ -157,6 +157,16 @@ class ContentViewSet(viewsets.ModelViewSet):
     serializer_class = ContentSerializer
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_fields = ('mod_by','mod_date','created_by','created_date')
+
+    @classmethod
+    def register_to(cls, router):
+        """
+        Register this viewset to the given router; it should be used in
+        order to provide consistent interfaces and urls using model's
+        informations (``Content.url_basename`` and ``Content.url_prefix```)
+        """
+        return router.register(cls.model.url_prefix, cls,
+                               cls.model.url_basename)
 
     def get_queryset(self):
         return self.model.objects.user(self.request.user)

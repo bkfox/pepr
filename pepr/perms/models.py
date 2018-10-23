@@ -29,6 +29,8 @@ class Context(models.Model):
     #     blank = True, null = True,
     # )
 
+    current_role = None
+
     objects = InheritanceManager()
 
     @staticmethod
@@ -45,12 +47,18 @@ class Context(models.Model):
             return AdminRole
         return None
 
-    def get_role(self, user):
+    def get_role(self, user, force=False):
         """
         Return role for user with related user subscription if present.
+        Last fetched role is cached at ``Context.current_role``, and reuse
+        in later calls of ``get_role`` when possible.
 
         :param User user: user whose access is being fetched
+        :param bool force: force to get role instead of cached value
         """
+        if not force and self.current_role and self.current_role.user == user:
+            return self.current_role
+
         # special roles overwrites subscriptions
         role = self.get_special_role(user)
         subscription = None
@@ -68,7 +76,17 @@ class Context(models.Model):
 
         if role is None:
             role = AnonymousRole
-        return role(self, user, subscription)
+        self.current_role = role(self, user, subscription)
+        return self.current_role
+
+    def has_access(self, user, access):
+        """ Return True if user has this access. """
+        # TODO: move to role
+        return self.get_role(user).access >= access
+
+    def has_perm(self, user, *args, **kwargs):
+        """ Shortcut to user's Role ``has_perm``. """
+        return self.get_role(user).has_perm(*args, **kwargs)
 
 
 class SubscriptionQuerySet(InheritanceQuerySetMixin, models.QuerySet):

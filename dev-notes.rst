@@ -15,6 +15,7 @@ UI
 
 Content
 -------
+- template: slots & element extract from collection
 - actions menu: delete, edit, bookmark, share
 - comments
 

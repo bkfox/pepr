@@ -18,6 +18,7 @@ from django.template import loader
 from django.views.generic.base import ContextMixin, TemplateResponseMixin, View
 from django.views.generic.detail import SingleObjectMixin
 
+from pepr.perms.models import Accessible, Context
 from pepr.utils import slots
 # reimport for API
 from pepr.utils.slots import Position, Slots
@@ -73,50 +74,79 @@ class ComponentMixin(TemplateResponseMixin, ContextMixin):
         # return self.get_template().template.render(context)
         return self.get_template().render(context)
 
-    def render(self, user, super_view=None, **kwargs):
+    def render(self, current_user, **kwargs):
         """
         Render ComponentMixin into a string and return it
         """
-        self.current_user = user
-        self.super_view = super_view
+        self.current_user = current_user
         self.kwargs = kwargs
         return self.render_to_string(**kwargs)
 
 
-class ComponentDetailView(View, SingleObjectMixin):
+class WidgetBase(ComponentMixin, slots.SlotItem):
+    """ Base class for both Widget and Widget """
+    # TODO: allow requiring more than one permission
+    required_perm = None
     """
-    View used to render a component model (that is ``self.object``).
-
-    Component ``render()`` is called with ``super_view`` set to self,
-    and view's ``**kwargs``.
+    Required permission codename to render the widget. It implies that
+    ``sender`` is an Accessible object.
     """
-    map_kwargs = tuple()
+    object = None
+    """ Related object if any. """
+    object_kwargs_attr = 'sender'
     """
-    List of kwargs argument names that are forwarded to object's
-    ``render`` method.
+    Attribute in render's ``**kwargs`` that is used to pass a related
+    object.
     """
 
-    def render_object(self, request):
-        """ Returned rendered component """
-        kwargs = {
-            k: self.kwargs.get(k) for k in self.map_kwargs
-            if k in self.kwargs
-        }
-        if 'super_view' not in kwargs:
-            kwargs['super_view'] = self
-        return self.object.render(request.user, **kwargs)
+    def get_context(self, context=None, **kwargs):
+        """
+        Return permission Context.
+        """
+        if not context and isinstance(self.object, Accessible):
+            return self.object.related_context
+        return context
 
-    def get(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        return HttpResponse(self.render_object(request))
+    def should_render(self, **kwargs):
+        """
+        Return True if widget should be rendered. By default it tests
+        over ``required_perms`` if any is given.
+        """
+        if not self.required_perm:
+            return True
+        if not self.current_context:
+            return False
+
+        return self.current_context.has_perm(
+            self.current_user, self.required_perm,
+            type(self.object) if isinstance(self.object, Accessible) else
+            None
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['context'] = self.current_context
+        context['object'] = self.object
+        return context
+
+    def render_to_string(self, **kwargs):
+        if not self.should_render(**kwargs):
+            return ''
+        return super().render_to_string(**kwargs)
+
+    def render(self, user, **kwargs):
+        self.object = kwargs.get(self.object_kwargs_attr)
+        self.current_context = self.get_context(**kwargs)
+        return super().render(user, **kwargs)
 
 
-class WidgetComp(ComponentMixin, slots.SlotItem):
+class Widget(WidgetBase):
     """ Base class for widgets. """
-    pass
+    def __init__(self, **kwargs):
+        self.__dict__.update(**kwargs)
 
 
-class WidgetsComp(ComponentMixin, slots.Slot):
+class Widgets(ComponentMixin, slots.Slot):
     """ Slot for widgets """
     tag_name = 'div'
     """
@@ -134,7 +164,7 @@ class WidgetsComp(ComponentMixin, slots.Slot):
         self.tag_name = tag_name
         self.tag_attr = tag_attrs or None
 
-    def get_context_data(self, sender=None, items=None, **kwargs):
+    def get_context_data(self, sender, items=None, **kwargs):
         """
         :param [WidgetMixin] items: if given, use this list instead of \
             thoses from find_items
@@ -143,6 +173,8 @@ class WidgetsComp(ComponentMixin, slots.Slot):
         items = items or self.fetch(self.current_user, sender, **kwargs)
         context['tag_name'] = self.tag_name
         context['tag_attrs'] = self.tag_attrs
+
+        kwargs['sender'] = sender
         context["items"] = (
             item.render(self.current_user, **kwargs) for item in items
             if isinstance(item, ComponentMixin)
@@ -156,9 +188,9 @@ class SiteView(View):
     views in order to have common slots and other things.
     """
     slots = Slots({
-        'head': WidgetsComp(''),
-        'top': WidgetsComp('nav'),
-        'footer': WidgetsComp('footer'),
+        'head': Widgets(''),
+        'top': Widgets('nav'),
+        'footer': Widgets('footer'),
     })
     can_standalone = True
 

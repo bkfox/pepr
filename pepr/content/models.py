@@ -6,10 +6,14 @@ from django.db.models import Q
 from django.contrib.auth import models as auth
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
+from django.urls import reverse
 
 from pepr.perms.models import Context, Accessible, AccessibleQuerySet
-from pepr.ui.views import ComponentMixin, Slots, WidgetsComp
+from pepr.ui.views import ComponentMixin, Slots, Widgets
+from pepr.ui.widgets import ActionWidget
 from pepr.utils.fields import ReferenceField
+
+from .widgets import DeleteActionWidget
 
 
 class ContainerItem(Accessible):
@@ -124,14 +128,45 @@ class Content(ContainerItem, ComponentMixin):
 
     template_name = 'pepr/content/content.html'
     slots = Slots({
-        'actions-menu': WidgetsComp(''),
+        'actions-menu': Widgets('', items=[
+            DeleteActionWidget(
+                button_class='dropdown-item',
+                action='/content/{this.object.pk}/',
+            ),
+        ])
     })
 
     class Meta:
         ordering = ('-mod_date',)
 
-    #@classmethod
-    #def get_form_view(cl, **init_kwargs):
+    url_basename = 'content'
+    url_prefix = 'content'
+
+    @property
+    def api_detail_url(self):
+        """
+        API base url for this object detail.
+        """
+        return reverse(self.url_basename + '-detail',
+                       kwargs={'pk': self.pk})
+
+    @property
+    def api_list_url(self):
+        """
+        API base url for this object detail.
+        """
+        return reverse(self.url_basename + '-list')
+
+    def as_data(self):
+        """
+        Return serialized version of this content instance.
+        """
+        return self.get_serializer_class()(
+            self, current_user=self.current_user
+        ).data
+
+    # @classmethod
+    # def get_form_view(cl, **init_kwargs):
     #    """
     #    Return form view component instance
     #    """
@@ -162,7 +197,7 @@ class Service(ContainerItem):
     per-container level.
     """
     title = models.CharField(_('title'), max_length=64)
-    slug = models.SlugField(_('slug'), max_length=64)
+    slug = models.SlugField(_('slug'), blank=True, max_length=64)
     view = ReferenceField(_('view'))
 
     in_menu = models.BooleanField(

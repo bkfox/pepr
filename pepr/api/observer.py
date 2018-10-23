@@ -102,12 +102,11 @@ class ObserverConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
 
     async def propagate_observation(self, event, observer, instance):
         """ Send update event ( = observation) to the client. """
-        serializer = self.get_serializer(instance)
         await self.send({
             'request_id': observer.request_id,
             'status': 200,
             'method': event['method'],
-            'data': serializer.data,
+            'data': self.get_serializer(instance).data,
         })
 
     async def instance_changed(self, event):

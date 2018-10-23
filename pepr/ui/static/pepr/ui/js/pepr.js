@@ -37,10 +37,13 @@ window.addEventListener('load', function() {
 
 
 window.addEventListener('load', function() {
+    vueMoment.install(Vue)
     $pepr.app = new Vue({
         el: '#app',
         data: {},
     });
+    window.app = $pepr.app;
 }, false);
+
 
 

@@ -1,10 +1,19 @@
+from django.contrib.auth import models as auth
+
 from rest_framework import serializers
 
 from pepr.content.models import Container, Content, Service
 
+class ContentAuthorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = auth.User
+        fields = ('id', 'username')
+
 
 class ContentSerializer(serializers.ModelSerializer):
     html = serializers.SerializerMethodField()
+    created_by = ContentAuthorSerializer(required=False)
+    mod_by = ContentAuthorSerializer(required=False)
 
     current_user = None
 

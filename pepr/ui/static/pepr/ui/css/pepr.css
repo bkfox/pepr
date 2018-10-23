@@ -3,13 +3,15 @@ body {
     background-color: #efefef;
 }
 
-.box > * {
+form, .box > * {
     margin: 0px;
 }
 
 .box {
     background-color: #fff;
     box-shadow: 0 0 0.1em rgba(0,0,0,0.2);
+    padding: 0.2em;
+    margin-bottom: 0.9em;
 }
 
 .box > header {

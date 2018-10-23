@@ -4,7 +4,7 @@ from django.views.generic.list import ListView
 from pepr.content.forms import ContentForm
 from pepr.content.models import Content
 from pepr.content.views import ServiceView, ContentFormComp
-# from pepr.ui.views import Slots, WidgetsComp
+# from pepr.ui.views import Slots, Widgets
 
 
 # FIXME: using ListView

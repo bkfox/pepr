@@ -14,32 +14,42 @@ def do_component(context, component, **kwargs):
     :param \*args: args to pass to `component.render`
     :param \**kwargs: kwargs to pass to `component.render`
     """
-    if 'super_view' not in kwargs:
-        kwargs['super_view'] = context['view']
     return component.render(context['user'], **kwargs)
 
 
 @register.simple_tag(name='slot', takes_context=True)
-def do_slot(context, slot_name, **kwargs):
+def do_slot(context, slot_name, sender, **kwargs):
     r"""
-    Render a WidgetsComp by slot name (using context's "slots"
+    Render a Widgets by slot name (using context's "slots"
     attribute).
 
     :param str slot_name: name of the slot on the container.
+    :param object sender: signal sender.
     :param \**kwargs: pass thoses values to ``render()``.
     """
     slot = context['slots'].get(slot_name)
     if not slot:
         return ''
-    return do_component(context, slot, **kwargs)
+    return do_component(context, slot, sender=sender, **kwargs)
+
 
 @register.simple_tag(name='icon')
-def do_icon(icon, classes=''):
+def do_icon(icon, classes='mr-2 icon'):
+    """
+    Render an icon, that can either be a FontAwesome icon or path
+    to image file. Handles case where ``icon`` is None or empty.
+
+    :param str icon: if it begins with "fa-", then FontAwesome icon,
+        otherwise path to image file;
+    :param classes: extra css class to add in icon;
+    """
+    if not icon:
+        return ''
+
     if icon.startswith('fa-'):
         html = '<span class="{icon} {classes}"></span>'
     else:
         html = '<img src="{icon}" class="{classes}">'
-
     return mark_safe(html.format(
         icon=icon, classes=classes
     ))

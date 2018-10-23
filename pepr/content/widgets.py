@@ -1,9 +1,11 @@
 
-from pepr.ui.views import WidgetComp, Position
+from django.utils.translation import ugettext, ugettext_lazy as _
 
-from .models import Service
+from pepr.ui.views import Widget, Position
+from pepr.ui.widgets import ActionWidget
 
-class ContainerServicesWidget(WidgetComp):
+
+class ContainerServicesWidget(Widget):
     """
     This widget renders a list of link to the different services
     of a given container.
@@ -16,4 +18,12 @@ class ContainerServicesWidget(WidgetComp):
         context['service'] = service
         context['services'] = container.service_set
         return context
+
+
+class DeleteActionWidget(ActionWidget):
+    title = _('Delete')
+    icon = 'fa-trash-alt fas'
+    method = 'DELETE'
+
+    required_perm = 'delete'
 

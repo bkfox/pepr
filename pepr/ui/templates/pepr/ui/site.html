@@ -2,40 +2,51 @@
 {% if not standalone %}
 <html>
     <head>
-        <meta charset="utf8">
+        <meta http-equiv="content-type" content="text/html; charset=UTF-8">
 
+        {% assets "vendor_js" %}
+        <script type="text/javascript" src="{{ ASSET_URL }}"></script>
+        {% endassets %}
         {% assets "pepr_js" %}
         <script type="text/javascript" src="{{ ASSET_URL }}"></script>
         {% endassets %}
 
+        {% assets "vendor_css" %}
+        <link href="{{ ASSET_URL }}" rel="stylesheet">
+        {% endassets %}
         {% assets "pepr_css" %}
         <link href="{{ ASSET_URL }}" rel="stylesheet">
         {% endassets %}
 
-        {% slot "head" %}
+        {% slot "head" view %}
 
         {% block head_extra %}{% endblock %}
     </head>
     <body>
-        <nav class="navbar navbar-dark bg-dark">
-            {% block navbar %}
-            <a class="navbar-brand" href="#">Pepr</a>
-
-            <ul class="navbar-nav">
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#"
-                        id="navbar-user-menu" data-toggle="dropdown"
-                        aria-haspopup="true" aria-expanded="false">
-                        {{ user }}
-                    </a>
-                    <div class="dropdown-menu" aria-labelledby="navbar-user-menu">
-                      <a class="dropdown-item" href="#">Action</a>
-                    </div>
-                </li>
-            </ul>
-            {% endblock %}
-        </nav>
         <div id="app">
+            <nav class="navbar navbar-dark bg-dark">
+                {% block navbar %}
+                <a class="navbar-brand" href="#">Pepr</a>
+
+                <b-dropdown text="you live">
+                    <b-dropdown-item>test</b-dropdown-item>
+                </b-dropdown>
+
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#"
+                            id="navbar-user-menu" data-toggle="dropdown"
+                            aria-haspopup="true" aria-expanded="false">
+                            {{ user }}
+                        </a>
+                        <div class="dropdown-menu" aria-labelledby="navbar-user-menu">
+                          <a class="dropdown-item" href="#">Action</a>
+                        </div>
+                    </li>
+                </ul>
+                {% endblock %}
+            </nav>
+
             {% block header_ext %}
             <header class="uk-heading-primary">
             {% block header %}{% endblock %}

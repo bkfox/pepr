@@ -10,6 +10,10 @@ ws_router.register('container', ContainerObserver, 'container')
 
 
 class PeprRouter(api.RouterConsumer):
+    """
+    This router class is used by instance's root consumer for WebSockets
+    routing.
+    """
     pass
 
 PeprRouter.register(ws_router.urls)

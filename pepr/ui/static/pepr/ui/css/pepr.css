@@ -1,16 +1,23 @@
 
 body {
     background-color: #efefef;
+    color: #776;
+}
+
+h1 > .icon, h2 > .icon, h3 > .icon, h4 > .icon {
+    color: #665;
+    vertical-align: middle;
 }
 
 form, .box > * {
     margin: 0px;
 }
 
+
 .box {
     background-color: #fff;
     box-shadow: 0 0 0.1em rgba(0,0,0,0.2);
-    padding: 0.2em;
+    padding: 0.6em;
     margin-bottom: 0.9em;
 }
 
@@ -18,5 +25,22 @@ form, .box > * {
     color: #999;
     border-bottom: 0.1em rgba(0,0,0,0.2) dashed;
     margin-bottom: 0.2em;
+}
+
+
+#alerts {
+    position: fixed;
+    bottom: 0px;
+    right: 0px;
+    z-index: 100000000000;
+    text-align: right;
+}
+
+#alerts > * {
+    position: relative;
+}
+
+#alerts .alert {
+    display: inline-block;
 }
 

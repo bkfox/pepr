@@ -10,7 +10,8 @@ class Collection {
          */
         this.idAttr = idAttr;
         /**
-         *  Item's attribute to use to sort items
+         *  Item's attribute to use to sort items. If it starts with a
+         *  dash '-', reverse order.
          *  @type {String}
          */
         this.sortAttr = sortAttr;
@@ -74,9 +75,16 @@ class Collection {
      */
     sort() {
         var attr = this.sortAttr;
-        this.items.sort(function(a,b) {
-            return attr ? a[attr] < b[attr] : a < b;
-        });
+        if(attr[0] == '-') {
+            attr = attr.slice(1);
+            this.items.sort(function(a,b) {
+                return attr ? a[attr] > b[attr] : a > b;
+            });
+        }
+        else
+            this.items.sort(function(a,b) {
+                return attr ? a[attr] < b[attr] : a < b;
+            });
     }
 }
 
@@ -103,7 +111,7 @@ $pepr.comps.Collection = Vue.component('pepr-collection', {
         /**
          * Collection's sortAttr
          */
-        'sortAttr': { type: String, default: 'modDate', },
+        'sortAttr': { type: String, default: 'pk', },
     },
     data: function() {
         return {

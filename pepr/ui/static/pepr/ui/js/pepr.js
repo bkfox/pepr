@@ -12,19 +12,28 @@ $pepr = {
         requestTimeout: 1000,
         autoreconnect: 5000,
     },
+
     /**
      * websockect Connnection
      */
     connection: undefined,
+
     /**
      * VueJs application
      */
     app: undefined,
+
     /**
      *  VueJS available components
      */
-    comps: []
+    comps: [],
+
+    get alerts() {
+        if($pepr.app)
+            return $pepr.app.$refs.alerts;
+    }
 }
+
 
 
 window.addEventListener('load', function() {
@@ -38,10 +47,13 @@ window.addEventListener('load', function() {
 
 window.addEventListener('load', function() {
     vueMoment.install(Vue)
+
     $pepr.app = new Vue({
         el: '#app',
-        data: {},
+        data: $pepr,
+        delimiters: ['[[', ']]'],
     });
+
     window.app = $pepr.app;
 }, false);
 

@@ -8,26 +8,17 @@ from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 from django.urls import reverse
 
-from pepr.perms.models import Context, Accessible, AccessibleQuerySet
+from pepr.perms.models import Context, AccessibleBase, Accessible, \
+        AccessibleQuerySet
 from pepr.ui.views import ComponentMixin, Slots, Widgets
 from pepr.ui.widgets import ActionWidget
+from pepr.ui.models import UserWidget
 from pepr.utils.fields import ReferenceField
 
 from .widgets import DeleteActionWidget
 
 
-class ContainerItem(Accessible):
-    uuid = models.UUIDField(
-        db_index=True, unique=True,
-        primary_key=True,
-        default=uuid.uuid4
-    )
-
-    class Meta:
-        abstract = True
-
-
-class Container(ContainerItem, Context):
+class Container(AccessibleBase, Context):
     # POLICY_EVERYONE = 0x00
     # POLICY_ON_REQUEST = 0x01
     # POLICY_ON_INVITE = 0x02
@@ -40,6 +31,16 @@ class Container(ContainerItem, Context):
     #    _('subscription policy'),
     #    choices = POLICY_CHOICES,
     # )
+    uuid = models.UUIDField(
+        db_index=True, unique=True,
+        primary_key=True,
+        default=uuid.uuid4
+    )
+    context = models.ForeignKey(
+        Context, on_delete=models.CASCADE,
+        blank=True, null=True,
+        related_name='children',
+    )
     title = models.CharField(
         _('title'), max_length=128
     )
@@ -80,19 +81,24 @@ class ContentQuerySet(AccessibleQuerySet):
     def user(self, user):
         # we need to overwrite default `user` method in order to ensure
         # that the author of some Content has always access to it.
-        q = self.get_user_q(user)
+        q = self._get_user_q(user)
         if not user.is_anonymous:
             q |= Q(created_by=user) | Q(mod_by=user)
         return self.filter(q).distinct()
 
 
-class Content(ContainerItem, ComponentMixin):
+class Content(Accessible, ComponentMixin):
     """
-    Content can be any kind of content created by user in a Container (or
-    Context).
+    Content can be any kind of content created by user and published in
+    a Container (or Context).
 
     Content is a component rendered inside a Container or Service view.
     """
+    uuid = models.UUIDField(
+        db_index=True, unique=True,
+        primary_key=True,
+        default=uuid.uuid4
+    )
     created_date = models.DateTimeField(
         _('creation date'),
         auto_now_add=True,
@@ -130,8 +136,8 @@ class Content(ContainerItem, ComponentMixin):
     slots = Slots({
         'actions-menu': Widgets('', items=[
             DeleteActionWidget(
-                button_class='dropdown-item',
-                action='/content/{this.object.pk}/',
+                css_class='dropdown-item',
+                action='/content/{this.sender.pk}/',
             ),
         ])
     })
@@ -173,14 +179,14 @@ class Content(ContainerItem, ComponentMixin):
     #    from pepr.views.content import ContentFormView
     #    return ContentFormView(cl, **init_kwargs)
 
-    def update_by(self, user):
+    def save_by(self, role, create, *args, **kwargs):
         """
         Update created_by and mod_by based on given user; publish content
         if `publish` is True.
         """
-        if not self.created_by:
-            self.created_by = user
-        self.mod_by = user
+        if not role.user.is_anonymous:
+            self.mod_by = role.user
+        super().save_by(role, create, *args, **kwargs)
 
     @classmethod
     def get_serializer_class(cl):
@@ -191,21 +197,14 @@ class Content(ContainerItem, ComponentMixin):
         return ContentSerializer
 
 
-class Service(ContainerItem):
+class Service(UserWidget):
     """
     A Service offers end-user level's application, that is enabled on a
     per-container level.
     """
-    title = models.CharField(_('title'), max_length=64)
     slug = models.SlugField(_('slug'), blank=True, max_length=64)
     view = ReferenceField(_('view'))
 
-    in_menu = models.BooleanField(
-        _('in menu'), default=True,
-    )
-    is_enabled = models.BooleanField(
-        _('enabled'), default=False,
-    )
     is_default = models.BooleanField(
         _('default'), default=False,
         help_text=_(
@@ -215,9 +214,6 @@ class Service(ContainerItem):
 
     icon='fa-align-justify fa'
 
-    class Meta:
-        unique_together = ('slug', 'context')
-
     def get_view(self):
         """
         Return view instance for this request.
@@ -226,4 +222,9 @@ class Service(ContainerItem):
         if inspect.isclass(self.view):
             return self.view.as_view()
         return self.view
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.title)
+        super().save(*args, **kwargs)
 

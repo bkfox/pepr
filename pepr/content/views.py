@@ -1,26 +1,71 @@
 import inspect
 
 from django.db.models import Prefetch
-from django.forms import HiddenInput, models as model_forms
+from django.forms import HiddenInput, TextInput, models as model_forms
 from django.http import HttpResponse, Http404
 from django.views.generic.base import View
 from django.views.generic.detail import SingleObjectMixin, DetailView
+from django.views.generic.edit import CreateView, UpdateView
 from django.utils.translation import ugettext_lazy as _, ugettext as __
 
 from django_filters import rest_framework as filters
 from rest_framework import viewsets
 
-from pepr.perms.views import AccessibleMixin
+from pepr.perms.views import AccessibleMixin, AccessibleGenericAPIMixin
 from pepr.ui.views import ComponentMixin, Slots, Widgets, SiteView
+from pepr.ui.widgets import DropdownLinkWidget
 
 from .models import Container, Content, Service
+from .forms import ContainerForm
 from .serializers import ContentSerializer
 from .widgets import ContainerServicesWidget
 
 
-class ContainerView(SingleObjectMixin, View):
+class ContainerBaseView(SiteView, View):
     """
-    Dispatch request to the view of corresponding Container's Service.
+    Base view class related to a container.
+    """
+    slots = Slots(SiteView.slots, {
+        # settings menu
+        'container-settings-menu': Widgets('', items=[
+            DropdownLinkWidget(
+                title="Settings", icon="fa-cog fas",
+                url_name='pepr.container.settings',
+                get_url_kwargs=lambda s: {'pk': s.kwargs['container'].pk},
+            )
+        ]),
+        # subscription menu management (invitation, etc.)
+        'container-subscriptions-menu': Widgets('', items=[
+        ]),
+        # left sidebar
+        'container-sidebar': Widgets('', items=[
+            ContainerServicesWidget(slot='container-sidebar')
+        ]),
+    })
+
+    template_name = 'pepr/content/container.html'
+    object = None
+
+    def get_container(self):
+        """
+        Return current container. By default, assume container is
+        ``self.object``.
+        """
+        return self.container or self.object
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['container'] = self.get_container()
+        return context
+
+    def dispatch(self, request, *args, container=None, **kwargs):
+        self.container = container
+        return super().dispatch(request, *args, **kwargs)
+
+
+class ServeServiceView(SingleObjectMixin, View):
+    """
+    Dispatch request to the view of requested service.
     """
     object = None
     model = Container
@@ -64,7 +109,8 @@ class ContainerView(SingleObjectMixin, View):
         return view(request, service, *args, container=self.object,
                     **kwargs)
 
-class ServiceView(SiteView, AccessibleMixin, View):
+
+class ServiceView(ContainerBaseView, AccessibleMixin):
     """
     Base view class used for services rendering.
     """
@@ -72,24 +118,48 @@ class ServiceView(SiteView, AccessibleMixin, View):
     container = None
     service = None
 
-    slots = Slots(SiteView.slots, {
-        'sidebar': Widgets('', items=[
-            ContainerServicesWidget()
-        ]),
-    })
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['service'] = self.service
-        context['container'] = self.container
         return context
 
     def dispatch(self, request, service, *args, container=None, **kwargs):
         self.service = service
-        self.container = container or service.related_context
-        return super().dispatch(request, *args, **kwargs)
+        container = container or service.related_context
+        return super().dispatch(request, *args, container=container, **kwargs)
 
 
+# TODO HERE:
+# - todo different settings views:
+#   - basic: edit container, default service
+#   - subscriptions
+#   - security: access, permissions
+#   - enabled services
+class ContainerSettingsView(ContainerBaseView, UpdateView):
+    """
+    Service used to manage container's settings.
+    """
+    slots = Slots(ContainerBaseView.slots, {
+        # use this to add settings tabs
+        'container-settings-tabs': Widgets(''),
+    })
+
+    model = Container
+    fields = ['title', 'description', 'access']
+    template_name = 'pepr/content/container_settings.html'
+
+    def form_valid(self, form):
+        self.object = form.save()
+        return self.get(self.request, *self.args, **self.kwargs)
+
+    def get_queryset(self):
+        return super().get_queryset().select_subclasses()
+
+
+
+#
+# Utils
+#
 class ContentFormComp(ComponentMixin):
     """
     Generic component rendering Content's form, whose class is
@@ -138,6 +208,7 @@ class ContentFormComp(ComponentMixin):
 
     def prepare_form(self, form):
         form.fields['context'].widget = HiddenInput()
+        form.fields['text'].widget = TextInput()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -152,7 +223,7 @@ class ContentFormComp(ComponentMixin):
 #
 # API
 #
-class ContentViewSet(viewsets.ModelViewSet):
+class ContentViewSet(AccessibleGenericAPIMixin, viewsets.ModelViewSet):
     model = Content
     serializer_class = ContentSerializer
     filter_backends = (filters.DjangoFilterBackend,)

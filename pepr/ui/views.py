@@ -91,20 +91,19 @@ class WidgetBase(ComponentMixin, slots.SlotItem):
     Required permission codename to render the widget. It implies that
     ``sender`` is an Accessible object.
     """
-    object = None
-    """ Related object if any. """
-    object_kwargs_attr = 'sender'
+    sender = None
+    """ Sender that emitted the signal to render widget """
+    current_context=None
     """
-    Attribute in render's ``**kwargs`` that is used to pass a related
-    object.
+    Current permission context.
     """
 
     def get_context(self, context=None, **kwargs):
         """
         Return permission Context.
         """
-        if not context and isinstance(self.object, Accessible):
-            return self.object.related_context
+        if not context and isinstance(self.sender, Accessible):
+            return self.sender.related_context
         return context
 
     def should_render(self, **kwargs):
@@ -119,14 +118,14 @@ class WidgetBase(ComponentMixin, slots.SlotItem):
 
         return self.current_context.has_perm(
             self.current_user, self.required_perm,
-            type(self.object) if isinstance(self.object, Accessible) else
+            type(self.sender) if isinstance(self.sender, Accessible) else
             None
         )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['context'] = self.current_context
-        context['object'] = self.object
+        context['sender'] = self.sender
         return context
 
     def render_to_string(self, **kwargs):
@@ -134,8 +133,8 @@ class WidgetBase(ComponentMixin, slots.SlotItem):
             return ''
         return super().render_to_string(**kwargs)
 
-    def render(self, user, **kwargs):
-        self.object = kwargs.get(self.object_kwargs_attr)
+    def render(self, user, sender=None, **kwargs):
+        self.sender = sender
         self.current_context = self.get_context(**kwargs)
         return super().render(user, **kwargs)
 

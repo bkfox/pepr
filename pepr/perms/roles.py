@@ -1,13 +1,8 @@
-import logging
-from enum import IntEnum
-
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
 from pepr.perms.permissions import Permission, Permissions
 from pepr.utils.metaclass import RegisterMeta
-
-logger = logging.getLogger(__name__)
 
 
 class Roles(RegisterMeta):
@@ -85,15 +80,11 @@ class Role(metaclass=Roles):
         perms.update({self.perm_key(p): p for p in qs})
         return perms
 
-    def get_perm(self, codename, model=None):
+    def has_access(self, access):
         """
-        Return Permision object corresponding to the given info, get
-        default permission if permission for the given model is not
-        found.
+        Return True if access level is granted
         """
-        permissions = self.permissions
-        return permissions.get((codename, model)) or \
-               model and permissions.get((codename, None))
+        return self.access >= access
 
     def has_perm(self, codename, model=None):
         """
@@ -105,22 +96,42 @@ class Role(metaclass=Roles):
         perm = self.get_perm(codename, model)
         return perm and perm.granted
 
-    @classmethod
-    def register(cl, perm):
+    def get_perm(self, codename, model=None):
         """
-        Register a default permission for this Role class
+        Return Permision object corresponding to the given info, get
+        default permission if permission for the given model is not
+        found.
         """
-        cl.defaults[cl.perm_key(perm)] = perm
+        permissions = self.permissions
+        return permissions.get((codename, model)) or \
+               model and permissions.get((codename, None))
 
     @classmethod
-    def unregister(cl, perm):
+    def register(cls, codename=None, model=None, *initargs,
+                 instance=None, **initkwargs):
+        """
+        Register a default permissions for this Role. If ``instance``
+        is not given, create a new one with provided arguments.
+
+        :return registered Permission instance
+        """
+        if instance is None:
+            cls_ = Permissions.get(codename) or Permission
+            instance = cls_(codename, model, *initargs, **initkwargs)
+        cls.defaults[cls.perm_key(instance)] = instance
+        return instance
+
+    @classmethod
+    def unregister(cls, codename=None, model=None, instance=None):
         """
         Unregister a default permission for this Role class
         """
-        del cl.defaults[cl.perm_key(perm)]
+        key = cls.perm_key(instance) if instance is not None else \
+              cls.perm_key(codename, model)
+        del cls.defautls[key]
 
     @staticmethod
-    def perm_key(perm, model = None):
+    def perm_key(perm, model=None):
         """
         Key for permission in role's permissions.
 
@@ -131,7 +142,7 @@ class Role(metaclass=Roles):
             return (perm, model)
         return (perm.codename, perm.model)
 
-    def __init__(self, context, user, subscription = None):
+    def __init__(self, context, user, subscription=None):
         self.context = context
         self.user = user
         self.subcription = subscription
@@ -178,11 +189,11 @@ class AdminRole(Role):
 
     @cached_property
     def permissions(self):
-        return [ Permission(codename, None, True)
-                    for codename in Permissions.items.keys() ]
+        return [Permission(codename, None, True)
+            for codename in Permissions.items.keys()]
 
-    def get_perm(self, codename, model = None):
+    def get_perm(self, codename, model=None):
         return Permission(codename, model, True)
 
-    def has_perm(self, codename, model = None):
+    def has_perm(self, codename, model=None):
         return True

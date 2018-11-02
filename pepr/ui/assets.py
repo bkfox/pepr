@@ -20,7 +20,7 @@ vendor_js = Bundle(
 )
 
 vendor_css = Bundle(
-    'vendor/css/fa-regular.css', 'vendor/css/fa-solid.css',
+    'vendor/css/fa-solid.css', 'vendor/css/fa-regular.css',
     'vendor/css/fontawesome.css',
     'vendor/css/bootstrap.css',
     'vendor/css/bootstrap-vue.css',

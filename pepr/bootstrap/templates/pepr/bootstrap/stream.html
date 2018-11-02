@@ -1,8 +1,8 @@
-{% extends "pepr/content/container.html" %}
+{% extends "pepr/content/service.html" %}
 {% load i18n pepr_ui %}
 
 {% block app %}
-<div class="box mb-3 p-1">
+<div class="box mb-3">
     <pepr-form action="/content/" method="POST">
         {% component create_form %}
     </pepr-form>
@@ -10,7 +10,9 @@
 
 <hr>
 
-<pepr-container collection-url="/container/{{ service.related_context.pk }}/" items-url="/content/">
+<pepr-container sortAttr="-mod_date"
+    collection-url="/container/{{ service.related_context.pk }}/"
+    items-url="/content/">
     {% for obj in object_list %}
     <div data-id="{{ obj.pk }}">
         {{ obj.as_data|json_script:obj.pk }}

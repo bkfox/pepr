@@ -18,8 +18,7 @@ class Position(IntEnum):
 
 class SlotItem:
     """
-    Item used to render content in a container. It also holds priority
-    informations.
+    Base class for items fetched from a Slot.
 
     Position is the general position in the list. It is ensured that all
     items with smaller position value will be rendered before thoses

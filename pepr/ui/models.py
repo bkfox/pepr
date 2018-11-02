@@ -9,8 +9,17 @@ from pepr.ui.views import Position, WidgetBase
 
 
 class WidgetQuerySet(AccessibleQuerySet):
-    def enabled(self, enabled=True):
-        return self.filter(enable=enabled)
+    def slot(self, slot):
+        """
+        Return widgets for the given slot and ordered by their position.
+        """
+        return self.filter(slot=slot).order_by('position', 'order')
+
+    def is_enabled(self, is_enabled=True):
+        """
+        Return enabled widgets.
+        """
+        return self.filter(is_enabled=is_enabled)
 
 
 class UserWidget(Accessible, WidgetBase):
@@ -21,7 +30,7 @@ class UserWidget(Accessible, WidgetBase):
     privileges.
     """
     POSITION_CHOICES = (
-        (v, _(k)) for k, v in Position.__members__.items()
+        (int(v), _(k)) for k, v in Position.__members__.items()
     )
 
     slot = models.CharField(
@@ -33,7 +42,7 @@ class UserWidget(Accessible, WidgetBase):
     order = models.SmallIntegerField(
         _('order'), default=0,
     )
-    enable = models.BooleanField(
+    is_enabled = models.BooleanField(
         _('enable'), default=True,
     )
     title = models.CharField(

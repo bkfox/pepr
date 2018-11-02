@@ -1,5 +1,6 @@
 import copy
 
+
 def as_choices(value_attr, label_attr, iterable):
     """
     Iterate over `iterable` and produce tuple that can be used
@@ -10,5 +11,4 @@ def as_choices(value_attr, label_attr, iterable):
         (getattr(obj, value_attr), getattr(obj, label_attr))
             for obj in iterable
     )
-
 

@@ -119,7 +119,7 @@ class RouterConsumerBase(AsyncWebsocketConsumer):
             match = self.resolve(request.path)
         except Resolver404:
             return await self.reply(request.id, 404, {
-                'content': '"{}" not found'.format(request.path)
+                'data':{'detail':'"{}" not found'.format(request.path)}
             })
 
         try:
@@ -134,14 +134,16 @@ class RouterConsumerBase(AsyncWebsocketConsumer):
                 import traceback, sys
                 exc_type, exc_value, exc_traceback = sys.exc_info()
                 payload = {
-                    'content': 'an exception occured: {}'.format(
-                        traceback.format_exception(
-                            exc_type, exc_value, exc_traceback
+                    'data': {
+                        'detail': 'an exception occured: {}'.format(
+                            traceback.format_exception(
+                                exc_type, exc_value, exc_traceback
+                            )
                         )
-                    ),
+                    },
                 }
             else:
-                payload = {'content': 'internal error'}
+                payload = {'data': {'detail': 'internal error'}}
             await self.reply(request.id, 500, payload)
 
     def prepare_request(self, request, match):

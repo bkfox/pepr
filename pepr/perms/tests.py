@@ -1,8 +1,9 @@
 from django.contrib import auth
+from django.core.exceptions import PermissionDenied
 from django.test import Client, TestCase
 
 # tests use `pepr.content` models in order to have concrete classes.
-from pepr.content.models import Container, Content
+from pepr.content.models import Content
 from pepr.perms import roles
 from pepr.perms.models import Authorization, Context, Subscription
 from pepr.perms.roles import Roles
@@ -24,30 +25,37 @@ class BaseCase(TestCase):
         """
         Return Role expected for the given user
         """
-        if user.is_anonymous: return roles.AnonymousRole
-        if user.is_superuser: return roles.AdminRole
+        if user.is_anonymous:
+            return roles.AnonymousRole
+        if user.is_superuser:
+            return roles.AdminRole
 
         role = next(filter(lambda r: r.name == user.username,
                            Roles.values()))
-        return role if role.access >= roles.MemberRole.access \
-                    else roles.DefaultRole
+
+        role = role if role.access >= roles.MemberRole.access else \
+               roles.DefaultRole
+        return role(self.context, user, user.subscription)
 
     def setup_user(self, role):
         access = role.access
 
         # user
-        user = auth.models.User(username = role.name, password='-')
+        user=auth.models.User(username=role.name, password='-')
         self.users.append(user)
         user.save()
 
         # member subscription
         if access >= roles.MemberRole.access:
-            Subscription(
-                context = self.context, access = access, user = user
-            ).save()
+            user.subscription = Subscription(
+                context=self.context, access=access, owner=user
+            )
+            user.subscription.save()
+        else:
+            user.subscription = None
 
     def setup_role(self, role):
-        Content(context = self.context, access = role.access).save()
+        Content(context=self.context, access=role.access).save()
         self.setup_user(role)
 
     def setUp(self):
@@ -70,8 +78,9 @@ class ContextCase(BaseCase):
     def do_get_special_role(self, user, expected):
         role = self.context.get_special_role(user)
         if expected:
-            self.assertEqual(role, expected,
-                'role {} expected for user {}'.format(expected.name, user.username)
+            self.assertEqual(
+                role, expected, 'role {} expected for user {}'
+                .format(expected.name, user.username)
             )
         else:
             self.assertIsNone(role, 'no role expected')
@@ -107,22 +116,88 @@ class ContextCase(BaseCase):
 
 
 class AccessibleCase(BaseCase):
-    def do_qs_user(self, user, max_access):
-        qs = Content.objects.user(user)
-        qs_ = qs.filter(access__gt = max_access)
+    model = Authorization
+    items = None
 
-        self.assertNotEqual(qs.count(), 0,
-            "there should be some content"
+    def setUp(self):
+        super().setUp()
+        self.setup_items()
+
+    def setup_items(self, **initkwargs):
+        items = [self.model(context=self.context, access=role.access,
+                            **initkwargs)
+                 for role in Roles.values()]
+        for item in items:
+            item.save()
+        self.items = items
+
+    # queryset
+    def do_qs_user(self, user, max_access):
+        qs = self.model.objects.user(user)
+        qs_ = qs.filter(access__gt=max_access)
+
+        self.assertNotEqual(
+            qs.count(), 0, "there should be some content"
         )
-        self.assertEqual(qs_.count(), 0,
-            "presence of objects with to high access: {}"
-            .format(qs_)
+        self.assertEqual(
+            qs_.count(), 0,
+            "presence of objects with to high access: {}".format(qs_)
         )
 
     def test_qs_user(self):
         for user in self.users:
             role = self.user_role(user)
             self.do_qs_user(user, role.access)
+
+    # delete/save-_by()
+    def delete_by_should_raise(self, instance, role, user):
+        return not role.has_perm('delete')
+
+    def do_delete_by(self, instance, role, user):
+        if role.access < instance.access:
+            return True
+        if self.delete_by_should_raise(instance, role, user):
+            self.assertRaises(
+                PermissionDenied, instance.delete_by, role, user
+            )
+        else:
+            instance.delete_by(role, user)
+
+    def test_delete(self):
+        for user in self.users:
+            role = self.user_role(user)
+
+            for instance in self.items:
+                instance.save()
+                self.do_delete_by(instance, role, user)
+
+    def save_by_should_raise(self, instance, role, user):
+        if role.access < instance.access:
+            return True
+        return not role.has_perm('update' if instance.id else 'create')
+
+    def do_save_by(self, instance, role, user):
+        if self.save_by_should_raise(instance, role, user):
+            self.assertRaises(
+                PermissionDenied, instance.save_by, role, user
+            )
+        else:
+            instance.save_by(role, user)
+
+    def test_save_by(self):
+        for user in self.users:
+            role = self.user_role(user)
+
+            for instance in self.items:
+                id = instance.id
+
+                # create
+                instance.id = None
+                self.do_save_by(instance, role, user)
+
+                # update
+                instance.id = id
+                self.do_save_by(instance, role, user)
 
 
 # TODO: provides case with Role.defaults set
@@ -131,14 +206,14 @@ class RoleCase(BaseCase):
         access = role.access
 
         # authorizations (from 0 to access)
-        Authorization(context = self.context, access = access,
-                      codename = str(access), model = None).save()
+        Authorization(context=self.context, access=access,
+                      codename=str(access), model=None).save()
 
         Authorization.objects.bulk_create([
             Authorization(
-                context = self.context, access = access,
-                codename = str(role.access), model = None,
-                granted = role.access == access
+                context=self.context, access=access,
+                codename=str(role.access), model=None,
+                granted=role.access == access
             )
             for role in Roles.values()
         ])
@@ -147,11 +222,11 @@ class RoleCase(BaseCase):
         super().setup_role(role)
         self.setup_authorizations(role)
 
-
     def do_permissions(self, role):
         perms = role.permissions
-        self.assertEqual(len(perms), len(Roles.register),
-             'wrong permission count for role {}'.format(role.name)
+        self.assertEqual(
+            len(perms), len(Roles.register),
+            'wrong permission count for role {}'.format(role.name)
         )
 
         for perm in perms.values():
@@ -164,6 +239,4 @@ class RoleCase(BaseCase):
             if isinstance(role, roles.AdminRole):
                 continue
             self.do_permissions(role)
-
-
 

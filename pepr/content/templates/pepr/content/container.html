@@ -2,18 +2,42 @@
 {% load i18n pepr_ui %}
 
 {% block header %}
-<h1>
-    <a href="{% url 'pepr.container' pk=container.uuid %}">
-    {{ container.title }}
-    </a>
-</h1>
+<div class="row p-2">
+    {% block header-title %}
+    <div class="col">
+        <h2>
+            {{ container.title }}
+        </h2>
+        <div class="description lead">
+            {{ container.description }}
+        </div>
+    </div>
+    {% endblock %}
+</div>
+<div class="row">
+    {% block header-bottom %}
+    <div class="col">
+
+    </div>
+    <div class="col text-right p-2">
+        <b-dropdown right toggle-class="btn btn-lg btn-primary">
+            <span slot="button-content">{% icon "fa-users fas" %}</span>
+            {% slot "container-subscription-menu" view container=container %}
+        </b-dropdown>
+        <b-dropdown right toggle-class="btn btn-lg btn-secondary">
+            <span slot="button-content">{% icon "fa-cog fas" %}</span>
+            {% slot "container-settings-menu" view container=container %}
+        </b-dropdown>
+    </div>
+    {% endblock %}
+</div>
 {% endblock %}
 
 {% block main %}
 <div class="row">
     {% if container %}
-    <div class="col-sm sidebar">
-        {% slot "sidebar" sender=view container=container service=service %}
+    <div class="col-2 sidebar">
+        {% slot "container-sidebar" sender=view container=container service=service %}
     </div>
     {% endif %}
 

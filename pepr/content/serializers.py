@@ -2,7 +2,9 @@ from django.contrib.auth import models as auth
 
 from rest_framework import serializers
 
-from pepr.content.models import Container, Content, Service
+from pepr.perms.serializers import AccessibleSerializer
+
+from .models import Container, Content, Service
 
 class ContentAuthorSerializer(serializers.ModelSerializer):
     class Meta:
@@ -10,12 +12,10 @@ class ContentAuthorSerializer(serializers.ModelSerializer):
         fields = ('id', 'username')
 
 
-class ContentSerializer(serializers.ModelSerializer):
+class ContentSerializer(AccessibleSerializer):
     html = serializers.SerializerMethodField()
     created_by = ContentAuthorSerializer(required=False)
     mod_by = ContentAuthorSerializer(required=False)
-
-    current_user = None
 
     class Meta:
         model = Content
@@ -28,21 +28,6 @@ class ContentSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('pk', 'created_date', 'created_by',
                             'mod_date', 'mod_by')
-
-    def __init__(self, *args, current_user=None, **kwargs):
-        self.current_user = current_user
-        super().__init__(*args, **kwargs)
-
-    def create(self, validated_data):
-        if self.current_user:
-            validated_data['mod_by'] = self.current_user
-            validated_data['created_by'] = self.current_user
-        return super().create(validated_data)
-
-    def update(self, instance, validated_data):
-        if self.current_user:
-            instance.update_by(self.current_user)
-        return super().update(validated_data)
 
     def get_html(self, obj):
         if self.current_user:

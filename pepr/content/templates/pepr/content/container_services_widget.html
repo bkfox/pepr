@@ -1,11 +1,32 @@
 {% load pepr_ui %}
+
+{% if not view.dropdown_menu %}
 <nav class="nav flex-column box">
+{% endif %}
+
 {% for service in container.service_set %}
-<li class="nav-item">
-    <a href="{% url 'pepr.service' pk=container.pk service_slug=service.slug %}" class="nav-link {% if service.pk == service.pk %}active{% endif %}">
+    {% if service.slot == view.slot %}
+        {% if view.dropdown_menu %}
+        <b-dropdown-item>
+        {% else %}
+        <li class="nav-item">
+        {% endif %}
+
+        <a href="{% url 'pepr.service' pk=container.pk service_slug=service.slug %}"
+           class="nav-link {% if service.pk == service.pk %}active{% endif %}">
         {% icon service.icon %}
         {{ service.title }}
-    </a>
-</li>
-</nav>
+        </a>
+
+        {% if view.dropdown_menu %}
+        </b-dropdown-item>
+        {% else %}
+        </li>
+        {% endif %}
+    </li>
+    {% endif %}
 {% endfor %}
+
+{% if not view.dropdown_menu %}
+</nav>
+{% endif %}

@@ -1,4 +1,4 @@
-from enum import IntEnum
+from django.utils.translation import ugettext_lazy as _
 
 from pepr.utils.metaclass import RegisterMeta
 
@@ -7,7 +7,7 @@ class Permissions(RegisterMeta):
     """
     Register class for permissions
     """
-    key = 'codename'
+    entry_key_attr = 'codename'
 
     @classmethod
     def get_base_class(cls):
@@ -37,4 +37,38 @@ class Permission(metaclass=Permissions):
         self.codename=codename
         self.model = model
         self.granted = granted
+
+    def _get_formated(self, attr):
+        attr = getattr(self, attr)
+        return attr.format(
+            model=self.model,
+            model_name=self.model._meta.verbose_name.title()
+                if self.model else _('element'),
+        )
+
+    def get_name(self):
+        self._get_formated('name')
+
+    def get_description(self):
+        self._get_formated('description')
+
+
+# Define a set of common permissions.
+#
+class PermissionCreate(Permission):
+    """ Permission to create object """
+    codename = 'create'
+    name = _('Create a new {model_name}')
+
+
+class PermissionUpdate(Permission):
+    """ Permission to update object """
+    codename = 'update'
+    description = _('Update any existing {model_name}')
+
+
+class PermissionDelete(Permission):
+    codename = 'delete'
+    description = _('Delete any existing {model_name}')
+
 

@@ -5,10 +5,9 @@ class PeprContentConfig(AppConfig):
     label = 'pepr_content'
 
     def ready(self):
-        from pepr.ui import assets
-
-        assets.pepr_js.contents += (
-            'pepr/content/js/content.js',
-        )
+        pass
+        #from pepr.ui import assets
+        #assets.pepr_js.contents += (
+        #)
 
 

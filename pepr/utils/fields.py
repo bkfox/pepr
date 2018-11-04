@@ -27,15 +27,15 @@ class ReferenceField(models.CharField):
                                 for choice in choices)
 
         if targets is not None:
-            choices = self.get_choices
+            choices = self.get_choices(targets)
 
         self.targets = targets
         super().__init__(*args, choices=choices, **kwargs)
 
-    def get_choices(self):
+    def get_choices(self, targets):
         return list(
             (target.__name__, self.get_prep_value(target))
-            for target in self.targets
+            for target in targets
         )
 
     def deconstruct(self):
@@ -48,6 +48,9 @@ class ReferenceField(models.CharField):
     def to_python(self, value):
         if not isinstance(value, str):
             return value
+
+        if not value:
+            return None
 
         try:
             module, name = value.rsplit('.', 1)

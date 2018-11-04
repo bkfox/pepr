@@ -1,11 +1,9 @@
-from django.contrib.contenttypes.models import ContentType
 from django.db import models
-from django.utils.translation import ugettext, ugettext_lazy as _
+from django.utils.translation import ugettext_lazy as _
 
-from model_utils.managers import InheritanceQuerySetMixin
-
-from pepr.perms.models import Accessible, AccessibleQuerySet, Context
-from pepr.ui.views import Position, WidgetBase
+from pepr.perms.models import Accessible, AccessibleQuerySet
+from pepr.ui.views import Position
+from pepr.utils.fields import ReferenceField
 
 
 class UserWidgetQuerySet(AccessibleQuerySet):
@@ -22,7 +20,7 @@ class UserWidgetQuerySet(AccessibleQuerySet):
         return self.filter(is_enabled=is_enabled)
 
 
-class UserWidget(Accessible, WidgetBase):
+class UserWidget(Accessible):
     """
     Widget generally configured by user that is stored in database.
 
@@ -33,6 +31,10 @@ class UserWidget(Accessible, WidgetBase):
         (int(v), _(k)) for k, v in Position.__members__.items()
     )
 
+    widget = ReferenceField(
+        _('widget'),
+        help_text=_('Widget class used to render component')
+    )
     slot = models.CharField(
         _('slot'), max_length=32,
     )
@@ -50,6 +52,17 @@ class UserWidget(Accessible, WidgetBase):
     )
 
     objects = UserWidgetQuerySet.as_manager()
+
+    widget_initkwargs = ('slot', 'position', 'order', 'title')
+
+    def as_widget(self):
+        """
+        Return UserWidget as a widget.
+        """
+        return self.widget(
+            **{k: getattr(self, k) for k in self.widget_initkwargs},
+            user_widget=self
+        )
 
 
 # context can be null in this particular case

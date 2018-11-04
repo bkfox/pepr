@@ -137,6 +137,14 @@ class ContainerSettingsView(ContainerBaseView, UpdateView):
     fields = ['title', 'description', 'access']
     template_name = 'pepr/content/container_settings.html'
 
+    @property
+    def object(self):
+        return self.context
+
+    @object.setter
+    def object(self, value):
+        self.context = value
+
     def form_valid(self, form):
         self.object = form.save()
         return self.get(self.request, *self.args, **self.kwargs)

@@ -98,8 +98,8 @@ class ComponentMixin(AccessibleViewMixin, TemplateResponseMixin, ContextMixin):
         return self.render_to_string(**kwargs)
 
 
-class WidgetBase(ComponentMixin, slots.SlotItem):
-    """ Base class for both Widget and Widget """
+class Widget(ComponentMixin, slots.SlotItem):
+    """ Base class for Widgets """
     # TODO/FIXME: allow requiring more than one permission #enhance
     required_perm = None
     """
@@ -116,12 +116,6 @@ class WidgetBase(ComponentMixin, slots.SlotItem):
 
         self.sender = sender
         return super().render(role, sender=sender, **kwargs)
-
-
-class Widget(WidgetBase):
-    """ Base class for widgets. """
-    def __init__(self, **kwargs):
-        self.__dict__.update(**kwargs)
 
 
 class Widgets(ComponentMixin, slots.Slot):
@@ -156,12 +150,12 @@ class Widgets(ComponentMixin, slots.Slot):
         if items is None:
             items = self.fetch(self.role, **kwargs)
             items = list(
-                    rendered for rendered in (
-                        item.render(self.role, **kwargs)
-                        for item in items
-                        if isinstance(item, ComponentMixin)
-                    )
-                    if rendered
+                rendered for rendered in (
+                    item.render(self.role, **kwargs)
+                    for item in items
+                    if isinstance(item, ComponentMixin)
+                )
+                if rendered
             )
 
         if not items:

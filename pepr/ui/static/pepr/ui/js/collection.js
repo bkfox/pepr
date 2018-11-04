@@ -123,7 +123,7 @@ $pepr.comps.Collection = Vue.component('pepr-collection', {
          * Extract items from slot
          */
         to_collection(slot) {
-            if(slot.length == 0)
+            if(!slot || slot.length == 0)
                 return;
 
             for(var i in slot) {

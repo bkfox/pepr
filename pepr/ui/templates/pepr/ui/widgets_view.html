@@ -1,13 +1,15 @@
 {# :param str tag_name: name of container tag #}
 {# :param {str: str} tag_attrs: extra attributes for container tag #}
 {# :param [ComponentMixin] items: items to render #}
-{% if tag_name %}
-<{{ tag_name }} {% for k, v in tag_attrs.items %}{{ k }}="{{ v|escape }}"{% endfor %}>
+{% load pepr_ui %}
+
+{% if view.tag_name %}
+<{{ view.tag_name }} {% tag_attrs view.tag_attrs %}>
 {% endif %}
 {% for item in items %}
 {{ item }}
 {% endfor %}
-{% if tag_name %}
-</{{ tag_name }}>
+{% if view.tag_name %}
+</{{ view.tag_name }}>
 {% endif %}
 

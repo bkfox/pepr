@@ -16,7 +16,7 @@
     {% for obj in object_list %}
     <div data-id="{{ obj.pk }}">
         {{ obj.as_data|json_script:obj.pk }}
-        {% component obj %}
+        {% component obj.as_component %}
     </div>
     {% endfor %}
 </pepr-container>

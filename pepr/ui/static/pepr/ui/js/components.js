@@ -1,4 +1,5 @@
 
+
 /**
  * An alert displayed to user
  */
@@ -6,10 +7,12 @@ $pepr.comps.Alerts = Vue.component('pepr-alerts', {
     template: `<div>
         <div v-for="alert in items"
              v-if="alert.text">
-            <b-alert fade dismissible
+            <b-alert dismissible
                 :show='alert.countDown'
                 :key='alert.id'
                 :variant="alert.variant"
+                @dismissed="remove(alert)"
+                @dismiss-count-down="onCountDown"
             >
                 <span :class="alert.icon"></span>
                 {{ alert.text }}
@@ -32,6 +35,11 @@ $pepr.comps.Alerts = Vue.component('pepr-alerts', {
     },
 
     methods: {
+        onCountDown(event) {
+            console.log(event);
+            this.countDown = event.countDown;
+        },
+
         add(variant, text, icon='fa-exclamation-circle fas') {
             var alert = {
                 id: this.lastId++,
@@ -39,10 +47,6 @@ $pepr.comps.Alerts = Vue.component('pepr-alerts', {
                 variant: variant,
                 text: text,
                 icon: icon + ' icon mr-2',
-
-                decrementCountDown(countDown) {
-                    this.countDown = countDown;
-                }
             };
             this.items.splice(0, 0, alert);
 
@@ -52,9 +56,9 @@ $pepr.comps.Alerts = Vue.component('pepr-alerts', {
         },
 
         remove(alert) {
-            var index = this.items.indexOf(this);
+            var index = this.items.indexOf(alert);
             if(index != -1)
-                this.list.splice(index,1);
+                this.items.splice(index,1);
         },
     },
 })
@@ -131,7 +135,7 @@ $pepr.comps.Form = Vue.component('pepr-form', {
             connection.send(this.action, {
                 method: this.method,
                 data: data,
-            }).onmessage = function(event) {
+            }, false, true).on('message', function(event) {
                 var message = event.message;
                 if(message.status >= 200 && message.status < 299) {
                     form.reset();
@@ -139,7 +143,7 @@ $pepr.comps.Form = Vue.component('pepr-form', {
                 }
 
                 self.message.text = message.data.detail;
-            };
+            });
         },
     }
 });

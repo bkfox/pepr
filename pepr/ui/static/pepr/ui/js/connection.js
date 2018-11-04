@@ -20,7 +20,8 @@ class Connection extends Emitter {
      * @param {Number} autoreconnect if > 0, reconnect to server when
      *     connection is closed.
      */
-    constructor(url, timeout = null, autoreconnect = 0) {
+    constructor(url, timeout = null, autoreconnect = 0)
+    {
         super();
 
         this._lastId = 0;
@@ -155,9 +156,9 @@ class Connection extends Emitter {
         event = {
             message: JSON.parse(event.data),
         };
-        console.debug('message', event);
 
         var requestId = event.message.request_id;
+        console.debug('message', event, requestId, requestId in this.requests);
         if(requestId in this.requests) {
             var request = this.requests[requestId];
             this.prepareEvent('message', event);
@@ -174,7 +175,7 @@ class Connection extends Emitter {
      * Just send data to socket if opened.
      * Returns 0 if success, -1 if socket was not opened
      */
-    send_raw(data) {
+    sendRaw(data) {
         if(this.ws.readyState != WebSocket.OPEN)
             return -1;
 
@@ -188,14 +189,14 @@ class Connection extends Emitter {
     sendRequest(req) {
         req.updateTime = Date.now();
         this.requests[req.id] = req;
-        this.send_raw(req.serialize());
+        this.sendRaw(req.serialize());
     }
 
     /**
      * Create a request, send and return it.
      */
-    send(path, payload, keepAlive = false) {
-        var req = new Request(this, path, payload, keepAlive);
+    send(path, payload, keepAlive = false, reportError=false) {
+        var req = new Request(this, path, payload, keepAlive, reportError);
         this.sendRequest(req);
         return req;
     }

@@ -6,7 +6,7 @@ register = template.Library()
 
 
 @register.simple_tag(name='component', takes_context=True)
-def do_component(context, component, **kwargs):
+def do_component(context, component, role=None, *args, **kwargs):
     r"""
     Render the given component here. parent view will be set to the
     current view.
@@ -15,11 +15,12 @@ def do_component(context, component, **kwargs):
     :param \*args: args to pass to `component.render`
     :param \**kwargs: kwargs to pass to `component.render`
     """
-    return component.render(context['user'], **kwargs)
+    role = role or context.get('role')
+    return component.render(role, *args, **kwargs)
 
 
 @register.simple_tag(name='slot', takes_context=True)
-def do_slot(context, slot_name, sender, **kwargs):
+def do_slot(context, slot_name, sender, *args, slots=None, **kwargs):
     r"""
     Render a Widgets by slot name (using context's "slots"
     attribute).
@@ -28,10 +29,11 @@ def do_slot(context, slot_name, sender, **kwargs):
     :param object sender: signal sender.
     :param \**kwargs: pass thoses values to ``render()``.
     """
-    slot = context['slots'].get(slot_name)
+    slots = slots or context['slots']
+    slot = slots.get(slot_name)
     if not slot:
         return ''
-    return do_component(context, slot, sender=sender, **kwargs)
+    return do_component(context, slot, sender=sender, *args, **kwargs)
 
 
 @register.simple_tag(name='tag_attrs')
@@ -51,8 +53,11 @@ def do_tag_attrs(attrs=None, **extra_attrs):
     if not attrs:
         return ''
 
-    return ' '.join('{}="{}"'.format(k, escape(v))
-                    for k, v in attrs.items())
+    return mark_safe(
+        ' '.join('{}="{}"'.format(k, escape(v))
+                     if v is not True else k
+                 for k, v in attrs.items())
+    )
 
 
 @register.simple_tag(name='icon')

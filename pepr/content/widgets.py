@@ -12,12 +12,11 @@ class ContainerServicesWidget(Widget):
     """
     template_name = 'pepr/content/container_services_widget.html'
 
-    def get_context_data(self, container, service=None, **kwargs):
-        context = super().get_context_data()
-        context['container'] = container
-        context['service'] = service
-        context['services'] = container.service_set
-        return context
+    def get_context_data(self, service=None, **kwargs):
+        kwargs.setdefault('container', self.context)
+        kwargs.setdefault('service', service)
+        kwargs.setdefault('services', self.context.service_set)
+        return super().get_context_data(**kwargs)
 
 
 class DeleteActionWidget(ActionWidget):

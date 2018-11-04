@@ -40,13 +40,12 @@ class RegisterMetaMeta(type):
     # __getattr__ and class level will not be called when using super()
     # proxy objects (cf. SO#12047847)
 
+
 class RegisterMeta(type,metaclass=RegisterMetaMeta):
     """
     Metaclass that register classes by a given key. It can exclude a class
     from the registry if some is returned from `get_base_class()`
     """
-    auto_register = True
-    """ If True, automatically register new classes """
     register_class = register.Register
     """ Class to use as register """
     entry_key_attr = 'id'
@@ -56,11 +55,16 @@ class RegisterMeta(type,metaclass=RegisterMetaMeta):
     def __new__(cls, name, base, attrs):
         cl = super().__new__(cls, name, base, attrs)
         try:
-            if cls.auto_register and cl != cls.get_base_class():
+            if cls.should_add(cl):
                 cls.add(cl)
         except NameError:
             pass
         return cl
+
+    @classmethod
+    def should_add(cls, cl):
+        """ Return True if this class should be registered """
+        return cl != cls.get_base_class()
 
     @classmethod
     def get_base_class(cls):
@@ -78,8 +82,8 @@ class RegisterMeta(type,metaclass=RegisterMetaMeta):
         return cls.register.remove(cl)
 
     @classmethod
-    def get(cls, value, default=None):
-        return cls.register.get(value, default)
+    def get(cls, key, default=None):
+        return cls.register.get(key, default)
 
     @classmethod
     def clear(cls):

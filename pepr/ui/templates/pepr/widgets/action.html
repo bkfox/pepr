@@ -1,0 +1,11 @@
+{% load pepr_ui %}
+<pepr-form action="{{ view.get_action }}" method="{{ view.method }}">
+    {% for name, value in view.hidden_fields %}
+    <input type="hidden" name="{{ name }}" value="{{ value }}">
+    {% endfor %}
+    <button class="{{ view.css_class }}">
+        {% icon view.icon %}
+        {{ view.get_title }}
+    </button>
+</pepr-form>
+

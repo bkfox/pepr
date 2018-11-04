@@ -19,6 +19,12 @@ class ContextObserver(ObserverConsumer):
     """
     context_class = Context
 
+    def get_serializer(self, instance, **initkwargs):
+        role = instance.related_context.get_role(self.scope['user'])
+        serializer_class = instance.get_serializer_class()
+        return serializer_class(instance, role=role,
+                                **initkwargs)
+
     async def get_observer_data(self, request, filter):
         context = self.context_class.objects.select_subclasses() \
                       .filter(pk=filter).first()

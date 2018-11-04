@@ -32,7 +32,7 @@ class Context(models.Model):
     #     blank = True, null = True,
     # )
 
-    current_role = None
+    role = None
 
     objects = InheritanceManager()
 
@@ -50,16 +50,16 @@ class Context(models.Model):
             return AdminRole
         return None
 
-    def get_role(self, user, is_current=False):
+    def get_role(self, user, force=False):
         """
         Return role for user with related user subscription if present.
-        If ``is_current``, resulting role will be set as ``self.current_role``.
+        If ``is_current``, resulting role will be set as ``self.role``.
 
         :param User user: user whose access is being fetched;
         :param bool is_current: this role is of the current request's user;
         """
-        if self.current_role and self.current_role.user == user:
-            return self.current_role
+        if not force and self.role and self.role.user == user:
+            return self.role
 
         # special roles overwrites subscriptions
         role = self.get_special_role(user)
@@ -79,17 +79,16 @@ class Context(models.Model):
             role = AnonymousRole
 
         role = role(self, user, subscription)
-        if is_current:
-            self.current_role = role
+        self.role = role
         return role
 
-    def has_access(self, user, access):
+    def has_access(self, user, *args, **kwargs):
         """ Return True if user has this access. """
-        return self.get_role(user).has_access(access)
+        return self.get_role(user).has_access(*args, **kwargs)
 
-    def has_perm(self, user, codename, model=None):
+    def has_perm(self, user, *args, **kwargs):
         """ Shortcut to user's Role ``has_perm``. """
-        return self.get_role(user).has_perm(codename, model)
+        return self.get_role(user).has_perm(*args, **kwargs)
 
 
 class AccessibleQuerySet(InheritanceQuerySetMixin, models.QuerySet):
@@ -165,59 +164,60 @@ class AccessibleBase(models.Model):
     class Meta:
         abstract = True
 
+    @property
+    def is_saved(self):
+        """
+        Return True if object has yet been saved.
+        """
+        return self.pk is None
+
+    def has_access(self, role):
+        return role.has_access(self.access)
+
+    def has_perm(self, role, codename):
+        """
+        Return False if user not permission on this object.
+        """
+        return self.has_access(role) and \
+               role.context.id == self.context.id and \
+               role.has_perm(codename, type(self))
+
     def assert_perm(self, role, codename):
         """
         Assert permission for this instance's model. If permission
         is not granted, raises a PermissionDenied.
         """
-        if role.context.id != self.context_id:
-            raise ValueError('role context is not the same than self\'s')
-
-        if not role.has_perm(codename, type(self)):
-            print('permission denied')
+        if not self.has_perm(role, codename):
             raise PermissionDenied(
                 'missing "{}" permission'.format(codename)
             )
 
-    def assert_edit_access(self, role):
-        """
-        Assert that user has sufficient access to update this object.
-        """
-        if role.access < self.access:
-            raise PermissionDenied('not sufficient access privilege')
-
-    def assert_can_delete(self, role):
-        """
-        Assert that user can delete this object.
-        """
-        self.assert_perm(role, 'delete')
-
-    def delete_by(self, role, *args, **kwargs):
+    def delete_by(self, role):
         """
         Perform deletion by this user; run permissions check before
         delete.
         """
-        self.assert_can_delete(role)
-        self.assert_edit_access(role)
-        self.delete(*args, **kwargs)
+        self.assert_perm(role, 'delete')
 
-    def assert_can_create(self, role):
-        self.assert_perm(role, 'create')
-
-    def assert_can_update(self, role):
-        self.assert_perm(role, 'update')
-
-    def save_by(self, role, create, *args, **kwargs):
+    def save_by(self, role):
         """
         Save object performed by this user; run permissions checks
         before saving.
         """
-        if create:
-            self.assert_can_create(role)
+        if not self.is_saved:
+            self.assert_perm(role, 'create')
         else:
-            self.assert_can_update(role)
-        self.assert_edit_access(role)
-        self.save(*args, **kwargs)
+            self.assert_perm(role, 'update')
+
+    def delete(self, *args, by=None, **kwargs):
+        if by is not None:
+            self.delete_by(by)
+        super().delete(*args, **kwargs)
+
+    def save(self, *args, by=None, **kwargs):
+        if by is not None:
+            self.save_by(by)
+        super().save(*args, **kwargs)
 
 
 class Accessible(AccessibleBase):
@@ -233,7 +233,7 @@ class Accessible(AccessibleBase):
         abstract = True
 
 
-class OwnedAccessibleQuerySet(AccessibleQuerySet):
+class OwnedQuerySet(AccessibleQuerySet):
     def owner(self, user):
         """
         Filter based on accessible's owner.
@@ -254,7 +254,7 @@ class OwnedAccessibleQuerySet(AccessibleQuerySet):
         return self.filter(q).distinct()
 
 
-class OwnedAccessible(Accessible):
+class Owned(Accessible):
     """
     Accessible owned by an end-user.
 
@@ -269,49 +269,42 @@ class OwnedAccessible(Accessible):
         help_text=_('user owning this object'),
     )
 
-    objects = OwnedAccessibleQuerySet.as_manager()
+    objects = OwnedQuerySet.as_manager()
 
     class Meta:
         abstract = True
 
-    def assert_edit_access(self, role):
-        """ Assert that user can edit when owner is not him. """
-        if self.owner != role.user:
+    def has_access(self, role):
+        if self.owner is not None and not role.user.is_anonymous and \
+                self.owner != role.user:
             owner_role = self.related_context.get_role(self.owner)
             if role.context.pk != owner_role.context.pk or \
-                    role.access <= owner_role.access:
-                raise PermissionDenied(
-                    'not sufficient access privilege for owner\'s object.'
-                )
-        super().assert_edit_access(role)
+                    not role.has_access(owner_role.access):
+                return False
+        return super().has_access(role)
 
-    def assert_can_delete(self, role):
-        if self.owner != role.user:
-            super().assert_can_delete(role)
+    def has_perm(self, role, codename):
+        if self.owner is not None and not role.user.is_anonymous and \
+                self.owner == role.user:
+            return True
+        return super().has_perm(role, codename)
 
-    def assert_can_create(self, role):
-        self.assert_perm(role, 'create')
-
-    def assert_can_update(self, role):
-        if self.owner is None or self.owner != role.user:
-            super().assert_can_update(role)
-
-    def save_by(self, role, create, *args, **kwargs):
+    def save_by(self, role):
         """
         User will be set as owner if there is none or object is being
         created.
         """
-        if create:
+        super().save_by(role)
+        if self.is_saved and not role.user.is_anonymous:
             self.owner = role.user
-        super().save_by(role, create, *args, **kwargs)
 
 
-class Subscription(OwnedAccessible):
+class Subscription(Owned):
     """
     Subscription of a User to a Context used in order to determine its
     role (for access and permission management) for this Context.
 
-    Subscription is an OwnedAccessible where the owner is the user
+    Subscription is an Owned where the owner is the user
     concerned by the subscription. **The ``access`` here determines
     owner's role for the given ``context``, and should not be used
     to grant access to subsciptions without a prior privilege check**:
@@ -366,6 +359,6 @@ class Authorization(Accessible):
         informations.
         """
         model = self.model.model_class() if self.model else None
-        cls = Permissions.get(self.codename) or Permission
+        cls = Permissions.get((model, self.codename)) or Permission
         return cls(self.codename, model, self.granted)
 

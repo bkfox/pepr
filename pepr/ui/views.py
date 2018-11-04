@@ -19,12 +19,13 @@ from django.views.generic.base import ContextMixin, TemplateResponseMixin, View
 from django.views.generic.detail import SingleObjectMixin
 
 from pepr.perms.models import Accessible, Context
+from pepr.perms.views import AccessibleViewMixin
 from pepr.utils import slots
 # reimport for API
 from pepr.utils.slots import Position, Slots
 
 
-class ComponentMixin(TemplateResponseMixin, ContextMixin):
+class ComponentMixin(AccessibleViewMixin, TemplateResponseMixin, ContextMixin):
     """
     A Component is an element that aims to be rendered in other views.
     It allows rendering item into a string for this purpose.
@@ -38,10 +39,20 @@ class ComponentMixin(TemplateResponseMixin, ContextMixin):
     Name of the template to load from `get_template` can be a list of/a
     single string.
     """
-    current_user = None
-    """ Current user rendering this component """
+    role = None
+    """ Current user role for rendering this component """
     kwargs = None
     """ Extra-kwargs passed to this componenent """
+    slots = None
+    """ Component's slots """
+    object = None
+    """ Current object """
+    object_list = None
+    """ Current object's list """
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.__dict__.update(**kwargs)
 
     def get_template(self, template_name=None):
         """
@@ -58,6 +69,12 @@ class ComponentMixin(TemplateResponseMixin, ContextMixin):
         return loader.get_template(name) if isinstance(name, str) else \
                     loader.select_template(name)
 
+    def get_context_data(self, **kwargs):
+        kwargs.setdefault('slots', self.slots)
+        kwargs.setdefault('object', self.object)
+        kwargs.setdefault('object_list', self.object_list)
+        return super().get_context_data(**kwargs)
+
     def render_to_string(self, **kwargs):
         r"""
         Render the component into a string (called by render), override
@@ -69,23 +86,21 @@ class ComponentMixin(TemplateResponseMixin, ContextMixin):
         context = self.get_context_data(**kwargs)
         if context is None:
             return ''
-        context['user'] = self.current_user
-        context['slots'] = getattr(self, 'slots', None)
         # return self.get_template().template.render(context)
         return self.get_template().render(context)
 
-    def render(self, current_user, **kwargs):
+    def render(self, role, **kwargs):
         """
         Render ComponentMixin into a string and return it
         """
-        self.current_user = current_user
+        self.role = role
         self.kwargs = kwargs
         return self.render_to_string(**kwargs)
 
 
 class WidgetBase(ComponentMixin, slots.SlotItem):
     """ Base class for both Widget and Widget """
-    # TODO: allow requiring more than one permission
+    # TODO/FIXME: allow requiring more than one permission #enhance
     required_perm = None
     """
     Required permission codename to render the widget. It implies that
@@ -93,50 +108,14 @@ class WidgetBase(ComponentMixin, slots.SlotItem):
     """
     sender = None
     """ Sender that emitted the signal to render widget """
-    current_context=None
-    """
-    Current permission context.
-    """
 
-    def get_context(self, context=None, **kwargs):
-        """
-        Return permission Context.
-        """
-        if not context and isinstance(self.sender, Accessible):
-            return self.sender.related_context
-        return context
+    def render(self, role, sender=None, **kwargs):
+        if self.required_perm:
+            if not sender.has_perm(role, self.required_perm):
+                return ''
 
-    def should_render(self, **kwargs):
-        """
-        Return True if widget should be rendered. By default it tests
-        over ``required_perms`` if any is given.
-        """
-        if not self.required_perm:
-            return True
-        if not self.current_context:
-            return False
-
-        return self.current_context.has_perm(
-            self.current_user, self.required_perm,
-            type(self.sender) if isinstance(self.sender, Accessible) else
-            None
-        )
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['context'] = self.current_context
-        context['sender'] = self.sender
-        return context
-
-    def render_to_string(self, **kwargs):
-        if not self.should_render(**kwargs):
-            return ''
-        return super().render_to_string(**kwargs)
-
-    def render(self, user, sender=None, **kwargs):
         self.sender = sender
-        self.current_context = self.get_context(**kwargs)
-        return super().render(user, **kwargs)
+        return super().render(role, sender=sender, **kwargs)
 
 
 class Widget(WidgetBase):
@@ -161,27 +140,38 @@ class Widgets(ComponentMixin, slots.Slot):
                  **kwargs):
         super().__init__(**kwargs)
         self.tag_name = tag_name
-        self.tag_attr = tag_attrs or None
+        self.tag_attrs = tag_attrs or None
 
-    def get_context_data(self, sender, items=None, **kwargs):
+    def get_context_data(self, sender, **kwargs):
         """
         :param [WidgetMixin] items: if given, use this list instead of \
             thoses from find_items
         """
-        context = super().get_context_data(**kwargs)
-        items = items or self.fetch(self.current_user, sender, **kwargs)
-        context['tag_name'] = self.tag_name
-        context['tag_attrs'] = self.tag_attrs
+        kwargs.setdefault('sender', sender)
 
-        kwargs['sender'] = sender
-        context["items"] = (
-            item.render(self.current_user, **kwargs) for item in items
-            if isinstance(item, ComponentMixin)
-        )
-        return context
+        # check items is empty wether it is in `kwargs` or not. Since
+        # items is first get from kwargs, use `__setitem__` instead of
+        # `setdefault`
+        items = kwargs.get('items')
+        if items is None:
+            items = self.fetch(self.role, **kwargs)
+            items = list(
+                    rendered for rendered in (
+                        item.render(self.role, **kwargs)
+                        for item in items
+                        if isinstance(item, ComponentMixin)
+                    )
+                    if rendered
+            )
+
+        if not items:
+            return
+        kwargs['items'] = items
+
+        return super().get_context_data(**kwargs)
 
 
-class SiteView(View):
+class SiteView(AccessibleViewMixin, View):
     """
     Base view for rendering the website. This can be inherited by other
     views in order to have common slots and other things.
@@ -194,10 +184,10 @@ class SiteView(View):
     can_standalone = True
 
     def get_context_data(self, *args, **kwargs):
-        context = super().get_context_data(*args, **kwargs)
-        context['slots'] = self.slots
-
-        if self.can_standalone and 'standalone' in self.request.GET:
-            context['standalone'] = True
-        return context
+        kwargs.setdefault('slots', self.slots)
+        kwargs.setdefault(
+            'standalone',
+            self.can_standalone and 'standalone' in self.request.GET
+        )
+        return super().get_context_data(*args, **kwargs)
 

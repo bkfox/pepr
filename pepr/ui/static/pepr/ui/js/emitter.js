@@ -44,7 +44,7 @@ class Emitter {
     /**
      * Return number of listeners for this event.
      */
-    count_listeners(type) {
+    countListeners(type) {
         if(!this.listeners || !(type in this.listeners))
             return 0;
         return this.listeners[type].length;

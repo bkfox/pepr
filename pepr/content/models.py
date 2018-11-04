@@ -8,10 +8,9 @@ from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 from django.urls import reverse
 
-from pepr.perms.models import Context, AccessibleBase, Accessible, \
-        AccessibleQuerySet
+from pepr.perms.models import Context, AccessibleBase, Owned, \
+        OwnedQuerySet
 from pepr.ui.views import ComponentMixin, Slots, Widgets
-from pepr.ui.widgets import ActionWidget
 from pepr.ui.models import UserWidget
 from pepr.utils.fields import ReferenceField
 
@@ -70,24 +69,12 @@ class Container(AccessibleBase, Context):
             self.slug = slugify(self.title)
         return super().save(*args, **kwargs)
 
-# overwrites default Accessible's "context" field in order to make it
-# optionable. This allows to use the same base class (`Container`) for
-# both root Container, and sub-Containers.
-Container._meta.get_field('context').null = True
-Container._meta.get_field('context').blank = True
 
+class ContentQuerySet(OwnedQuerySet):
+    def _get_user_q(self, user):
+        return super()._get_user_q(user) | Q(mod_by=user)
 
-class ContentQuerySet(AccessibleQuerySet):
-    def user(self, user):
-        # we need to overwrite default `user` method in order to ensure
-        # that the author of some Content has always access to it.
-        q = self._get_user_q(user)
-        if not user.is_anonymous:
-            q |= Q(created_by=user) | Q(mod_by=user)
-        return self.filter(q).distinct()
-
-
-class Content(Accessible, ComponentMixin):
+class Content(Owned):
     """
     Content can be any kind of content created by user and published in
     a Container (or Context).
@@ -132,21 +119,15 @@ class Content(Accessible, ComponentMixin):
 
     objects = ContentQuerySet.as_manager()
 
-    template_name = 'pepr/content/content.html'
-    slots = Slots({
-        'actions-menu': Widgets('', items=[
-            DeleteActionWidget(
-                css_class='dropdown-item',
-                action='/content/{this.sender.pk}/',
-            ),
-        ])
-    })
-
     class Meta:
         ordering = ('-mod_date',)
 
     url_basename = 'content'
     url_prefix = 'content'
+
+    @property
+    def is_saved(self):
+        return self.mod_date is not None
 
     @property
     def api_detail_url(self):
@@ -163,12 +144,17 @@ class Content(Accessible, ComponentMixin):
         """
         return reverse(self.url_basename + '-list')
 
+    def as_component(self):
+        """ Return component that renders self. """
+        from .components import ContentComp
+        return ContentComp(object=self)
+
     def as_data(self):
         """
         Return serialized version of this content instance.
         """
         return self.get_serializer_class()(
-            self, current_user=self.current_user
+            self, # role=self.role
         ).data
 
     # @classmethod
@@ -179,15 +165,6 @@ class Content(Accessible, ComponentMixin):
     #    from pepr.views.content import ContentFormView
     #    return ContentFormView(cl, **init_kwargs)
 
-    def save_by(self, role, create, *args, **kwargs):
-        """
-        Update created_by and mod_by based on given user; publish content
-        if `publish` is True.
-        """
-        if not role.user.is_anonymous:
-            self.mod_by = role.user
-        super().save_by(role, create, *args, **kwargs)
-
     @classmethod
     def get_serializer_class(cl):
         """
@@ -195,6 +172,15 @@ class Content(Accessible, ComponentMixin):
         """
         from pepr.content.serializers import ContentSerializer
         return ContentSerializer
+
+    def save_by(self, role):
+        """
+        Update created_by and mod_by based on given user; publish content
+        if `publish` is True.
+        """
+        if not role.user.is_anonymous:
+            self.mod_by = role.user
+        super().save_by(role)
 
 
 class Service(UserWidget):
@@ -214,7 +200,7 @@ class Service(UserWidget):
 
     icon='fa-align-justify fa'
 
-    def get_view(self):
+    def as_view(self):
         """
         Return view instance for this request.
         """

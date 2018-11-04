@@ -30,6 +30,6 @@ class ContentSerializer(AccessibleSerializer):
                             'mod_date', 'mod_by')
 
     def get_html(self, obj):
-        if self.current_user:
-            return obj.render(self.current_user)
+        if self.role:
+            return obj.render(self.role)
 

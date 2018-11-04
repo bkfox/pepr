@@ -89,7 +89,7 @@ class Slot:
 
     def remove(self, item):
         """ Remove an item from items list """
-        del self.items[item]
+        self.items.remove(item)
 
     def connect(self, *args, **kwargs):
         """ Register receiver to this Slot (forward call to signal) """
@@ -124,7 +124,17 @@ class Slot:
             )
             if isinstance(v, SlotItem)
         )
-        return sorted(itertools.chain(self.items, items, results))
+
+        # when there is only self.items, we return them immediately
+        # since they are yet sorted.
+        try:
+            items.append(next(results))
+        except StopIteration:
+            if not items:
+                return self.items
+
+        items = itertools.chain(self.items, items, results)
+        return sorted(items)
 
 
 class Slots(Register):
@@ -151,6 +161,3 @@ class Slots(Register):
         """ Disconnect a receiver from all slots """
         for slot in self.entries:
             slot.disconnect(receiver)
-
-
-

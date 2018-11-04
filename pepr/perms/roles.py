@@ -1,8 +1,12 @@
+import logging
+
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
 from pepr.perms.permissions import Permission, Permissions
 from pepr.utils.metaclass import RegisterMeta
+
+logger = logging.getLogger('pepr')
 
 
 class Roles(RegisterMeta):
@@ -94,7 +98,7 @@ class Role(metaclass=Roles):
         :param Model model: if perm is a string, specifies model.
         """
         perm = self.get_perm(codename, model)
-        return perm and perm.granted
+        return perm and perm.has_perm(self)
 
     def get_perm(self, codename, model=None):
         """
@@ -194,6 +198,9 @@ class AdminRole(Role):
 
     def get_perm(self, codename, model=None):
         return Permission(codename, model, True)
+
+    def has_access(self, access):
+        return True
 
     def has_perm(self, codename, model=None):
         return True

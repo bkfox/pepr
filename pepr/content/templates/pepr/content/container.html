@@ -6,10 +6,10 @@
     {% block header-title %}
     <div class="col">
         <h2>
-            {{ container.title }}
+            {{ context.title }}
         </h2>
         <div class="description lead">
-            {{ container.description }}
+            {{ context.description }}
         </div>
     </div>
     {% endblock %}
@@ -22,11 +22,11 @@
     <div class="col text-right p-2">
         <b-dropdown right toggle-class="btn btn-lg btn-primary">
             <span slot="button-content">{% icon "fa-users fas" %}</span>
-            {% slot "container-subscription-menu" view container=container %}
+            {% slot "container-subscription-menu" view role=role %}
         </b-dropdown>
         <b-dropdown right toggle-class="btn btn-lg btn-secondary">
             <span slot="button-content">{% icon "fa-cog fas" %}</span>
-            {% slot "container-settings-menu" view container=container %}
+            {% slot "container-settings-menu" view role=role %}
         </b-dropdown>
     </div>
     {% endblock %}
@@ -35,10 +35,8 @@
 
 {% block main %}
 <div class="row">
-    {% if container %}
-    <div class="col-2 sidebar">
-        {% slot "container-sidebar" sender=view container=container service=service %}
-    </div>
+    {% if context %}
+    {% slot "container-sidebar" view role=role service=service %}
     {% endif %}
 
     <div class="col-10">

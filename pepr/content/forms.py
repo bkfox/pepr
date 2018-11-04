@@ -1,9 +1,8 @@
+from pepr.perms.forms import OwnedForm
+from .models import Content, Container
 
-from django.forms import ModelForm
-from drf_braces.forms.serializer_form import SerializerForm
-from pepr.content.models import Content, Container
 
-class ContentForm(ModelForm):
+class ContentForm(OwnedForm):
     """
     Content form creation and edition.
     """
@@ -12,7 +11,7 @@ class ContentForm(ModelForm):
         fields = ['context', 'text', 'access']
 
 
-class ContainerForm(ModelForm):
+class ContainerForm(OwnedForm):
     """
     Container form creation and edition.
     """

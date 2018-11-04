@@ -6,7 +6,9 @@
  * @fires Request#close
  */
 class Request extends Emitter {
-    constructor(connection, path, payload, keepAlive = false) {
+    constructor(connection, path, payload, keepAlive=false,
+                reportError=false)
+    {
         super();
         /**
          *  @type {Connection}
@@ -34,6 +36,11 @@ class Request extends Emitter {
          *  @type {bool}
          */
         this.keepAlive = keepAlive;
+
+        /**
+         *  @type {bool}
+         */
+        this.reportError = reportError;
     }
 
     /**
@@ -81,6 +88,10 @@ class Request extends Emitter {
          *  request from the connection.
          *  @event Request#message
          */
+        console.log('request msg', event, this.reportError)
+        if(this.reportError &&
+               (event.message.status < 200 || event.message.status >= 400))
+            $pepr.alerts.add('danger',event.message.data.detail)
         this.emit('message', event);
     }
 

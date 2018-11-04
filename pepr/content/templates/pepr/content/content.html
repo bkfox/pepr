@@ -3,30 +3,28 @@
 {% block content %}
 <div class="box mb-3">
     <header>
-        {{ view.created_by|default_if_none:view.mod_by }},
-        {{ view.mod_date|naturaltime }}
+        {{ object.created_by|default_if_none:object.mod_by }},
+        {{ object.mod_date|naturaltime }}
 
         <div class="float-right">
             {% if not user.is_anonymous %}
             <span right class="badge badge-info"
                   aria-label="{% trans "Element visibility" %}"
-                  {% with view.get_access_display as role %}
+                  {% with object.get_access_display as role %}
                   title="{% blocktrans %}{{role}} can view it{% endblocktrans %}"
                   aria-description="{% blocktrans %}{{role}} can view it{% endblocktrans %}"
                   {% endwith %}
                   >
                 {% icon "fa-eye far" %}
-                {{ view.get_access_display }}
+                {{ object.get_access_display }}
             </span>
-            <b-dropdown right toggle-class="btn-light">
-                {% slot "actions-menu" view %}
-            </b-dropdown>
+            {% slot "actions-menu" object %}
             {% endif %}
         </div>
     </header>
 
     <section>
-    {{ view.text }}
+    {{ object.text }}
     </section>
 </div>
 {% endblock %}

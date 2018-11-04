@@ -1,5 +1,6 @@
 from django.utils.translation import ugettext_lazy as _
 
+from pepr.utils.register import Register
 from pepr.utils.metaclass import RegisterMeta
 
 
@@ -7,7 +8,16 @@ class Permissions(RegisterMeta):
     """
     Register class for permissions
     """
-    entry_key_attr = 'codename'
+    class Register(Register):
+        def get_entry_key(self, entry):
+            return (entry.model, entry.codename)
+
+    register_class = Register
+
+    @classmethod
+    def should_add(cls, cl):
+        return cl.model and cl.codename and \
+                super().should_add(cl)
 
     @classmethod
     def get_base_class(cls):
@@ -38,6 +48,9 @@ class Permission(metaclass=Permissions):
         self.model = model
         self.granted = granted
 
+    def has_perm(self, role):
+        return self.granted
+
     def _get_formated(self, attr):
         attr = getattr(self, attr)
         return attr.format(
@@ -53,22 +66,17 @@ class Permission(metaclass=Permissions):
         self._get_formated('description')
 
 
-# Define a set of common permissions.
-#
 class PermissionCreate(Permission):
     """ Permission to create object """
     codename = 'create'
     name = _('Create a new {model_name}')
-
 
 class PermissionUpdate(Permission):
     """ Permission to update object """
     codename = 'update'
     description = _('Update any existing {model_name}')
 
-
 class PermissionDelete(Permission):
     codename = 'delete'
     description = _('Delete any existing {model_name}')
-
 

@@ -9,7 +9,7 @@ Different attributes on widgets are format()ted at rendering with
 """
 from django.urls import reverse
 
-from .views import Widget
+from .views import Widget, Widgets
 
 
 class LabelWidget(Widget):

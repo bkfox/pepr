@@ -11,7 +11,7 @@ from django.utils.translation import ugettext_lazy as _, ugettext as __
 from django_filters import rest_framework as filters
 from rest_framework import viewsets
 
-from pepr.perms.views import AccessibleMixin, AccessibleGenericAPIMixin
+from pepr.perms.views import AccessibleViewMixin, AccessibleGenericAPIMixin
 from pepr.ui.views import ComponentMixin, Slots, Widgets, SiteView
 from pepr.ui.widgets import DropdownLinkWidget
 
@@ -21,7 +21,7 @@ from .serializers import ContentSerializer
 from .widgets import ContainerServicesWidget
 
 
-class ContainerBaseView(SiteView, View):
+class ContainerBaseView(SiteView):
     """
     Base view class related to a container.
     """
@@ -31,38 +31,25 @@ class ContainerBaseView(SiteView, View):
             DropdownLinkWidget(
                 title="Settings", icon="fa-cog fas",
                 url_name='pepr.container.settings',
-                get_url_kwargs=lambda s: {'pk': s.kwargs['container'].pk},
+                get_url_kwargs=lambda s: {'pk': s.context.pk},
             )
         ]),
         # subscription menu management (invitation, etc.)
         'container-subscriptions-menu': Widgets('', items=[
         ]),
         # left sidebar
-        'container-sidebar': Widgets('', items=[
-            ContainerServicesWidget(slot='container-sidebar')
-        ]),
+        'container-sidebar': Widgets(
+            'div', {'class': 'col-2 sidebar'},
+            items=[ContainerServicesWidget(slot='container-sidebar')]
+        ),
     })
 
     template_name = 'pepr/content/container.html'
     object = None
 
-    def get_container(self):
-        """
-        Return current container. By default, assume container is
-        ``self.object``.
-        """
-        return self.container or self.object
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['container'] = self.get_container()
-        return context
-
-    def dispatch(self, request, *args, container=None, **kwargs):
-        self.container = container
-        return super().dispatch(request, *args, **kwargs)
 
 
+# FIXME: generic version as RoleViewMixin in perms or ui?
 class ServeServiceView(SingleObjectMixin, View):
     """
     Dispatch request to the view of requested service.
@@ -98,24 +85,25 @@ class ServeServiceView(SingleObjectMixin, View):
         return self.get_service_queryset().first()
 
     def dispatch(self, request, *args, **kwargs):
+        # FIXME: more elegant flow
         self.object = self.get_object()
         if self.object is None:
-            raise Http404(__('{container} not found').format(
-                container=self.model._meta.verbose_name
+            raise Http404(__('{context} not found').format(
+                context=self.model._meta.verbose_name
             ))
 
+        role = self.object.get_role(request.user)
         service = self.get_service()
-        view = service.get_view()
-        return view(request, service, *args, container=self.object,
+        view = service.as_view()
+        return view(request, service, *args, role=role,
                     **kwargs)
 
 
-class ServiceView(ContainerBaseView, AccessibleMixin):
+class ServiceView(ContainerBaseView):
     """
     Base view class used for services rendering.
     """
     template_name = 'pepr/content/container.html'
-    container = None
     service = None
 
     def get_context_data(self, **kwargs):
@@ -123,10 +111,11 @@ class ServiceView(ContainerBaseView, AccessibleMixin):
         context['service'] = self.service
         return context
 
-    def dispatch(self, request, service, *args, container=None, **kwargs):
+    def dispatch(self, request, service, *args, role=None, **kwargs):
         self.service = service
-        container = container or service.related_context
-        return super().dispatch(request, *args, container=container, **kwargs)
+        if role is None:
+            role = service.related_context.get_user(request.user)
+        return super().dispatch(request, *args, role=role, **kwargs)
 
 
 # TODO HERE:
@@ -159,68 +148,7 @@ class ContainerSettingsView(ContainerBaseView, UpdateView):
 
 #
 # Utils
-#
-class ContentFormComp(ComponentMixin):
-    """
-    Generic component rendering Content's form, whose class is
-    ``form_class`` or created using Content's serializer (retrieved from
-    ``Content.get_serializer_class``).
-    """
-    slots = Slots({
-    })
-
-    model = None
-    """
-    Model concerned by the form.
-    """
-
-    form_class = None
-    """
-    Form class used for rendering. If None, get serializer from Content
-    model and create a form using it.
-    """
-    container = None
-    """ context to post content on """
-    form_kwargs = None
-    """ form init kwargs """
-    template_name = 'pepr/content/content_form.html'
-
-    def get_form_class(self):
-        if self.form_class:
-            return self.form_class
-
-        serializer = self.model.get_serializer_class()
-        fields = serializer._writable_fields
-        return model_forms.modelform_factory(self.model, fields=fields)
-
-    def get_form_kwargs(self):
-        kwargs = self.form_kwargs or {}
-        initial = kwargs.setdefault('initial', {})
-        initial.setdefault('context', self.container.id)
-        initial.setdefault('access', self.container.access)
-        return kwargs
-
-    def get_form(self):
-        form_class = self.get_form_class()
-        form = form_class(**self.get_form_kwargs())
-        self.prepare_form(form)
-        return form
-
-    def prepare_form(self, form):
-        form.fields['context'].widget = HiddenInput()
-        form.fields['text'].widget = TextInput()
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['form'] = self.get_form()
-        return context
-
-    def __init__(self, form_class, container, **kwargs):
-        self.form_class = form_class
-        self.container = container
-        self.__dict__.update(kwargs)
-
-#
+##
 # API
 #
 class ContentViewSet(AccessibleGenericAPIMixin, viewsets.ModelViewSet):
@@ -241,9 +169,5 @@ class ContentViewSet(AccessibleGenericAPIMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         return self.model.objects.user(self.request.user)
-
-    def get_serializer(self, *args, **kwargs):
-        kwargs.setdefault('current_user', self.request.user)
-        return super().get_serializer(*args, **kwargs)
 
 

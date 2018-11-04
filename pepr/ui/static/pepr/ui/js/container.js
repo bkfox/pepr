@@ -45,11 +45,12 @@ class Container extends Collection {
      */
     onmessage(event) {
         var message = event.message;
-        if(message.status != 200) {
+        if(message.status >= 300) {
             console.info('error received from server', message.content);
             return;
         }
 
+        console.log('>> message', event);
         var item = message.data;
         switch(message.method) {
             case 'POST': this.add(item);

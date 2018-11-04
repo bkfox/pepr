@@ -8,7 +8,7 @@ from pepr.perms.models import Accessible, AccessibleQuerySet, Context
 from pepr.ui.views import Position, WidgetBase
 
 
-class WidgetQuerySet(AccessibleQuerySet):
+class UserWidgetQuerySet(AccessibleQuerySet):
     def slot(self, slot):
         """
         Return widgets for the given slot and ordered by their position.
@@ -49,7 +49,7 @@ class UserWidget(Accessible, WidgetBase):
         max_length=64, blank=True, null=True,
     )
 
-    objects = WidgetQuerySet.as_manager()
+    objects = UserWidgetQuerySet.as_manager()
 
 
 # context can be null in this particular case

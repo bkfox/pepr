@@ -10,6 +10,7 @@ Per application:
    - file upload
 - Perms:
    - Reusable permission editor view form
+   - templatetags: "role" filter ("container|role:request.user")
 - Content:
    - Content:
       - derive from OwnedAccessible

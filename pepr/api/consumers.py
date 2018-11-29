@@ -175,12 +175,22 @@ class RouterBaseConsumer(AsyncWebsocketConsumer):
 
         if isinstance(response, RestResponse):
             status, data = response.status_code, {'data': response.data}
+            if 'content' in response.__dict__:
+                data['content'] = response.content
+            elif response.template_name:
+                response.render()
+                data['content'] = response.content
         elif isinstance(response, HttpResponse):
             status, data = response.status_code, {'content': response.content}
         elif isinstance(response, tuple) and len(response) == 2:
             status, data = response
         else:
             raise ValueError('invalid response from view: {}'.format(response))
+
+        # Ensure data.context is not `bytes`: must be a string for
+        # serialization.
+        if 'content' in data and isinstance(data['content'], bytes):
+            data['content'] = data['content'].decode('utf-8')
 
         await self.reply(request.id, status, data)
 
@@ -317,7 +327,7 @@ class RouterConsumer(RouterBaseConsumer):
         # to `register`.
         if not isclass(match.func) or \
                 not issubclass(match.func, AsyncConsumer):
-            return super().process_request(request, match)
+            return await super().process_request(request, match)
 
         message = self.prepare_upstream_message(request, match)
         await self.switch.receive(message, slot=match.func)

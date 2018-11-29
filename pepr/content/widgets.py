@@ -33,8 +33,9 @@ class EditActionWidget(ActionWidget):
     icon = 'fa-edit fas'
     required_perm = 'update'
 
-    action = 'load_modal'
+    action = 'submit'
     method = 'GET'
+    target = 'modal'
     url = '{object.api_detail_url}edit_form/'
 
 

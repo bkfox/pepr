@@ -71,7 +71,7 @@ $pepr.comps.Alerts = Vue.component('pepr-alerts', {
 $pepr.comps.Dynamic = Vue.component('pepr-dynamic', {
     template: `<div></div>`,
     data() {
-        return $pepr;
+        return $pepr.app
     },
     props: {
         elm: { type: Element },
@@ -103,11 +103,7 @@ $pepr.comps.Dynamic = Vue.component('pepr-dynamic', {
 
 
 $pepr.comps.Modal = Vue.component('pepr-modal', {
-    template: `
-        <b-modal ref="modal">
-            <pepr-dynamic :html="html"></pepr-dynamic>
-        </b-modal>
-    `,
+    template: '<b-modal ref="modal">${html}</b-modal>',
     data() {
         return {
             'html': '',
@@ -115,31 +111,20 @@ $pepr.comps.Modal = Vue.component('pepr-modal', {
     },
 
     methods: {
-        load(event) {
-            var req = $pepr.connection.submit(event);
-            var self = this;
-            req.on('message', function(e) {
-                self.html = (e.message.data.html || e.message.data.detail);
-                // fix some obscure bug with single-quotes
-                self.html = self.html.replace('&#39;', "'");
-            });
-
-            this.show();
-        },
-
         hide() {
             this.$refs.modal.hide();
         },
 
-        show() {
+        show(reset) {
+            if(reset)
+                // TODO: 'loading' state
+                this.html = ''
             this.$refs.modal.show();
         },
     },
 
     render(h) {
-        var html = this.html ? '<b-modal size="lg" ref="modal" class="remote">' +
-                               this.html + '</b-modal>' :
-                               this.$options.template;
+        var html = this.$options.template.replace('${html}', this.html || '');
         var template = Vue.compile(html);
         this.$options.staticRenderFns = template.staticRenderFns;
         return template.render.call(this, h);

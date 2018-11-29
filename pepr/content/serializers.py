@@ -15,21 +15,21 @@ class ContentAuthorSerializer(serializers.ModelSerializer):
 
 class ContentSerializer(AccessibleSerializer):
     html = serializers.SerializerMethodField(required=False)
-    created_by = ContentAuthorSerializer(required=False)
-    mod_by = ContentAuthorSerializer(required=False)
+    owner = ContentAuthorSerializer(required=False)
+    modifier = ContentAuthorSerializer(required=False)
 
     class Meta:
         model = Content
         fields = (
             'pk',
-            'created_date', 'created_by',
-            'mod_date', 'mod_by',
+            'created', 'owner',
+            'modified', 'modifier',
             'context', 'text',
             'access',
             'html'
         )
-        read_only_fields = ('pk', 'created_date', 'created_by',
-                            'mod_date', 'mod_by')
+        read_only_fields = ('pk', 'created', 'owner',
+                            'modified', 'modifier')
 
     def get_html(self, obj):
         if self.role or self.user:

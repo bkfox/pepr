@@ -8,6 +8,8 @@ from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 from django.urls import reverse
 
+from model_utils.models import TimeStampedModel
+
 from pepr.perms.models import Context, AccessibleBase, Owned, \
         OwnedQuerySet
 from pepr.ui.components import Component, Slots, Widgets
@@ -73,11 +75,11 @@ class Container(AccessibleBase, Context):
 class ContentQuerySet(OwnedQuerySet):
     def _get_user_q(self, user):
         if not user.is_anonymous:
-            return super()._get_user_q(user) | Q(mod_by=user)
+            return super()._get_user_q(user) | Q(modifier=user)
         return super()._get_user_q(user)
 
 
-class Content(Owned):
+class Content(Owned,TimeStampedModel):
     """
     Content can be any kind of content created by user and published in
     a Container (or Context).
@@ -89,25 +91,8 @@ class Content(Owned):
         primary_key=True,
         default=uuid.uuid4
     )
-    created_date = models.DateTimeField(
-        _('creation date'),
-        auto_now_add=True,
-        null=True, blank=True,
-        help_text=_('date of creation'),
-    )
-    created_by = models.ForeignKey(
-        auth.User,
-        on_delete=models.SET_NULL,
-        verbose_name=_('created by'),
-        null=True, blank=True,
-        related_name='+',
-    )
-    mod_date = models.DateTimeField(
-        _('modification date'),
-        auto_now=True,
-        help_text=_('date of last modification'),
-    )
-    mod_by = models.ForeignKey(
+    # modifier read-only field
+    modifier = models.ForeignKey(
         auth.User,
         on_delete=models.SET_NULL,
         verbose_name=_('modified by'),
@@ -123,7 +108,7 @@ class Content(Owned):
     objects = ContentQuerySet.as_manager()
 
     class Meta:
-        ordering = ('-mod_date',)
+        ordering = ('-modified',)
 
     api_base_url = '/content/'
 
@@ -133,7 +118,8 @@ class Content(Owned):
 
     @property
     def is_saved(self):
-        return self.mod_date is not None
+        # FIXME: not the most sure ever but beyond our possibilities
+        return self.modifier is not None
 
     def as_component(self):
         """ Return component that renders self. """
@@ -159,10 +145,10 @@ class Content(Owned):
 
     def save_by(self, role):
         super().save_by(role)
-        # `mod_by` must be updated to the given role's user. we do it
+        # `modifier` must be updated to the given role's user. we do it
         # after cauz' there is no need to do it before.
         if not role.user.is_anonymous:
-            self.mod_by = role.user
+            self.modifier = role.user
 
 
 class Service(UserWidget):

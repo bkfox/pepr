@@ -59,8 +59,10 @@ class ActionWidget(Widget):
     """ API url """
     method = 'POST'
     """ API call method """
-    action = 'connection.submit'
-    """ Javascript method to call on click """
+    action = 'submit'
+    """
+    Javascript method to call on click.
+    """
     target = None
 
     tag_name = 'button'
@@ -73,10 +75,13 @@ class ActionWidget(Widget):
 
     def get_tag_attrs(self, **kwargs):
         tag_attrs = super().get_tag_attrs(**kwargs).copy()
-        tag_attrs['@click.prevent'] = self.action
         tag_attrs['data-action-url'] = self.get_url(**kwargs)
+        if self.action:
+            tag_attrs['@click.prevent'] = self.action
         if self.method:
             tag_attrs['data-action-method'] = self.method
+        if self.target:
+            tag_attrs['data-action-target'] = self.target
         return tag_attrs
 
     def __init__(self, url=None, method=None, **kwargs):

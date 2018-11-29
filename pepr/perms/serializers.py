@@ -23,15 +23,18 @@ class AccessibleSerializer(serializers.ModelSerializer):
             raise ValueError('At least `role` or `user` must be given')
         return instance.related_context.get_role(self.user)
 
+    def save_(self, instance, validated_data):
+        if instance:
+            for k, v in validated_data.items():
+                setattr(instance, k, v)
+        else:
+            instance = self.Meta.model(**validated_data)
+        instance.save(by=self.get_role(instance))
+        return instance
+
     def create(self, validated_data):
-        with transaction.atomic():
-            instance = super().create(validated_data)
-            instance.save_by(self.get_role(instance))
-            return instance
+        return self.save_(None, validated_data)
 
     def update(self, instance, validated_data):
-        with transaction.atomic():
-            instance = super().update(instance, validated_data)
-            instance.save_by(self.get_role(instance))
-            return instance
+        return self.save_(instance, validated_data)
 

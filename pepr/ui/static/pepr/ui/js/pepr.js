@@ -34,6 +34,7 @@ $pepr = {
     }
 }
 
+$pepr.$pepr = $pepr;
 
 /**
  *  Configuration for the Vue application
@@ -69,18 +70,29 @@ $pepr.conf.app = {
             var req = this.connection.send(path, payload, false, true);
 
             var container = target.closest('.remote');
-            if(container)
-                req.on('success', function(event) {
-                    if(event.message.data.html) {
-                        // TODO: generic remote container that can either
-                        // have modal or whatever
-                        // TODO: handle load conflict
-                        container.html = event.message.data.html
-                    }
-                    else
-                        container.hidden = true;
-                })
+            var container = container && container.__vue__;
 
+            // `action_target` => get from dataset's action target. By default,
+            // use container (if it is remote)
+            var action_target = dataset.actionTarget;
+            var action_target = dataset.actionTarget &&
+                                $pepr.app.$refs[dataset.actionTarget];
+            var action_target = action_target || container;
+
+            console.log('action target', action_target, container)
+            if(action_target)
+                action_target.show(true)
+
+            req.on('success', function(event) {
+                console.log(action_target, event.message)
+                if(action_target && event.message.content) {
+                    // TODO: handle load conflict
+                    action_target.html = event.message.content.replace('&#39;', "'");
+                    action_target.show && action_target.show();
+                }
+                else if(container)
+                    container.hide()
+            })
             return req;
         },
 
@@ -94,10 +106,11 @@ $pepr.conf.app = {
             if(!dataset.actionUrl)
                 return;
 
-            if(!dataset.actionMethod)
-                dataset.actionMethod = target.getAttribute('method');
-
-            var payload = { data: {} };
+            var payload = {
+                method: dataset.actionMethod ||
+                        target.getAttribute('method'),
+                data: {}
+            };
             var f_data = new FormData(target);
             f_data.forEach(function(v, k) { payload.data[k] = v; });
 
@@ -107,7 +120,7 @@ $pepr.conf.app = {
         },
 
         load_modal(event) {
-            var modal = this.$refs['global-modal'];
+            var modal = this.$refs.modal;
             modal.load(event);
         }
     }

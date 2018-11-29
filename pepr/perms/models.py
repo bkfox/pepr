@@ -309,7 +309,7 @@ class Owned(Accessible):
         created.
         """
         super().save_by(role)
-        if self.is_saved and not role.user.is_anonymous:
+        if not self.is_saved and not role.user.is_anonymous:
             self.owner = role.user
 
 

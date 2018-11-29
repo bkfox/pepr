@@ -1,3 +1,4 @@
+from django.http import HttpResponse
 from django.views.generic.base import View
 from django.views.generic.detail import SingleObjectMixin
 from django.views.generic.edit import UpdateView
@@ -143,7 +144,7 @@ class ContentViewSet(AccessibleGenericAPIMixin, viewsets.ModelViewSet):
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_fields = (
         'context',
-        'mod_by', 'mod_date', 'created_by', 'created_date'
+        'modifier', 'modified', 'owner', 'created'
     )
 
     @classmethod
@@ -164,8 +165,7 @@ class ContentViewSet(AccessibleGenericAPIMixin, viewsets.ModelViewSet):
         """ Render an edit form for the given object """
         instance = self.get_object()
         role = instance.related_context.get_role(request.user)
-        return Response({
-            'html': self.form_comp.render(role, instance)
-        })
+        content = self.form_comp.render(role, instance)
+        return HttpResponse(content=content)
 
 

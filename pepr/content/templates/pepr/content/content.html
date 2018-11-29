@@ -3,8 +3,8 @@
 {% block content %}
 <div class="box mb-3">
     <header>
-        {{ object.created_by|default_if_none:object.mod_by }},
-        {{ object.mod_date|naturaltime }}
+        {{ object.owner|default_if_none:object.modifier }},
+        {{ object.modified|naturaltime }}
 
         <div class="float-right">
             {% if not user.is_anonymous %}

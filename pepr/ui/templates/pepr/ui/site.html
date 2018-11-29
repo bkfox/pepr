@@ -18,12 +18,18 @@
         <link href="{{ ASSET_URL }}" rel="stylesheet">
         {% endassets %}
 
+        <noscript>
+            <link href="{% static "pepr/ui/css/noscript.css" %}" rel="stylesheet">
+        </noscript>
+
         {% slot "head" view %}
 
         {% block head_extra %}{% endblock %}
     </head>
     <body>
-        <div id="app">
+        <div id="app" @submit="submit_form">
+            <pepr-modal id="modal" ref="global-modal"></pepr-modal>
+
             <nav class="navbar mb-3">
                 {% block navbar %}
                 <a class="navbar-brand" href="#">Pepr</a>

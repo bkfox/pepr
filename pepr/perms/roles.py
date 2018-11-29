@@ -132,7 +132,7 @@ class Role(metaclass=Roles):
         """
         key = cls.perm_key(instance) if instance is not None else \
               cls.perm_key(codename, model)
-        del cls.defautls[key]
+        del cls.defaults[key]
 
     @staticmethod
     def perm_key(perm, model=None):

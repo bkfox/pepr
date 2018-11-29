@@ -5,7 +5,6 @@ from django.db import models
 from django.db.models.base import ModelBase
 
 from pepr.utils import register
-from pepr.utils.functional import cache_method, class_property
 
 
 class GenericMeta(ModelBase):
@@ -26,8 +25,8 @@ class GenericMeta(ModelBase):
     def __new__(cls, name, bases, attrs):
         for base in bases:
             if issubclass(base, models.Model):
-                return ModelBase.__new__(cls, name, bases, attrs)
-        return cls.default_meta.__new__(cls, name, bases, attrs)
+                return ModelBase.__new__(name, bases, attrs)
+        return cls.default_meta.__new__(name, bases, attrs)
 
 
 class RegisterMetaMeta(type):

@@ -1,22 +1,21 @@
-import inspect
-
-from django.db.models import Prefetch
-from django.forms import HiddenInput, TextInput, models as model_forms
-from django.http import HttpResponse, Http404
 from django.views.generic.base import View
-from django.views.generic.detail import SingleObjectMixin, DetailView
-from django.views.generic.edit import CreateView, UpdateView
-from django.utils.translation import ugettext_lazy as _, ugettext as __
+from django.views.generic.detail import SingleObjectMixin
+from django.views.generic.edit import UpdateView
+from django.utils.translation import ugettext_lazy as _
 
 from django_filters import rest_framework as filters
 from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
-from pepr.perms.views import AccessibleViewMixin, AccessibleGenericAPIMixin
-from pepr.ui.views import ComponentMixin, Slots, Widgets, SiteView
-from pepr.ui.widgets import DropdownLinkWidget
+from pepr.perms.mixins import AccessibleGenericAPIMixin, \
+    ContextMixin
+from pepr.ui.views import SiteView
+from pepr.ui.components import Slots, Widgets
+from pepr.ui.widgets import DropdownLinkWidget, DropdownWidgets
 
+from .components import ContentFormComp
 from .models import Container, Content, Service
-from .forms import ContainerForm
 from .serializers import ContentSerializer
 from .widgets import ContainerServicesWidget
 
@@ -25,42 +24,37 @@ class ContainerBaseView(SiteView):
     """
     Base view class related to a container.
     """
-    slots = Slots(SiteView.slots, {
+    slots = Slots(SiteView.slots, [
+        # left sidebar
+        Widgets('container-sidebar', 'div', {'class': 'col-2 sidebar'},
+                items=[ContainerServicesWidget()]),
         # settings menu
-        'container-settings-menu': Widgets('', items=[
+        DropdownWidgets('container-settings-menu', '', items=[
             DropdownLinkWidget(
-                title="Settings", icon="fa-cog fas",
+                text=_("Settings"), icon="fa-cog fas",
                 url_name='pepr.container.settings',
-                get_url_kwargs=lambda s: {'pk': s.context.pk},
+                url_kwargs=lambda s, object, **kwargs: {'pk': str(object.pk)},
+                required_perm='manage',
             )
         ]),
         # subscription menu management (invitation, etc.)
-        'container-subscriptions-menu': Widgets('', items=[
-        ]),
-        # left sidebar
-        'container-sidebar': Widgets(
-            'div', {'class': 'col-2 sidebar'},
-            items=[ContainerServicesWidget(slot='container-sidebar')]
-        ),
-    })
+        DropdownWidgets('container-subscriptions-menu', '', items=[]),
+    ])
 
     template_name = 'pepr/content/container.html'
-    object = None
 
 
-
-# FIXME: generic version as RoleViewMixin in perms or ui?
-class ServeServiceView(SingleObjectMixin, View):
+class ContainerServiceView(SingleObjectMixin, View):
     """
-    Dispatch request to the view of requested service.
+    Container detail view for services. Retrieve service using kwargs'
+    ``service_pk`` or ``service_slug``, retrieve view and render it.
     """
     object = None
     model = Container
     service_model = Service
 
     def get_queryset(self):
-        return super().get_queryset().select_subclasses() \
-                   .user(self.request.user)
+        return super().get_queryset().select_subclasses()
 
     def get_service_queryset(self):
         """
@@ -85,37 +79,25 @@ class ServeServiceView(SingleObjectMixin, View):
         return self.get_service_queryset().first()
 
     def dispatch(self, request, *args, **kwargs):
-        # FIXME: more elegant flow
         self.object = self.get_object()
-        if self.object is None:
-            raise Http404(__('{context} not found').format(
-                context=self.model._meta.verbose_name
-            ))
-
-        role = self.object.get_role(request.user)
         service = self.get_service()
         view = service.as_view()
-        return view(request, service, *args, role=role,
-                    **kwargs)
+        return view(request, *args, context=self.object,
+                    service=service, **kwargs)
 
 
-class ServiceView(ContainerBaseView):
+class ServiceView(ContainerBaseView, ContextMixin):
     """
     Base view class used for services rendering.
     """
     template_name = 'pepr/content/container.html'
     service = None
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['service'] = self.service
-        return context
-
-    def dispatch(self, request, service, *args, role=None, **kwargs):
+    def dispatch(self, request, context, service, *args, **kwargs):
+        self.context = context
         self.service = service
-        if role is None:
-            role = service.related_context.get_user(request.user)
-        return super().dispatch(request, *args, role=role, **kwargs)
+        return super().dispatch(request, *args, service=service,
+                                **kwargs)
 
 
 # TODO HERE:
@@ -124,46 +106,45 @@ class ServiceView(ContainerBaseView):
 #   - subscriptions
 #   - security: access, permissions
 #   - enabled services
-class ContainerSettingsView(ContainerBaseView, UpdateView):
+class ContainerSettingsView(ContainerBaseView, ContextMixin, UpdateView):
     """
     Service used to manage container's settings.
     """
-    slots = Slots(ContainerBaseView.slots, {
-        # use this to add settings tabs
-        'container-settings-tabs': Widgets(''),
-    })
+    required_perm = 'manage'
 
     model = Container
     fields = ['title', 'description', 'access']
     template_name = 'pepr/content/container_settings.html'
 
-    @property
-    def object(self):
-        return self.context
-
-    @object.setter
-    def object(self, value):
-        self.context = value
-
     def form_valid(self, form):
+        # form.instance.save_by(self.role)
         self.object = form.save()
         return self.get(self.request, *self.args, **self.kwargs)
 
     def get_queryset(self):
         return super().get_queryset().select_subclasses()
 
+    def get_object(self):
+        obj = super().get_object()
+        self.context = obj
+        return obj
 
 
 #
-# Utils
-##
 # API
 #
 class ContentViewSet(AccessibleGenericAPIMixin, viewsets.ModelViewSet):
+    """
+    Model ViewSet for Content elements.
+    """
     model = Content
     serializer_class = ContentSerializer
+    form_comp = ContentFormComp()
     filter_backends = (filters.DjangoFilterBackend,)
-    filterset_fields = ('mod_by','mod_date','created_by','created_date')
+    filterset_fields = (
+        'context',
+        'mod_by', 'mod_date', 'created_by', 'created_date'
+    )
 
     @classmethod
     def register_to(cls, router):
@@ -177,5 +158,14 @@ class ContentViewSet(AccessibleGenericAPIMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         return self.model.objects.user(self.request.user)
+
+    @action(detail=True)
+    def edit_form(self, request, pk=None):
+        """ Render an edit form for the given object """
+        instance = self.get_object()
+        role = instance.related_context.get_role(request.user)
+        return Response({
+            'html': self.form_comp.render(role, instance)
+        })
 
 

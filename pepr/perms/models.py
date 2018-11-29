@@ -21,6 +21,20 @@ from .roles import Roles, AnonymousRole, DefaultRole, \
 from pepr.utils.iter import as_choices
 
 
+class ContextQuerySet(InheritanceQuerySetMixin, models.QuerySet):
+    def subscription(self, user, access=None):
+        """
+        Get contexts that user has a subscription to (filtered by
+        ``role`` if given).
+        """
+        if user.is_anonymous:
+            raise RuntimeError('user can not be anonymous')
+        if access is not None:
+            return self.filter(subscription_set__owner=user,
+                               subscription_set__access=access)
+        return self.filter(subscription_set__owner=user)
+
+
 class Context(models.Model):
     """
     Each instance of ``Context`` defines a context in which permissions,
@@ -34,7 +48,7 @@ class Context(models.Model):
 
     role = None
 
-    objects = InheritanceManager()
+    objects = ContextQuerySet.as_manager()
 
     @staticmethod
     def get_special_role(user):
@@ -159,7 +173,8 @@ class AccessibleBase(models.Model):
         """
         Related Context as its real subclass.
         """
-        return Context.objects.get_subclass(id=self.context_id)
+        return Context.objects.get_subclass(id=self.context_id) \
+                if self.context_id is not None else None
 
     class Meta:
         abstract = True
@@ -176,10 +191,9 @@ class AccessibleBase(models.Model):
 
     def has_perm(self, role, codename):
         """
-        Return False if user not permission on this object.
+        Return wether user has given permission on this object.
         """
         return self.has_access(role) and \
-               role.context.id == self.context.id and \
                role.has_perm(codename, type(self))
 
     def assert_perm(self, role, codename):
@@ -194,14 +208,14 @@ class AccessibleBase(models.Model):
 
     def delete_by(self, role):
         """
-        Perform deletion by this user; run permissions check before
+        Perform deletion by this role+user; run permissions check before
         delete.
         """
         self.assert_perm(role, 'delete')
 
     def save_by(self, role):
         """
-        Save object performed by this user; run permissions checks
+        Save object performed by this role+user; run permissions checks
         before saving.
         """
         if not self.is_saved:
@@ -313,6 +327,10 @@ class Subscription(Owned):
 
     There can be only one Subscription for a pair of owner and context.
     """
+
+    class Meta:
+        unique_together = ('context', 'owner')
+
     def get_role(self, access=None):
         """
         Return an instance of Role for this subscription. If ``access``
@@ -322,18 +340,6 @@ class Subscription(Owned):
             access = self.access
         cls = Roles.get(access)
         return cls(self.context, self.owner, self)
-
-    def validate_unique(self, exclude=None):
-        super().validate_unique(exclude)
-        qs = self.__class__.objects.filter(context=self.context,
-                                           owner=self.owner)
-        if self.pk:
-            qs = qs.exclude(pk=self.pk)
-
-        if qs.exists():
-            raise ValidationError(
-                'only one Subscription per user and context allowed'
-            )
 
 
 class Authorization(Accessible):

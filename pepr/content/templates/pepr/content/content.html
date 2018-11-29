@@ -18,7 +18,7 @@
                 {% icon "fa-eye far" %}
                 {{ object.get_access_display }}
             </span>
-            {% slot "actions-menu" object %}
+            {% slot "actions-menu" object object=object toggle_class="btn btn-light" %}
             {% endif %}
         </div>
     </header>

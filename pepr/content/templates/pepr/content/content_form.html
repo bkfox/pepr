@@ -1,5 +1,19 @@
 {% load i18n widget_tweaks %}
 
+{% if object %}
+<form data-action-url="{{ object.api_detail_url }}" data-action-method="PUT">
+{% else %}
+<form data-action-url="{{ model.api_base_url }}" data-action-method="POST">
+{% endif %}
+
+<div slot="modal-title">
+    {% if object %}
+        {% trans "Edit" %}
+    {% else %}
+        {% trans "Create" %}
+    {% endif %}
+</div>
+
 {% with True as no_label %}
 {% with True as no_help %}
 {% with 'access' as avoid_field %}
@@ -8,18 +22,15 @@
 {% endwith %}
 {% endwith %}
 
-<hr>
-<div class="row">
-    <div class="col-9">
-    </div>
-    <div class="col-3 input-group">
+<div slot="modal-footer">
+    <div class="text-right">
         {% with form.access as field %}
-        {% render_field field class+='form-control mr-2' aria-label=field.label title=field.label %}
+        {% render_field field aria-label=field.label aria-description=field.help_text|default:field.label title=field.help_text|default:field.label %}
         {% endwith %}
-        <div class="input-group-append">
-            <button class="btn btn-primary">{% trans "Publish" %}</button>
-        </div>
+        <button class="btn btn-primary ml-2">{% trans "Publish" %}</button>
     </div>
 </div>
 
+
+</form>
 

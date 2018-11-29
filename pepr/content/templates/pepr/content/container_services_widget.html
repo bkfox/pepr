@@ -4,18 +4,18 @@
 <nav class="nav flex-column box">
 {% endif %}
 
-{% for service in container.service_set %}
-    {% if service.slot == view.slot %}
+{% for service in services %}
+    {% if service.slot == slot.name %}
         {% if view.dropdown_menu %}
         <b-dropdown-item>
         {% else %}
         <li class="nav-item">
         {% endif %}
 
-        <a href="{% url 'pepr.service' pk=container.pk service_slug=service.slug %}"
+        <a href="{% url 'pepr.service' pk=context.pk service_slug=service.slug %}"
            class="nav-link {% if service.pk == service.pk %}active{% endif %}">
         {% icon service.icon %}
-        {{ service.title }}
+        {{ service.text }}
         </a>
 
         {% if view.dropdown_menu %}

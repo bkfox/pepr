@@ -153,12 +153,11 @@ class Connection extends Emitter {
      * dispatching to corresponding requests.
      */
     onmessage(event) {
-        event = {
-            message: JSON.parse(event.data),
-        };
+        console.debug('conn <<< ', event.data);
+
+        event = { message: JSON.parse(event.data), };
 
         var requestId = event.message.request_id;
-        console.debug('message', event, requestId, requestId in this.requests);
         if(requestId in this.requests) {
             var request = this.requests[requestId];
             this.prepareEvent('message', event);
@@ -179,6 +178,7 @@ class Connection extends Emitter {
         if(this.ws.readyState != WebSocket.OPEN)
             return -1;
 
+        console.debug('conn >>> ', data);
         this.ws.send(data);
         return 0;
     }
@@ -199,6 +199,33 @@ class Connection extends Emitter {
         var req = new Request(this, path, payload, keepAlive, reportError);
         this.sendRequest(req);
         return req;
+    }
+
+    /**
+     * Send a request using given target of event to get path and
+     * construct payload, and return the request.
+     *
+     * Target of an object can have the following attributes:
+     * - data-action-url: request path
+     * - data-action-method: method used to send request
+     *
+     * If event target is a form, it fills payload's `data` with it. It uses
+     * forms `action` and `method` attribute as default values for `data-*`
+     * attributes.
+     */
+    submit(event, payload) {
+        event.preventDefault();
+        event.stopPropagation()
+
+        var target = event.target;
+        var dataset = target.dataset
+        var path = dataset.actionUrl;
+
+        payload = payload || {};
+        payload.method = payload.method || dataset.actionMethod || 'GET';
+        payload.data = payload.data || {};
+
+        return this.send(path, payload, false, true);
     }
 
     /**
@@ -249,7 +276,8 @@ class Connection extends Emitter {
 
     /**
      * Send a request only once and return it: when a request is not yet
-     * present, it creates a new one and send it.
+     * present, it creates a new one and send it; otherwise return the
+     * existing one.
      *
      * @return [Request, Boolean] the request, and a boolean indicating if it
      *      has been created in this call.

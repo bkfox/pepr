@@ -46,7 +46,7 @@ class Container extends Collection {
     onmessage(event) {
         var message = event.message;
         if(message.status >= 300) {
-            console.info('error received from server', message.content);
+            console.info('error received from server. Message:', message);
             return;
         }
 

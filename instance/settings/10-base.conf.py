@@ -9,6 +9,7 @@ except NameError: DEBUG = True
 ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
+    'pepr.api',
     'pepr.perms',
     'pepr.ui',
     'pepr.content',

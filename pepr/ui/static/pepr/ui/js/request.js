@@ -3,6 +3,8 @@
  * requests awaiting one or more responses.
  *
  * @fires Request#message
+ * @fires Request#success
+ * @fires Request#error
  * @fires Request#close
  */
 class Request extends Emitter {
@@ -84,15 +86,33 @@ class Request extends Emitter {
      */
     onmessage(event) {
         /**
-         *  A WebSocket MessageEvent has been received as response for this
-         *  request from the connection.
+         *  A message has been received from the connection endpoint as
+         *  response to this request.
          *  @event Request#message
          */
-        console.log('request msg', event, this.reportError)
-        if(this.reportError &&
-               (event.message.status < 200 || event.message.status >= 400))
-            $pepr.alerts.add('danger',event.message.data.detail)
+        console.log('req <<< ', this, event)
+
         this.emit('message', event);
+
+        // FIXME: handle redirects
+
+        /**
+         *  This message received from the connection indicates a success
+         *  @event Request#success
+         */
+        if(event.message.status < 300) {
+            this.emit('success', event);
+            return;
+        }
+
+        /**
+         *  This message received from the connection indicates an error.
+         *  Error will be reported if `event.propagate` and `this.reportError`.
+         *  @event Request#error
+         */
+        this.emit('error', event);
+        if(this.reportError && event.propagate)
+            $pepr.alerts.add('danger', event.message.data.detail);
     }
 
     /// Called when request has been closed/stopped. By default, emit

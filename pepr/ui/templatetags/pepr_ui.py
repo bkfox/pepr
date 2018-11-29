@@ -11,7 +11,7 @@ def do_component(context, component, role=None, *args, **kwargs):
     Render the given component here. parent view will be set to the
     current view.
 
-    :param ComponentMixin component: component to render
+    :param Component component: component to render
     :param \*args: args to pass to `component.render`
     :param \**kwargs: kwargs to pass to `component.render`
     """

@@ -66,17 +66,19 @@ class Permission(metaclass=Permissions):
         self._get_formated('description')
 
 
-class PermissionCreate(Permission):
+class CreatePerm(Permission):
     """ Permission to create object """
     codename = 'create'
     name = _('Create a new {model_name}')
 
-class PermissionUpdate(Permission):
+
+class UpdatePerm(Permission):
     """ Permission to update object """
     codename = 'update'
     description = _('Update any existing {model_name}')
 
-class PermissionDelete(Permission):
+
+class DeletePerm(Permission):
     codename = 'delete'
     description = _('Delete any existing {model_name}')
 

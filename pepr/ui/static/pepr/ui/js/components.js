@@ -24,26 +24,25 @@ $pepr.comps.Alerts = Vue.component('pepr-alerts', {
 
     props: {
         'max': { type: Number, default: 6 },
-        'countDown': { type: Number, default: 10 },
     },
 
     data() {
         return {
             lastId: 0,
             items: [],
+            countDown: 10,
         }
     },
 
     methods: {
         onCountDown(event) {
-            console.log(event);
             this.countDown = event.countDown;
         },
 
         add(variant, text, icon='fa-exclamation-circle fas') {
             var alert = {
                 id: this.lastId++,
-                countDown: this.countDown,
+                countDown: this.countDown + text.length,
                 variant: variant,
                 text: text,
                 icon: icon + ' icon mr-2',
@@ -71,6 +70,9 @@ $pepr.comps.Alerts = Vue.component('pepr-alerts', {
  */
 $pepr.comps.Dynamic = Vue.component('pepr-dynamic', {
     template: `<div></div>`,
+    data() {
+        return $pepr;
+    },
     props: {
         elm: { type: Element },
         html: { type: String },
@@ -91,61 +93,56 @@ $pepr.comps.Dynamic = Vue.component('pepr-dynamic', {
             });
         }
     },
-    render(h){
+    render(h) {
         var template = Vue.compile(this.html ? this.html : this.$options.template);
-        this.$options.staticRenderFns = template.staticRenderFns
+        this.$options.staticRenderFns = template.staticRenderFns;
         return template.render.call(this, h);
     }
 });
 
 
-/**
- *  Form that sends data through api
- */
-$pepr.comps.Form = Vue.component('pepr-form', {
+
+$pepr.comps.Modal = Vue.component('pepr-modal', {
     template: `
-        <form @submit.prevent="handle_submit" :action="action" :method="method">
-            <slot></slot>
-        </form>
+        <b-modal ref="modal">
+            <pepr-dynamic :html="html"></pepr-dynamic>
+        </b-modal>
     `,
-    props: ['action','method'],
-    data: function() {
+    data() {
         return {
-            connection: undefined,
-            message: {
-                variant: 'danger',
-                text: null,
-                icon: 'fas fa-exclamation-circle'
-            },
+            'html': '',
         }
     },
+
     methods: {
-        handle_submit(event) {
-            var form = event.currentTarget;
-            this.message.text = null;
-
-            var data = {};
-            var form_data = new FormData(form);
-            form_data.forEach(function(value, key) {
-                data[key] = value;
-            });
-
+        load(event) {
+            var req = $pepr.connection.submit(event);
             var self = this;
-            var connection = this.connection || $pepr.connection;
-            connection.send(this.action, {
-                method: this.method,
-                data: data,
-            }, false, true).on('message', function(event) {
-                var message = event.message;
-                if(message.status >= 200 && message.status < 299) {
-                    form.reset();
-                    return;
-                }
-
-                self.message.text = message.data.detail;
+            req.on('message', function(e) {
+                self.html = (e.message.data.html || e.message.data.detail);
+                // fix some obscure bug with single-quotes
+                self.html = self.html.replace('&#39;', "'");
             });
+
+            this.show();
         },
+
+        hide() {
+            this.$refs.modal.hide();
+        },
+
+        show() {
+            this.$refs.modal.show();
+        },
+    },
+
+    render(h) {
+        var html = this.html ? '<b-modal size="lg" ref="modal" class="remote">' +
+                               this.html + '</b-modal>' :
+                               this.$options.template;
+        var template = Vue.compile(html);
+        this.$options.staticRenderFns = template.staticRenderFns;
+        return template.render.call(this, h);
     }
 });
-
 

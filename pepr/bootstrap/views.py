@@ -5,7 +5,7 @@ from pepr.content.forms import ContentForm
 from pepr.content.models import Content
 from pepr.content.components import ContentFormComp
 from pepr.content.views import ServiceView
-# from pepr.ui.views import Slots, Widgets
+# from pepr.ui.components import Slots, Widgets
 
 
 # FIXME: using ListView
@@ -16,11 +16,11 @@ class StreamView(ServiceView, ListView):
 
     def get_queryset(self):
         return super().get_queryset().select_subclasses() \
-                      .context(self.role.context) \
+                      .context(self.context) \
                       .user(self.request.user)
 
-    def get_context_data(self):
-        context = super().get_context_data()
-        context['create_form'] = ContentFormComp(self.content_form, self.role.context)
-        return context
+    def get_context_data(self, **kwargs):
+        if 'create_form' not in kwargs:
+            kwargs['create_form'] = ContentFormComp(self.content_form)
+        return super().get_context_data(**kwargs)
 

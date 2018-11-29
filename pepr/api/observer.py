@@ -13,6 +13,16 @@ Observer = namedtuple('Observer', ['request_id', 'data'])
 
 
 class ObserverConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
+    """
+    Base class to observe model instances changes (Create/Update/Delete).
+    A single instance of this consumer can be used to observe multiple
+    objects at the same time.
+
+    ``ObserverConsumer`` takes advantages of Channels layers: each
+    observer is attached to a group based on its filter. When an
+    object changes, the corresponding groups are notified of the
+    change.
+    """
     model = None
     serializer_class = None
 
@@ -23,27 +33,11 @@ class ObserverConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
         super().__init__(*args, **kwargs)
         self.observers = {}
 
-    # TODO: #genericapi
-    def get_serializer(self, instance, **initkwargs):
-        """ Return serializer instance """
-        return self.serializer_class(instance, **initkwargs)
-
-    @classmethod
-    def get_observer_group(cls, filter):
-        """ Get channels layer group name based on filter. """
-        name = '{}.{}.{}'.format(cls.model._meta.db_table,
-                                 cls.filter_attr, filter)
-        return name.replace('_', '-')
-
-    async def get_observer_data(self, request, filter):
-        """
-        Return custom data to store on the observer. Returning None
-        means observation is not possible (returns 405)
-        """
-        return {}
-
+    #
+    # Actions
+    #
     @action(detail=True)
-    async def observer(self, request, pk):
+    async def observer(self, request, pk, **kwargs):
         """ Action: observe a Context """
         filter = str(pk)
         if filter not in self.observers:
@@ -55,7 +49,7 @@ class ObserverConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
         }}}
 
     @observer.mapping.post
-    async def observer_post(self, request, pk):
+    async def observer_post(self, request, pk, **kwargs):
         filter = str(pk)
         if filter in self.observers:
             return 403, {'content': 'yet observing'}
@@ -71,7 +65,7 @@ class ObserverConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
         return 200, {}
 
     @observer.mapping.delete
-    async def observer_delete(self, request, pk):
+    async def observer_delete(self, request, pk, **kwargs):
         filter = str(pk)
         if filter not in self.observers:
             return 200, {'content': 'not observed'}
@@ -87,24 +81,70 @@ class ObserverConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
         """ Return observer's filter value for given instance. """
         return str(getattr(instance, self.filter_attr, None))
 
+    @classmethod
+    def get_observer_group(cls, filter):
+        """ Get channels layer group name based on filter. """
+        name = '{}.{}.{}'.format(cls.model._meta.db_table,
+                                 cls.filter_attr, filter)
+        return name.replace('_', '-')
+
+    async def get_observer_data(self, request, filter):
+        """
+        Return custom data to store on the observer. Returning None
+        means observation is not possible (returns 405)
+        """
+        return {}
+
+    #
+    # Events
+    #
+    def get_serializer_class(self, instance):
+        """ Get serializer class instanciated by ``get_serializer``. """
+        return self.serializer_class
+
+    # TODO: #genericapi
+    def get_serializer(self, instance, **initkwargs):
+        """
+        Get serializer used to serialize instances that have been
+        updated.
+        """
+        cls = self.get_serializer_class(instance)
+        return cls(instance=instance, **initkwargs)
+
     async def propagate_observation(self, event, observer, instance):
         """ Send update event (= observation) to the client. """
+        data = {'pk': str(instance.pk)} \
+            if event['method'] is 'DELETE' else \
+            self.get_serializer(instance).data
+
         await self.send({
             'request_id': observer.request_id,
             'status': 200,
             'method': event['method'],
-            'data': self.get_serializer(instance).data,
+            'data': data,
         })
 
     async def instance_changed(self, event):
+        """ Handle `instance.changed` event """
         instance = event['instance']
         filter = self.get_observer_filter(instance)
         observer = self.observers.get(filter)
         if observer:
             await self.propagate_observation(event, observer, instance)
 
+    async def websocket_disconnect(self, message):
+        # clean-up
+        for filter, observer in self.observers.items():
+            await self.channel_layer.group_discard(
+                self.get_observer_group(filter), self.channel_name
+            )
+
     @classmethod
     def connect_signals(cls):
+        """
+        Connect Observer class to observed model's change signals in
+        order to notify observers from changes.
+        """
         def emit_event(method, instance):
             filter = cls.get_observer_filter(instance)
             group_name = cls.get_observer_group(filter)
@@ -124,12 +164,4 @@ class ObserverConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
         post_save.connect(instance_post_save, cls.model, False)
         post_delete.connect(instance_post_delete, cls.model, False)
 
-    #
-    # Websocket events
-    #
-    async def websocket_disconnect(self, message):
-        for filter, observer in self.observers.items():
-            await self.channel_layer.group_discard(
-                self.get_observer_group(filter), self.channel_name
-            )
 

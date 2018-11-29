@@ -8,7 +8,7 @@ from pepr.consumers import PeprRouter
 
 application = ProtocolTypeRouter({
     'websocket': AuthMiddlewareStack(
-            PeprRouter
+        PeprRouter
     ),
 })
 

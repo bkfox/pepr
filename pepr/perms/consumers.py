@@ -13,6 +13,7 @@ from pepr.perms.models import Context
 
 # TODO: has_perm / get_perm action (with/without model)
 # TODO: update role (on Subscription/Authorization change)
+# TODO: get_serializer => get role from subscription if any
 class ContextObserver(ObserverConsumer):
     """
     Observer on accessibles (filtered by their context's id)
@@ -20,10 +21,10 @@ class ContextObserver(ObserverConsumer):
     context_class = Context
 
     def get_serializer(self, instance, **initkwargs):
-        role = instance.related_context.get_role(self.scope['user'])
-        serializer_class = instance.get_serializer_class()
-        return serializer_class(instance, role=role,
-                                **initkwargs)
+        if 'role' not in initkwargs:
+            initkwargs['role'] = instance.related_context \
+                                         .get_role(self.scope['user'])
+        return super().get_serializer(instance, **initkwargs)
 
     async def get_observer_data(self, request, filter):
         context = self.context_class.objects.select_subclasses() \

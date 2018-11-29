@@ -37,6 +37,11 @@ class SlotItem:
     Sort order in the rendered items
     """
 
+    def __init__(self, position=Position.Default, order=0, **kwargs):
+        self.position = position
+        self.order = order
+        super().__init__(**kwargs)
+
     def __lt__(self, b):
         return self.position < b.position or \
                 (self.position == b.position and self.order < b.order)
@@ -51,7 +56,7 @@ class Slot:
     Slot can be attached to a Slots register using its ``slot_name`` as
     the key.
     """
-    slot_name = None
+    name = None
     """
     Slot name (used as key in Slots register)
     """
@@ -73,14 +78,16 @@ class Slot:
     signal_args = ['request', 'slot', 'items']
     """ Signal arguments """
 
-    def __init__(self, signal_args=None, items=None, **kwargs):
+    def __init__(self, name=None, signal_args=None, items=None, **kwargs):
         """
         :param [] signal_args: extra arguments for the signal instance.
         """
-        if kwargs:
-            self.__dict__.update(kwargs)
+        super().__init__(**kwargs)
+        self.name = name
         self.items = items or []
-        self.signal = Signal(self.signal_args + (signal_args or []))
+        self.signal = Signal(self.signal_args) \
+            if signal_args is None else \
+            Signal(self.signal_args + signal_args)
 
     def add(self, item):
         """ Add an item to items list """
@@ -99,29 +106,28 @@ class Slot:
         """ Remove receiver from this Slot (forward call to signal) """
         self.signal.disconnect(*args, **kwargs)
 
-    def trigger(self, **signal_args):
+    def trigger(self, sender=None, **signal_args):
         """ Send signal and return result """
-        return self.signal.send(sender=self, **{
-            k: v for k, v in signal_args.items()
-            if k in self.signal_args
-        })
+        if self.signal.has_listeners(sender):
+            return self.signal.send(slot=self, **{
+                k: v for k, v in signal_args.items()
+                if k in self.signal_args
+            })
+        return tuple()
 
-    def fetch(self, user, sender=None, items=None, **kwargs):
+    def fetch(self, sender=None, items=None, **kwargs):
         r"""
         Gather items by triggering signal, and return them sorted by
         priority as an iterator.
 
-        :param auth.User user: user to who items are rendered
         :param sender: signal sender (if None, use self)
         :param items: add thoses items to the returned ones
         :param \**kwargs: 'kwargs' attribute to pass to receivers
         """
         items = items or []
-        sender = sender or self
         results = (
             v for r, v in self.trigger(
-                items=items, user=user, **kwargs
-            )
+                sender=sender, items=items, **kwargs)
             if isinstance(v, SlotItem)
         )
 
@@ -142,13 +148,13 @@ class Slots(Register):
     Defines slots of `itemsSlot` instances, in order to use
     them from templates.
     """
-    key = 'slot_name'
+    entry_key_attr = 'name'
 
-    def __init__(self, *import_list):
+    def __init__(self, *import_list, **kwargs):
         r"""
         :param \*import_list: list of Slots|dict to copy.
         """
-        super().__init__()
+        super().__init__(**kwargs)
         for slots in import_list:
             self.update(slots)
 

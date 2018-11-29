@@ -1,78 +1,74 @@
 from django.forms import TextInput, models as model_forms
 
-from pepr.ui.views import ComponentMixin, Slots, Widgets
-from .widgets import DeleteActionWidget
+from pepr.ui.components import Component, Slots, Widgets
+from pepr.ui.widgets import DropdownWidgets
+
+from .forms import ContentForm
+from .widgets import DeleteActionWidget, EditActionWidget
 
 
-class ContentComp(ComponentMixin):
+class ContentComp(Component):
     template_name = 'pepr/content/content.html'
-    slots = Slots({
-        'actions-menu': Widgets('b-dropdown', {
-                'right': True, 'toggle-class': 'btn-light'
-            },
+    slots = Slots([
+        DropdownWidgets(
+            'actions-menu', 'b-dropdown',
+            {'right': True, 'toggle-class': 'btn-light'},
             items=[
-            DeleteActionWidget(
-                css_class='dropdown-item',
-                action='/content/{this.sender.pk}/',
-            ),
-        ])
-    })
+                EditActionWidget(),
+                DeleteActionWidget(),
+            ])
+    ])
 
 
-class ContentFormComp(ComponentMixin):
+class ContentFormComp(Component):
     """
-    Generic component rendering Content's form, whose class is
-    ``form_class`` or created using Content's serializer (retrieved from
-    ``Content.get_serializer_class``).
+    Component rendering a form to create/edit Content instances.
     """
-    slots = Slots({
-    })
-
-    model = None
-    """ Model concerned by the form.  """
-    form_class = None
-    """
-    Form class used for rendering. If None, get serializer from Content
-    model and create a form using it.
-    """
-    container = None
-    """ Context to post content on. """
+    form_class = ContentForm
+    """ form class to use """
     form_kwargs = None
-    """ Init kwargs for the Form instance. """
+    """ form kwargs to use """
+
     template_name = 'pepr/content/content_form.html'
 
-    def get_form_class(self):
-        if self.form_class:
-            return self.form_class
+    def get_form_class(self, **kwargs):
+        """ Return form class """
+        return self.form_class
 
-        serializer = self.model.get_serializer_class()
-        fields = serializer._writable_fields
-        return model_forms.modelform_factory(self.model, fields=fields)
-
-    def get_form_kwargs(self):
+    def get_form_kwargs(self, role, object=None, **kwargs):
+        """ Return form init kwargs. """
         kwargs = self.form_kwargs or {}
-        initial = kwargs.setdefault('initial', {})
-        initial.setdefault('context', self.container.id)
-        initial.setdefault('access', self.container.access)
+        kwargs.setdefault('role', role)
+
+        if object:
+            kwargs.setdefault('instance', object)
+        else:
+            initial = kwargs.setdefault('initial', {})
+            initial.setdefault('context', role.context.id)
+            initial.setdefault('access', role.context.access)
         return kwargs
 
-    def get_form(self):
-        form_class = self.get_form_class()
-        form = form_class(role=self.role, **self.get_form_kwargs())
-        self.prepare_form(form)
+    def get_form(self, **kwargs):
+        """ Return form instance """
+        form_class = self.get_form_class(**kwargs)
+        form_kwargs = self.get_form_kwargs(**kwargs)
+        form = form_class(**form_kwargs)
+        # TODO: remove this ↓
+        form.fields['text'].widget = TextInput()
+        # remove that there ↑
         return form
 
-    def prepare_form(self, form):
-        form.fields['text'].widget = TextInput()
-
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['form'] = self.get_form()
-        return context
+        if 'form' not in kwargs:
+            kwargs['form'] = self.get_form(**kwargs)
+        kwargs.setdefault('model', kwargs['form']._meta.model)
+        return super().get_context_data(**kwargs)
 
-    def __init__(self, form_class, container, **kwargs):
-        self.form_class = form_class
-        self.container = container
-        self.__dict__.update(kwargs)
+    def __init__(self, form_class=None, form_kwargs=None, **kwargs):
+        if form_class is not None:
+            self.form_class = form_class
+        if form_kwargs is not None:
+            self.form_kwargs = form_kwargs
+        super().__init__(**kwargs)
 
 

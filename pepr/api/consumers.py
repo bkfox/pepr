@@ -1,5 +1,6 @@
 import asyncio
 from collections import deque
+from inspect import isclass
 import json
 
 from django.conf import settings
@@ -17,7 +18,7 @@ from .switch import Switch
 from .request import RequestSerializer
 
 
-class RouterConsumerBase(AsyncWebsocketConsumer):
+class RouterBaseConsumer(AsyncWebsocketConsumer):
     """
     Consumer that redirect incoming message to different views using
     a ``path`` attribute on incoming messages. The resolved view
@@ -35,6 +36,8 @@ class RouterConsumerBase(AsyncWebsocketConsumer):
     media_type = 'application/json'
     """ Data content type (used for request headers) """
 
+    resolver_pattern = '^/'
+    """  """
     urlpatterns = []
     """ [class] List of patterns to use for routing """
 
@@ -62,7 +65,8 @@ class RouterConsumerBase(AsyncWebsocketConsumer):
 
     def __init__(self, scope):
         super().__init__(scope)
-        self.resolver = URLResolver(RegexPattern(r'^/'), self.urlpatterns)
+        self.resolver = URLResolver(RegexPattern(self.resolver_pattern),
+                                    self.urlpatterns)
 
     @classmethod
     def register(cls, patterns):
@@ -74,7 +78,9 @@ class RouterConsumerBase(AsyncWebsocketConsumer):
         cls.urlpatterns += patterns
 
     def resolve(self, path):
-        """ Resolve given url path. """
+        """
+        Resolve given path and return a ResolverMatch.
+        """
         return self.resolver.resolve(path)
 
     def reverse(self, view_name, **kwargs):
@@ -114,42 +120,53 @@ class RouterConsumerBase(AsyncWebsocketConsumer):
                 ),
             })
 
-        request = serializer.save()
         try:
-            match = self.resolve(request.path)
+            # FIXME: use serializer.validated_data
+            path = serializer.validated_data['path']
+            match = self.resolve(path)
         except Resolver404:
-            return await self.reply(request.id, 404, {
-                'data':{'detail':'"{}" not found'.format(request.path)}
+            return await self.reply(data['request_id'], 404, {
+                'data': {'detail': '"{}" not found'.format(path)}
             })
 
         try:
-            self.prepare_request(request, match)
-            func, args, kwargs = match
-            if not asyncio.iscoroutinefunction(func):
-                func = database_sync_to_async(func)
-            response = await func(request, *args, **kwargs)
+            request = self.create_request(serializer, match)
+            response = await self.process_request(request, match)
             await self.process_response(request, response)
         except:
             if settings.DEBUG:
                 import traceback, sys
+                traceback.print_exc(file=sys.stdout)
+
                 exc_type, exc_value, exc_traceback = sys.exc_info()
-                payload = {
-                    'data': {
-                        'detail': 'an exception occured: {}'.format(
-                            traceback.format_exception(
-                                exc_type, exc_value, exc_traceback
-                            )
+                payload = {'data': {
+                    'detail': 'an exception occured: {}'.format(
+                        traceback.format_exception(
+                            exc_type, exc_value, exc_traceback
                         )
-                    },
-                }
+                    )
+                }}
             else:
                 payload = {'data': {'detail': 'internal error'}}
             await self.reply(request.id, 500, payload)
 
-    def prepare_request(self, request, match):
-        """ Prepare request before calling target view """
+    def create_request(self, serializer, match):
+        """
+        Create the request send upstream with given serialized
+        data and resolver match.
+        """
+        request = serializer.save()
         request.defaults = self.request_defaults
         request.router = self
+        return request
+
+    async def process_request(self, request, match):
+        """ Process request using given ResolverMatch. """
+        func, args, kwargs = match
+        if not asyncio.iscoroutinefunction(func):
+            # ensure that `func` is async.
+            func = database_sync_to_async(func)
+        return await func(request, *args, **kwargs)
 
     async def process_response(self, request, response):
         """ Handle response of a view call """
@@ -201,7 +218,7 @@ class RouterConsumerBase(AsyncWebsocketConsumer):
 
 
 # TODO: upstream message handling
-class RouterConsumer(RouterConsumerBase):
+class RouterConsumer(RouterBaseConsumer):
     """
     Router that also handle routing to consumers. Their life-cycle is
     also handled from this consumer.
@@ -212,6 +229,7 @@ class RouterConsumer(RouterConsumerBase):
     """
     consumers = set()
     """ [class] List of consumers classes to init and run along me """
+    switch = None
 
     def __init__(self, scope):
         super().__init__(scope)
@@ -223,6 +241,7 @@ class RouterConsumer(RouterConsumerBase):
 
         try:
             if self.consumers:
+                # TODO: create on demand
                 self.switch.create_multiple({
                     consumer: consumer for consumer in self.consumers
                 })
@@ -239,14 +258,6 @@ class RouterConsumer(RouterConsumerBase):
                 await my_call
             except asyncio.CancelledError:
                 pass
-
-    @staticmethod
-    def get_view_consumer_class(view):
-        """
-        Get consumer class for this view or None.
-        """
-        cls = getattr(view, 'cls', None)
-        return cls if cls and issubclass(cls, AsyncConsumer) else None
 
     @classmethod
     def register(cls, patterns):
@@ -265,18 +276,52 @@ class RouterConsumer(RouterConsumerBase):
                 continue
 
             view = getattr(pattern, 'callback', None)
-            c_cls = view and cls.get_view_consumer_class(view)
-            if c_cls and c_cls not in cls.consumers:
-                cls.consumers.add(c_cls)
+            if view and isclass(view) and \
+                    issubclass(view, AsyncConsumer):
+                cls.consumers.add(view)
 
-    def prepare_request(self, request, match):
+    def create_request(self, serializer, match):
+        request = super().create_request(serializer, match)
+
         # add consumer instance to request
-        view = match.func
-        consumer_class = self.get_view_consumer_class(view)
-        if consumer_class:
-            consumer = self.switch.get(consumer_class)
-            request.consumer = consumer and consumer.instance
-        super().prepare_request(request, view)
+        if isclass(match.func) and issubclass(match.func, AsyncConsumer):
+            request.consumer = self.switch.get(match.func)
+
+        return request
+
+    def prepare_upstream_message(self, request, match, **kwargs):
+        """
+        Prepare message sent to upstream consumer. Values set
+        are:
+
+        .. code-block:: python
+
+            {'type': 'websocket.receive', 'request': request,
+             'response': None, args: match.args, kwargs: match.kwargs}
+
+        Where ``response`` is used to return a response to send back.
+        """
+        kwargs.setdefault('type', 'websocket.receive')
+        kwargs.setdefault('request', request)
+        # response is required because consumer's `dispatch()` does not
+        # return results. We keep it right regarding to consumers
+        # architecture.
+        kwargs.setdefault('response', None)
+        kwargs.setdefault('args', match.args)
+        kwargs.setdefault('kwargs', match.kwargs)
+        return kwargs
+
+    async def process_request(self, request, match):
+        # self.switch's slots keys are the consumer class. This
+        # allows us to directly pass consumer classes as view function
+        # to `register`.
+        if not isclass(match.func) or \
+                not issubclass(match.func, AsyncConsumer):
+            return super().process_request(request, match)
+
+        message = self.prepare_upstream_message(request, match)
+        await self.switch.receive(message, slot=match.func)
+        return message.get('response')
 
     #
     # Websocket events handling

@@ -1,7 +1,7 @@
 
 from django.utils.translation import ugettext, ugettext_lazy as _
 
-from pepr.ui.views import Widget, Position
+from pepr.ui.components import Widget, Position
 from pepr.ui.widgets import ActionWidget
 
 
@@ -12,17 +12,29 @@ class ContainerServicesWidget(Widget):
     """
     template_name = 'pepr/content/container_services_widget.html'
 
-    def get_context_data(self, service=None, **kwargs):
-        kwargs.setdefault('container', self.context)
+    def get_context_data(self, role, service=None, **kwargs):
+        # TODO: filter services set
         kwargs.setdefault('service', service)
-        kwargs.setdefault('services', self.context.service_set)
-        return super().get_context_data(**kwargs)
+        kwargs.setdefault('services', role.context.service_set)
+        return super().get_context_data(role=role, **kwargs)
 
 
 class DeleteActionWidget(ActionWidget):
-    title = _('Delete')
+    text = _('Delete')
     icon = 'fa-trash-alt fas'
+    required_perm = 'delete'
+
+    url = '{object.api_detail_url}'
     method = 'DELETE'
 
-    required_perm = 'delete'
+
+class EditActionWidget(ActionWidget):
+    text = _('Edit')
+    icon = 'fa-edit fas'
+    required_perm = 'update'
+
+    action = 'load_modal'
+    method = 'GET'
+    url = '{object.api_detail_url}edit_form/'
+
 

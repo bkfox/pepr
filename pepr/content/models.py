@@ -10,7 +10,7 @@ from django.urls import reverse
 
 from pepr.perms.models import Context, AccessibleBase, Owned, \
         OwnedQuerySet
-from pepr.ui.views import ComponentMixin, Slots, Widgets
+from pepr.ui.components import Component, Slots, Widgets
 from pepr.ui.models import UserWidget
 from pepr.utils.fields import ReferenceField
 
@@ -72,7 +72,10 @@ class Container(AccessibleBase, Context):
 
 class ContentQuerySet(OwnedQuerySet):
     def _get_user_q(self, user):
-        return super()._get_user_q(user) | Q(mod_by=user)
+        if not user.is_anonymous:
+            return super()._get_user_q(user) | Q(mod_by=user)
+        return super()._get_user_q(user)
+
 
 class Content(Owned):
     """
@@ -122,27 +125,15 @@ class Content(Owned):
     class Meta:
         ordering = ('-mod_date',)
 
-    url_basename = 'content'
-    url_prefix = 'content'
+    api_base_url = '/content/'
+
+    @property
+    def api_detail_url(self):
+        return self.api_base_url + str(self.pk) + '/'
 
     @property
     def is_saved(self):
         return self.mod_date is not None
-
-    @property
-    def api_detail_url(self):
-        """
-        API base url for this object detail.
-        """
-        return reverse(self.url_basename + '-detail',
-                       kwargs={'pk': self.pk})
-
-    @property
-    def api_list_url(self):
-        """
-        API base url for this object detail.
-        """
-        return reverse(self.url_basename + '-list')
 
     def as_component(self):
         """ Return component that renders self. """
@@ -151,36 +142,27 @@ class Content(Owned):
 
     def as_data(self):
         """
-        Return serialized version of this content instance.
+        Return serialized version of this content instance without
+        'html' field rendered.
         """
-        return self.get_serializer_class()(
-            self, # role=self.role
-        ).data
-
-    # @classmethod
-    # def get_form_view(cl, **init_kwargs):
-    #    """
-    #    Return form view component instance
-    #    """
-    #    from pepr.views.content import ContentFormView
-    #    return ContentFormView(cl, **init_kwargs)
+        return self.get_serializer_class()(self).data
 
     @classmethod
     def get_serializer_class(cl):
         """
-        Return serializer class used to return content to users.
+        Return serializer class used to return content to users. This
+        method is necessary in order to correctly render objects from
+        the observer consumers.
         """
-        from pepr.content.serializers import ContentSerializer
+        from .serializers import ContentSerializer
         return ContentSerializer
 
     def save_by(self, role):
-        """
-        Update created_by and mod_by based on given user; publish content
-        if `publish` is True.
-        """
+        super().save_by(role)
+        # `mod_by` must be updated to the given role's user. we do it
+        # after cauz' there is no need to do it before.
         if not role.user.is_anonymous:
             self.mod_by = role.user
-        super().save_by(role)
 
 
 class Service(UserWidget):

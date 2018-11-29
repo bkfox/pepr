@@ -13,6 +13,29 @@ from pepr.perms.roles import Roles
 # - test authorizations/permissions with *and* without a model
 
 
+# - models & queryset:
+#   x Context
+#   x Accessible
+#   - OwnedAccessible
+#   - Subscription: get_role
+#   - Authorization: as_permission
+# x Role
+# o Permissions:
+# - Consumers:
+#   - ContextObserver
+# - Serializers:
+#   - AccessibleSerializer
+# - Forms:
+#   - AccessibleForm
+# - Mixins:
+#   - PermissionMixin
+#   - ContextMixin
+#   - AccessibleMixin
+#   - AcessibleGenericApiMixin
+# 
+
+
+
 class BaseCase(TestCase):
     context = None
     contents = None
@@ -75,6 +98,9 @@ class BaseCase(TestCase):
 
 
 class ContextCase(BaseCase):
+    """
+    TestCase for Context model.
+    """
     def do_get_special_role(self, user, expected):
         role = self.context.get_special_role(user)
         if expected:
@@ -115,7 +141,10 @@ class ContextCase(BaseCase):
             self.do_get_role(user, role)
 
 
-class AccessibleCase(BaseCase):
+class AccessibleBaseCase(BaseCase):
+    """
+    TestCase for AccessibleBase model through Accessible
+    """
     model = Authorization
     items = None
 
@@ -200,7 +229,6 @@ class AccessibleCase(BaseCase):
                 self.do_save_by(instance, role, user)
 
 
-# TODO: provides case with Role.defaults set
 class RoleCase(BaseCase):
     def setup_authorizations(self, role):
         access = role.access
@@ -239,4 +267,21 @@ class RoleCase(BaseCase):
             if isinstance(role, roles.AdminRole):
                 continue
             self.do_permissions(role)
+
+    def test_register_unregister_perm(self):
+        for user in self.users:
+            role = self.context.get_role(user)
+
+            # without instance
+            role.register('test_perm', None)
+            self.assertTrue(role.has_perm('test_perm', None))
+            role.unregister('test_perm', None)
+            self.assertFalse(role.has_perm('test_perm', None))
+
+            # with instance
+            perm = role.register('test_perm', None)
+            self.assertTrue(role.has_perm('test_perm', None))
+            role.unregister(instance=perm)
+            self.assertFalse(role.has_perm('test_perm', None))
+
 

@@ -98,7 +98,6 @@ $pepr.comps.Collection = Vue.component('pepr-collection', {
             <pepr-dynamic v-for="item in collection.items"
                 :html="item.html" :elm="item.elm"
                 :key="this.idAttr" :data="item">
-                <i>{{ item.pk }}: {{ item.text }}</i>
             </pepr-dynamic>
             <slot name="bottom"></slot>
         </div>

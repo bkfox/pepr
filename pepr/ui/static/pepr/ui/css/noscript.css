@@ -1,0 +1,9 @@
+/**
+ * Cleans up for noscript users. Provide also the `yes-script` class
+ * that hides elements when noscript is there.
+ */
+
+.yes-script { display: none; }
+
+b-dropdown, b-dropdown-item { display: none; }
+

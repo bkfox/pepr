@@ -56,11 +56,17 @@ class Register:
         self.entries = {}
 
     def update(self, register):
-        """ Import entries from another register (by reference) or dict.
+        """ Import entries from a register (by reference), a dict or
+        an iterable of entries.
         """
-        entries = register.entries if isinstance(register, Register) \
-                                   else register
-        self.entries.update(entries)
+        entries = register.entries \
+            if isinstance(register, Register) else register
+
+        if isinstance(entries, dict):
+            self.entries.update(entries)
+        else:
+            for entry in entries:
+                self.add(entry, force=True)
 
     def values(self):
         """ Return iterator on entries' values """

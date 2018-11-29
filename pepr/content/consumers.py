@@ -13,4 +13,8 @@ class ContainerObserver(ContextObserver, AsyncWebsocketConsumer):
     context_class = Container
     model = Content
 
+    def get_serializer_class(self, instance):
+        return instance.get_serializer_class()
+
+
 ContainerObserver.connect_signals()

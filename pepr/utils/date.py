@@ -3,19 +3,7 @@ import datetime
 import django.utils.timezone as tz
 
 
-def format_date(date):
-    """
-    Format a date or a datetime based on locale.
-    """
-    if isinstance(date, tz.datetime):
-        return '{}, {}'.format(
-            date_format(date, format='SHORT_DATE_FORMAT', use_l10n=True),
-            date_format(date, format='H:i')
-        )
-    return date_format(date, format='SHORT_DATE_FORMAT', use_l10n=True)
-
-
-def cast_date(date, to_datetime = True):
+def cast_date(date, to_datetime=True):
     """
     Given a date reset its time information and
     return it as a date or datetime object.
@@ -29,8 +17,8 @@ def cast_date(date, to_datetime = True):
     return datetime.date(date.year, date.month, date.day)
 
 
-def date_or_now(date, reset_time = False, keep_type = False,
-                    to_datetime = True):
+def date_or_now(date, reset_time=False, keep_type=False,
+                    to_datetime=True):
     """
     Return datetime or default value (now) if not defined, and remove time info
     if reset_time is True.

@@ -7,13 +7,16 @@ from channels.consumer import get_handler_name
 from pepr.utils.register import Register
 
 
-ConsumerInfo = namedtuple(
-    'ConsumerInfo',
-    ['slot', 'instance', 'stream', 'task', 'accept']
-)
-"""
-Information about consumer alive on the dispatcher.
-"""
+class ConsumerInfo:
+    """
+    Information about consumer alive on the dispatcher.
+    """
+    slot, instance, stream = None, None, None
+    task, accept = None, False
+
+    def __init__(self, slot, instance, stream, task=None, accept=False):
+        self.slot, self.instance, self.stream = slot, instance, stream
+        self.task, self.accept = task, accept
 
 
 # TODO: propose & implement interface similar to Register, but remove
@@ -105,13 +108,17 @@ class Switch(Register):
             raise ValueError('consumer for this slot exists yet')
 
         loop = asyncio.get_event_loop()
-        consumer = consumer_class(self.scope, **init_kwargs)
         stream = asyncio.Queue()
-        task = loop.create_task(consumer(
-            stream.get, partial(self._dispatch_downstream, consumer=consumer)
-        ))
-        consumer = ConsumerInfo(slot, consumer, stream, task, False)
-        self.entries[slot] = consumer
+        consumer_info = ConsumerInfo(
+            slot, consumer_class(self.scope, **init_kwargs), stream
+        )
+
+        consumer = consumer_info.instance(
+            stream.get,
+            partial(self._dispatch_downstream, consumer=consumer_info)
+        )
+        consumer_info.task = loop.create_task(consumer)
+        self.entries[slot] = consumer_info
 
         # FIXME: _connect_happened can be false if create is called while
         # websocket_connect task is still running
@@ -157,7 +164,7 @@ class Switch(Register):
 
     async def send_downstream(self, message, consumer=None):
         """ Send message downstream """
-        message['consumer'] = consumer
+        message['consumer'] = consumer and consumer.instance
         if asyncio.iscoroutinefunction(self.base_send):
             await self.base_send(message)
         else:
@@ -198,10 +205,10 @@ class Switch(Register):
         Send messsage to upstream consumer(s)
         """
         if consumer:
-            await consumer.stream.put(message)
-            return
-        for consumer in self.entries.values():
-            await consumer.stream.put(message)
+            await consumer.instance.dispatch(message)
+        else:
+            for consumer in self.entries.values():
+                await consumer.instance.dispatch(message)
 
     async def receive(self, message, slot=None):
         """

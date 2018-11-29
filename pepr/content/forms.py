@@ -1,6 +1,8 @@
 from pepr.perms.forms import OwnedForm
 from .models import Content, Container
 
+from .serializers import ContentSerializer
+
 
 class ContentForm(OwnedForm):
     """

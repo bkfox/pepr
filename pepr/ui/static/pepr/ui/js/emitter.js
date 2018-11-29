@@ -19,8 +19,8 @@ class Emitter {
         }
 
         var listeners = this.listeners[type];
-        if(force || _.findIndex(listener) == -1)
-            this.listeners[type].append(listener);
+        if(force || !listeners.some(function(e) { return e == listener; }))
+            this.listeners[type].push(listener);
     }
 
     /**

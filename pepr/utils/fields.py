@@ -57,8 +57,8 @@ class ReferenceField(models.CharField):
             module = import_module(module)
             value = getattr(module, name, None)
             return value
-        except ImportError:
-            logger.debug('could not import reference from ', value)
+        except ImportError as e:
+            logger.debug('could not import reference from ', value, ':', e)
             return None
 
     def from_db_value(self, value, *args, **kwargs):

@@ -2,7 +2,7 @@ from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
 from pepr.perms.models import Accessible, AccessibleQuerySet
-from pepr.ui.views import Position
+from pepr.ui.components import Position
 from pepr.utils.fields import ReferenceField
 
 
@@ -47,13 +47,13 @@ class UserWidget(Accessible):
     is_enabled = models.BooleanField(
         _('enable'), default=True,
     )
-    title = models.CharField(
+    text = models.CharField(
         max_length=64, blank=True, null=True,
     )
 
     objects = UserWidgetQuerySet.as_manager()
 
-    widget_initkwargs = ('slot', 'position', 'order', 'title')
+    widget_initkwargs = ('slot', 'position', 'order', 'text')
 
     def as_widget(self):
         """

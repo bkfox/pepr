@@ -3,15 +3,13 @@
 
 {% block app %}
 <div class="box mb-3">
-    <pepr-form action="/content/" method="POST">
-        {% component create_form %}
-    </pepr-form>
+    {% component create_form role service=service %}
 </div>
 
 <hr>
 
 <pepr-container sortAttr="-mod_date"
-    collection-url="/container/{{ service.related_context.pk }}/"
+    collection-url="/container/{{ context.pk }}/"
     items-url="/content/">
     {% for obj in object_list %}
     <div data-id="{{ obj.pk }}">

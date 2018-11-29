@@ -1,5 +1,5 @@
-Pepr Permission management
-==========================
+Pepr Perms
+==========
 In PEPR, permissions management is done using a system composed of two mains
 aspects:
 
@@ -31,62 +31,12 @@ Different models are related to a ``Context``:
 This system can respond to many use case while keeping it simple: subscriptions,
 invitations, sharing, container visibility/publicity, external-users, etc.
 
-Design considerations
----------------------
-
-The following consideration emerged while developping the permission system as
-good set of principle:
-
-- **Access defines the privilege level of users, and is related to a specific
-  set of permissions by the intermediary of Roles**: this is how everything
-  works.
-- **User's permissions (read, write and others) are only granted for objects
-  he has access to:** access is granted when user's access is higher or equal
-  to object's one. Access level is the key to object manipulation in respect
-  of roles hierarchy;
-- **User can only set access that is lower or equal to its own access level on
-  objects:** this reduces the risk of privilege escalation and ensures controls
-  over objects access;
-- **Owner always has read and write access to objects he owns:** this is really
-  important to respect the right for users to keep control of what they own
-  (or produce if this is the use case of the ownership);
-- **The only implicit privilege given by sufficient access level is to read**;
-
-Authorization
-.............
-
-``Authorization`` are the stored version of a ``Permission``, allowing end-users to
-configure permissions for each role of a given Context. In respect of access
-hierarchy , users with lower access level don't have access to Authorization
-of higher access level (this keeps control over unwanted permission changes).
-Note that "having access" does not means "having the permission to change".
-
-Subscription
-............
-
-``Subscription`` defines an access level for Django User in a specific Context.
-It is an ``OwnedAccessible`` whose owner is the related user, allowing user's to
-always have control over its subscriptions. Being an Accessible offers the same
-advantages than for an Authorization.
-
-Subscription on a Role can have a different access level, due to special roles
-such as for super-users and anonymous users. This allows a slight difference between
-each other: subscriptions defines the relation to a Context for a given user while the
-role gives the user accesses and permissions.
-
-The aims of subscription is to be used as common base for a membership system: invitation, following, subscribing, etc.
-
-
-Notes
-......
-
-Extra notes:
-- because Context can be an Accessible, permissions related to the current Context
-don't use the ``model``;
-
 
 Example
 -------
+
+Setup
+.....
 
 Inside **models.py**:
 
@@ -150,6 +100,69 @@ notes = notes.context(dashboard)
 role = dashboard.get_role(user)
 
 ```
+
+
+Design considerations
+---------------------
+
+The following consideration emerged while developping the permission system as
+good set of principle:
+
+- **Access defines the privilege level of users, and is related to a specific
+  set of permissions by the intermediary of Roles**: this is how everything
+  works.
+- **User's permissions (read, write and others) are only granted for objects
+  he has access to:** access is granted when user's access is higher or equal
+  to object's one. Access level is the key to object manipulation in respect
+  of roles hierarchy;
+- **User can only set access that is lower or equal to its own access level on
+  objects:** this reduces the risk of privilege escalation and ensures controls
+  over objects access;
+- **Owner always has read and write access to objects he owns:** this is really
+  important to respect the right for users to keep control of what they own
+  (or produce if this is the use case of the ownership);
+- **The only implicit privilege given by sufficient access level is to read**;
+
+
+Others:
+- because Context can be an Accessible, permissions related to the current Context
+don't use the ``model``;
+
+
+Authorization
+.............
+
+``Authorization`` are the stored version of a ``Permission``, allowing end-users to
+configure permissions for each role of a given Context. In respect of access
+hierarchy , users with lower access level don't have access to Authorization
+of higher access level (this keeps control over unwanted permission changes).
+Note that "having access" does not means "having the permission to change".
+
+Subscription
+............
+
+``Subscription`` defines an access level for Django User in a specific Context.
+It is an ``OwnedAccessible`` whose owner is the related user, allowing user's to
+always have control over its subscriptions. Being an Accessible offers the same
+advantages than for an Authorization.
+
+Subscription on a Role can have a different access level, due to special roles
+such as for super-users and anonymous users. This allows a slight difference between
+each other: subscriptions defines the relation to a Context for a given user while the
+role gives the user accesses and permissions.
+
+The aims of subscription is to be used as common base for a membership system: invitation, following, subscribing, etc.
+
+Usage in Pepr
+.............
+
+In Pepr the permission system is really the backbone of the project: it boths ensure
+permission management, but also provide the base models used for Content and Containers.
+The provided views mostly inherit from ``AccessibleView``: this enforce the idea of
+that there always is a permission context user acts in..
+
+TODO: add more about components etc.
+
 
 
 TODO & FIXME

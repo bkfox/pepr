@@ -19,5 +19,5 @@ class ContainerForm(OwnedForm):
     """
     class Meta:
         model = Container
-        fields = ['title', 'description']
+        fields = ['title', 'description', 'access']
 

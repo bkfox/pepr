@@ -1,9 +1,10 @@
+from django.views import View
 
-from pepr.utils.slots import Slots
+from ..utils.slots import Slots
 from .components import Widgets
 
 
-class SiteView:
+class SiteView(View):
     """
     Base view for rendering the website. This can be inherited by other
     views in order to have common slots and other things.

@@ -5,7 +5,7 @@ from rest_framework.routers import DefaultRouter
 from .content.models import Container, Content, Service
 from .content.views import \
         ContainerServiceView, \
-        ContainerSettingsView, \
+        ContainerUpdateView, \
         ContentViewSet
 
 
@@ -18,7 +18,7 @@ urlpatterns = [
          name='pepr.container'),
     path('<uuid:pk>/s/<slug:service_slug>', ContainerServiceView.as_view(),
          name='pepr.service'),
-    path('<uuid:pk>/settings', ContainerSettingsView.as_view(),
+    path('<uuid:pk>/settings', ContainerUpdateView.as_view(),
          name='pepr.container.settings'),
 ]
 

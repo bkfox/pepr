@@ -9,19 +9,19 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from pepr.perms.mixins import AccessibleGenericAPIMixin, \
-    ContextMixin
+from ..perms.mixins import AccessibleGenericAPIMixin, ContextMixin
 from pepr.ui.views import SiteView
 from pepr.ui.components import Slots, Widgets
 from pepr.ui.widgets import DropdownLinkWidget, DropdownWidgets
 
 from .components import ContentFormComp
+from .forms import ContainerForm
 from .models import Container, Content, Service
 from .serializers import ContentSerializer
 from .widgets import ContainerServicesWidget
 
 
-class ContainerBaseView(SiteView):
+class ServiceView(ContextMixin, SiteView):
     """
     Base view class related to a container.
     """
@@ -43,6 +43,46 @@ class ContainerBaseView(SiteView):
     ])
 
     template_name = 'pepr/content/container.html'
+
+    service = None
+    """ Service configuration if any """
+
+    def dispatch(self, request, *args, service=None, context=None,
+                 **kwargs):
+        if context:
+            self.context = context
+        if service:
+            self.service = service
+        return super().dispatch(request, *args, service=service, **kwargs)
+
+
+# TODO HERE:
+# - todo different settings views:
+#   - subscriptions
+#   - security: access, permissions
+#   - enabled services
+class ContainerUpdateView(ServiceView, UpdateView):
+    """
+    Service used to manage container's settings.
+    """
+    required_perm = 'manage'
+
+    form_class = ContainerForm
+    model = Container
+    template_name = 'pepr/content/container_form.html'
+
+    def get_form_kwargs(self):
+        kw = super().get_form_kwargs()
+        kw['role'] = self.object.get_role(self.request.user)
+        return kw
+
+    def form_valid(self, form):
+        # form.instance.save_by(self.role)
+        self.object = form.save()
+        return self.get(self.request, *self.args, **self.kwargs)
+
+    def get_queryset(self):
+        return super().get_queryset().select_subclasses()
 
 
 class ContainerServiceView(SingleObjectMixin, View):
@@ -83,52 +123,9 @@ class ContainerServiceView(SingleObjectMixin, View):
         self.object = self.get_object()
         service = self.get_service()
         view = service.as_view()
+        print('view', view)
         return view(request, *args, context=self.object,
                     service=service, **kwargs)
-
-
-class ServiceView(ContainerBaseView, ContextMixin):
-    """
-    Base view class used for services rendering.
-    """
-    template_name = 'pepr/content/container.html'
-    service = None
-
-    def dispatch(self, request, context, service, *args, **kwargs):
-        self.context = context
-        self.service = service
-        return super().dispatch(request, *args, service=service,
-                                **kwargs)
-
-
-# TODO HERE:
-# - todo different settings views:
-#   - basic: edit container, default service
-#   - subscriptions
-#   - security: access, permissions
-#   - enabled services
-class ContainerSettingsView(ContainerBaseView, ContextMixin, UpdateView):
-    """
-    Service used to manage container's settings.
-    """
-    required_perm = 'manage'
-
-    model = Container
-    fields = ['title', 'description', 'access']
-    template_name = 'pepr/content/container_settings.html'
-
-    def form_valid(self, form):
-        # form.instance.save_by(self.role)
-        self.object = form.save()
-        return self.get(self.request, *self.args, **self.kwargs)
-
-    def get_queryset(self):
-        return super().get_queryset().select_subclasses()
-
-    def get_object(self):
-        obj = super().get_object()
-        self.context = obj
-        return obj
 
 
 #

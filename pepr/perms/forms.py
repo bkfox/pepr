@@ -39,7 +39,7 @@ class AccessibleForm(forms.ModelForm):
             context = self.fields['context']
             # FIXME: disabling => problem with serializer when PUT
             # check SO#22124555
-            #if self.instance and self.instance.is_saved:
+            # if self.instance and self.instance.is_saved:
             #    context.disabled = True
             context.widget = forms.HiddenInput()
 
@@ -61,4 +61,5 @@ class AccessibleForm(forms.ModelForm):
 
 
 OwnedForm = AccessibleForm
+SubscriptionForm = OwnedForm
 

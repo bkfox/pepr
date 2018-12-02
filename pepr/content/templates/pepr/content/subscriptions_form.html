@@ -1,0 +1,53 @@
+{% extends "pepr/content/service.html" %}
+{% load i18n widget_tweaks pepr_ui %}
+
+{% block app %}
+<h3>{% icon "fa-user-friends fas" %} {% trans "Subscriptions" %}</h3>
+<div class="box">
+    <p class="lead mb-3">
+    {% with title=object.title context_type=object|meta:"verbose_name" %}
+    {% blocktrans %}
+    Here you can change users subscriptions for the {{ context_type }}
+    <b>{{ title }}</b>.
+    {% endblocktrans %}
+    {% endwith %}
+
+    </p>
+    <form method="POST">
+        {% csrf_token %}
+        {{ formset.management_form }}
+
+        <table class="table table-bordered table-striped">
+            <thead>
+                <th>User</th>
+                <th>Role</th>
+            </thead>
+            <tbody>
+            {% for form in formset %}
+            {% if form.owner.value %}
+            <tr>
+                <input type="hidden" name="{{ form.owner.html_name }}" value="{{ form.owner.value }}">
+                {% for field in form.hidden_fields %}
+                <input type="hidden" name="{{ field.html_name }}" value="{{ field.value }}">
+                {% endfor %}
+
+                <td class="">
+                    {{ form.instance.owner.username }}
+                </td>
+                <td>
+                    {{ form.access|add_class:"form-control" }}
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="text-right">
+            <button class="btn btn-primary">Save</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+

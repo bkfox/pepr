@@ -4,7 +4,7 @@ from functools import partial
 
 from channels.consumer import get_handler_name
 
-from pepr.utils.register import Register
+from ..utils.register import Register
 
 
 class ConsumerInfo:

@@ -4,7 +4,7 @@ Provides metaclass utils
 from django.db import models
 from django.db.models.base import ModelBase
 
-from pepr.utils import register
+from ..utils import register
 
 
 class GenericMeta(ModelBase):

@@ -39,40 +39,39 @@ class PermissionMixin:
 
 
 class ContextMixin(PermissionMixin):
-    """
-    Base DetailView for Contexts. Provides permission check and context
-    values ('role', 'context').
-    """
+    """ Provides access control to a context.  """
     role = None
     """ User's role """
 
     @property
     def context(self):
-        return getattr(self, '_context', None)
+        return self.role.context if self.role else None
 
     @context.setter
-    def context(self, context):
-        if context:
-            role = context.get_role(self.request.user)
+    def context(self, value):
+        if value:
+            role = value.get_role(self.request.user)
             self.assert_perms(role)
             self.role = role
-        setattr(self, '_context', context)
-
-    # FIXME: use property & setter instead
-    def get_object(self):
-        """
-        Ensure that `context` is updated to the object found. This also
-        ensure permission check.
-        """
-        obj = super().get_object()
-        self.context = obj
-        return obj
+        else:
+            self.role = None
 
     def get_context_data(self, **kwargs):
         """ Ensure 'role' and 'context' are in resulting context """
         kwargs.setdefault('role', self.role)
-        kwargs.setdefault('context', self.role and self.role.context)
+        kwargs.setdefault('context', self.context)
         return super().get_context_data(**kwargs)
+
+
+class ContextDetailMixin(ContextMixin):
+    """ Provides access control to a Context that is self.object """
+    @property
+    def object(self):
+        return self.context
+
+    @object.setter
+    def object(self, value):
+        self.context = value
 
 
 class AccessibleMixin(PermissionMixin):

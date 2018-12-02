@@ -26,7 +26,7 @@ $pepr = {
     /**
      *  VueJS available components
      */
-    comps: [],
+    comps: {},
 
     get alerts() {
         if($pepr.app)
@@ -45,6 +45,26 @@ $pepr.conf.app = {
     delimiters: ['[[', ']]'],
 
     methods: {
+        /**
+         *  Return payload for given submit event.
+         */
+        _get_submit_payload(event, payload) {
+            var dataset = event.target.dataset;
+
+            payload = payload || {};
+            payload.method = payload.method || dataset.actionMethod || 'GET';
+            payload.data = payload.data || {};
+
+            var path = dataset.actionUrl;
+
+            // lookup
+            if(dataset.actionLookup) {
+                var lookup = encodeURIComponent(dataset.actionLookup) + '=' +
+                             encodeURIComponent(event.target.value);
+                path = path + (path.indexOf('?') != 1 ? '?' : '&') + lookup;
+            }
+            return payload;
+        },
 
         /**
          * Send a request using given target of event to get path and
@@ -53,6 +73,8 @@ $pepr.conf.app = {
          * Target of an object can have the following attributes:
          * - data-action-url: request path
          * - data-action-method: method used to send request
+         * - data-action-lookup: request `GET` parameter to assign to
+         *      event's `target.value`
          *
          */
         submit(event, payload) {
@@ -61,30 +83,26 @@ $pepr.conf.app = {
 
             var target = event.target;
             var dataset = target.dataset
-            var path = dataset.actionUrl;
 
-            payload = payload || {};
-            payload.method = payload.method || dataset.actionMethod || 'GET';
-            payload.data = payload.data || {};
-
-            var req = this.connection.send(path, payload, false, true);
+            var req = this.connection.send(
+                dataset.actionUrl,
+                this._get_submit_payload(event, payload),
+                false, true
+            );
 
             var container = target.closest('.remote');
             var container = container && container.__vue__;
 
             // `action_target` => get from dataset's action target. By default,
             // use container (if it is remote)
-            var action_target = dataset.actionTarget;
             var action_target = dataset.actionTarget &&
                                 $pepr.app.$refs[dataset.actionTarget];
             var action_target = action_target || container;
 
-            console.log('action target', action_target, container)
             if(action_target)
                 action_target.show(true)
 
             req.on('success', function(event) {
-                console.log(action_target, event.message)
                 if(action_target && event.message.content) {
                     // TODO: handle load conflict
                     action_target.html = event.message.content.replace('&#39;', "'");

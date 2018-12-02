@@ -49,13 +49,20 @@ class RouterBaseConsumer(AsyncWebsocketConsumer):
         RouterRequest.
         """
         # FIXME: which data to copy, how to update etc.
+        meta = dict(self.scope.get('headers'))
+        host, *port = meta[b'host'].decode('utf-8').split(':')
+        print(host, port)
+
         request = HttpRequest()
         request.consumer = self
-        request.META = dict(self.scope.get('headers'))
+        request.META = dict(meta)
         request.META.update({
             'HTTP_ACCEPT': self.media_type,
             'CONTENT_TYPE': self.media_type,
             'CONTENT_LENGTH': str(1),
+            'SERVER_NAME': host,
+            # FIXME
+            'SERVER_PORT': port[0] if port else 80,
         })
         request.COOKIES = self.scope.get('cookies').copy()
         request.content_type = request.META['CONTENT_TYPE']
@@ -129,6 +136,7 @@ class RouterBaseConsumer(AsyncWebsocketConsumer):
                 'data': {'detail': '"{}" not found'.format(path)}
             })
 
+        request = None
         try:
             request = self.create_request(serializer, match)
             response = await self.process_request(request, match)
@@ -148,7 +156,7 @@ class RouterBaseConsumer(AsyncWebsocketConsumer):
                 }}
             else:
                 payload = {'data': {'detail': 'internal error'}}
-            await self.reply(request.id, 500, payload)
+            await self.reply(data.get('request_id'), 500, payload)
 
     def create_request(self, serializer, match):
         """

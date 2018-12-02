@@ -1,20 +1,23 @@
 from django.http import HttpResponse
-from django.views.generic.base import View
+from django.views.generic import DetailView, ListView, UpdateView, View
 from django.views.generic.detail import SingleObjectMixin
-from django.views.generic.edit import UpdateView
 from django.utils.translation import ugettext_lazy as _
 
-from django_filters import rest_framework as filters
+from django_filters import rest_framework as filters_drf, \
+                           views as filters_views
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from ..perms.mixins import AccessibleGenericAPIMixin, ContextMixin
-from pepr.ui.views import SiteView
-from pepr.ui.components import Slots, Widgets
-from pepr.ui.widgets import DropdownLinkWidget, DropdownWidgets
+from ..perms.mixins import AccessibleGenericAPIMixin, ContextMixin, \
+                           ContextDetailMixin
+from ..perms.forms import SubscriptionFormSet
+from ..ui.views import SiteView
+from ..ui.components import Slots, Widgets
+from ..ui.widgets import DropdownLinkWidget, DropdownWidgets
 
 from .components import ContentFormComp
+from .filters import ContentFilter
 from .forms import ContainerForm
 from .models import Container, Content, Service
 from .serializers import ContentSerializer
@@ -23,7 +26,8 @@ from .widgets import ContainerServicesWidget
 
 class ServiceView(ContextMixin, SiteView):
     """
-    Base view class related to a container.
+    A ServiceView is a view rendered inside a container, that can uses
+    a Service model as user configuration.
     """
     slots = Slots(SiteView.slots, [
         # left sidebar
@@ -31,6 +35,13 @@ class ServiceView(ContextMixin, SiteView):
                 items=[ContainerServicesWidget()]),
         # settings menu
         DropdownWidgets('container-settings-menu', '', items=[
+            DropdownLinkWidget(
+                text=_("Subscriptions"), icon="fa-user-friends fas",
+                url_name='pepr.container.subscriptions',
+                url_kwargs=lambda s, object, **kwargs: {'pk': str(object.pk)},
+                required_perm='manage',
+            ),
+
             DropdownLinkWidget(
                 text=_("Settings"), icon="fa-cog fas",
                 url_name='pepr.container.settings',
@@ -56,39 +67,11 @@ class ServiceView(ContextMixin, SiteView):
         return super().dispatch(request, *args, service=service, **kwargs)
 
 
-# TODO HERE:
-# - todo different settings views:
-#   - subscriptions
-#   - security: access, permissions
-#   - enabled services
-class ContainerUpdateView(ServiceView, UpdateView):
-    """
-    Service used to manage container's settings.
-    """
-    required_perm = 'manage'
-
-    form_class = ContainerForm
-    model = Container
-    template_name = 'pepr/content/container_form.html'
-
-    def get_form_kwargs(self):
-        kw = super().get_form_kwargs()
-        kw['role'] = self.object.get_role(self.request.user)
-        return kw
-
-    def form_valid(self, form):
-        # form.instance.save_by(self.role)
-        self.object = form.save()
-        return self.get(self.request, *self.args, **self.kwargs)
-
-    def get_queryset(self):
-        return super().get_queryset().select_subclasses()
-
-
 class ContainerServiceView(SingleObjectMixin, View):
     """
-    Container detail view for services. Retrieve service using kwargs'
-    ``service_pk`` or ``service_slug``, retrieve view and render it.
+    Fetch service by ``slug`` or ``pk`` and call corresponding
+    ServiceView. Theses are given with ``service_pk`` and
+    ``service_slug`` attribute in kwargs.
     """
     object = None
     model = Container
@@ -123,9 +106,96 @@ class ContainerServiceView(SingleObjectMixin, View):
         self.object = self.get_object()
         service = self.get_service()
         view = service.as_view()
-        print('view', view)
         return view(request, *args, context=self.object,
                     service=service, **kwargs)
+
+
+class ContainerUpdateView(ServiceView, ContextDetailMixin, UpdateView):
+    """
+    Service used to manage container's settings.
+    """
+    required_perm = 'manage'
+
+    form_class = ContainerForm
+    model = Container
+    template_name = 'pepr/content/container_form.html'
+
+    def get_form_kwargs(self):
+        kw = super().get_form_kwargs()
+        kw['role'] = self.object.get_role(self.request.user)
+        return kw
+
+    def form_valid(self, form):
+        # form.instance.save_by(self.role)
+        self.object = form.save()
+        return self.get(self.request, *self.args, **self.kwargs)
+
+    def get_queryset(self):
+        return super().get_queryset().select_subclasses()
+
+
+class SubscriptionsUpdateView(ServiceView, ContextDetailMixin, DetailView):
+    model = Container
+    formset_class = SubscriptionFormSet
+    template_name = 'pepr/content/subscriptions_form.html'
+
+    required_perm = 'manage'
+
+    def get_formset_queryset(self):
+        return self.formset_class.model.objects \
+                   .context(self.context) \
+                   .user(self.request.user) \
+                   .select_related('owner')
+
+    def get_formset(self, **initkwargs):
+        initkwargs.setdefault('form_kwargs', {'role': self.role})
+        if 'queryset' not in initkwargs:
+            initkwargs['queryset'] = self.get_formset_queryset()
+        return self.formset_class(**initkwargs)
+
+    def get_context_data(self, **kwargs):
+        if not 'formset' in kwargs:
+            kwargs['formset'] = self.get_formset()
+        return super().get_context_data(**kwargs)
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        formset = self.get_formset(data=request.POST)
+        if not formset.is_valid():
+            raise ValueError('invalid form data')
+
+        formset.save()
+        for obj in formset.deleted_objects:
+            obj.delete(by=self.role)
+
+        return self.get(request, *args, **kwargs)
+
+
+class ContentListView(ServiceView, filters_views.FilterView):
+    """
+    Display a content list.
+    """
+    model = Content
+    template_name = 'pepr/content/content_list.html'
+    filterset_class = ContentFilter
+    filterset_fields = ('modified', 'created')
+    strict = False
+
+
+    def get_filterset_kwargs(self, filterset_class):
+        kwargs = super().get_filterset_kwargs(filterset_class)
+        if self.context and kwargs['data']:
+            kwargs['data'] = dict(kwargs['data'])
+            kwargs['data']['context'] = [self.context.id]
+        return kwargs
+
+    def get_queryset(self):
+        qs = super().get_queryset().select_subclasses() \
+                      .user(self.request.user)
+        if self.context:
+            qs = qs.context(self.context)
+        return qs
+
 
 
 #
@@ -138,10 +208,9 @@ class ContentViewSet(AccessibleGenericAPIMixin, viewsets.ModelViewSet):
     model = Content
     serializer_class = ContentSerializer
     form_comp = ContentFormComp()
-    filter_backends = (filters.DjangoFilterBackend,)
-    filterset_fields = (
-        'context',
-        'modifier', 'modified', 'owner', 'created'
+    filter_backends = (filters_drf.DjangoFilterBackend,)
+    filterset_fields = ContentListView.filterset_fields + (
+        'context', 'modifier', 'owner',
     )
 
     @classmethod
@@ -164,5 +233,3 @@ class ContentViewSet(AccessibleGenericAPIMixin, viewsets.ModelViewSet):
         role = instance.related_context.get_role(request.user)
         content = self.form_comp.render(role, instance)
         return HttpResponse(content=content)
-
-

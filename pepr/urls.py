@@ -6,6 +6,7 @@ from .content.models import Container, Content, Service
 from .content.views import \
         ContainerServiceView, \
         ContainerUpdateView, \
+        SubscriptionsUpdateView, \
         ContentViewSet
 
 
@@ -20,5 +21,7 @@ urlpatterns = [
          name='pepr.service'),
     path('<uuid:pk>/settings', ContainerUpdateView.as_view(),
          name='pepr.container.settings'),
+    path('<uuid:pk>/subscriptions', SubscriptionsUpdateView.as_view(),
+         name='pepr.container.subscriptions'),
 ]
 

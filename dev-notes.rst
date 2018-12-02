@@ -71,6 +71,8 @@ Per application:
       - multiple forms
 - Utils:
    - functional: rename into decorators? + update readme
+   - fields: fix ReferenceField & run_validators (when saving from admin)
+      => might a bigger bug
 
 To-think / features:
 - activities: how do we handle activities

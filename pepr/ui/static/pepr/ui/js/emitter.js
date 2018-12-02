@@ -72,10 +72,9 @@ class Emitter {
         this.prepareEvent(type, event);
 
         var listeners = this.listeners[type];
-        for(var i in listeners) {
+        for(var listener of listeners) {
             if(!event.propagate)
                 break;
-            var listener = listeners[i];
             // not registering `this` as listener.self at init avoids bugs in
             // case of `this.listeners` copy whatever, and also less code update
             // in case of refactoring whatever.

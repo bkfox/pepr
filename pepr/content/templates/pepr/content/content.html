@@ -1,7 +1,7 @@
 {% load i18n pepr_ui humanize %}
 
 {% block content %}
-<div class="box mb-3">
+<div class="box">
     <header>
         {{ object.owner|default_if_none:object.modifier }},
         {{ object.modified|naturaltime }}

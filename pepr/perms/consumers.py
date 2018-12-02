@@ -6,9 +6,9 @@ from asgiref.sync import async_to_sync
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.layers import get_channel_layer
 
-from pepr.api.mixins import ConsumerSetMixin, action
-from pepr.api.observer import ObserverConsumer
-from pepr.perms.models import Context
+from ..api.mixins import ConsumerSetMixin, action
+from ..api.observer import ObserverConsumer
+from ..perms.models import Context
 
 
 # TODO: has_perm / get_perm action (with/without model)

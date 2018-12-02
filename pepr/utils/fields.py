@@ -7,6 +7,7 @@ from django.utils.translation import ugettext_lazy as _
 logger = logging.getLogger(__name__)
 
 
+# TODO: fix this shit
 class ReferenceField(models.CharField):
     """
     This fields stores a reference to an object (as long it has a
@@ -67,6 +68,9 @@ class ReferenceField(models.CharField):
     def value_to_string(self, obj):
         value = self.value_from_object(obj)
         return self.get_prep_value(value)
+
+    def run_validators(self, value):
+        pass
 
     def get_prep_value(self, value):
         if isinstance(value, str):

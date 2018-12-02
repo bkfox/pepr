@@ -11,12 +11,23 @@
 <pepr-container sortAttr="-modified"
     collection-url="/container/{{ context.pk }}/"
     items-url="/content/">
+
+    <form action="">
+        {# filter.form #}
+    </form>
+
     {% for obj in object_list %}
     <div data-id="{{ obj.pk }}">
         {{ obj.as_data|json_script:obj.pk }}
         {% component obj.as_component %}
     </div>
     {% endfor %}
+
+    <template slot="append" slot-scope="{parent, collection}">
+        <div class="text-center">
+            <button @click.prevent="parent.load">{% trans "more..." %}</button>
+        </div>
+    </template>
 </pepr-container>
 
 {% endblock %}

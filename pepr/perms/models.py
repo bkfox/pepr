@@ -18,7 +18,7 @@ from .filters import IsAccessibleFilterBackend
 from .permissions import Permission, Permissions
 from .roles import Roles, AnonymousRole, DefaultRole, \
         AdminRole
-from pepr.utils.iter import as_choices
+from ..utils.iter import as_choices
 
 
 class ContextQuerySet(InheritanceQuerySetMixin, models.QuerySet):
@@ -184,7 +184,7 @@ class AccessibleBase(models.Model):
         """
         Return True if object has yet been saved.
         """
-        return self.pk is None
+        return self.pk is not None
 
     def has_access(self, role):
         return role.has_access(self.access)
@@ -309,6 +309,7 @@ class Owned(Accessible):
         created.
         """
         super().save_by(role)
+        print('self', self, role, self.is_saved)
         if not self.is_saved and not role.user.is_anonymous:
             self.owner = role.user
 
@@ -327,7 +328,6 @@ class Subscription(Owned):
 
     There can be only one Subscription for a pair of owner and context.
     """
-
     class Meta:
         unique_together = ('context', 'owner')
 

@@ -2,10 +2,10 @@ from django.core.exceptions import ImproperlyConfigured
 from django.template import loader
 from django.views.generic.base import ContextMixin, TemplateResponseMixin
 
-from pepr.perms.mixins import PermissionMixin
-from pepr.utils import slots
+from ..perms.mixins import PermissionMixin
+from ..utils import slots
 # reimport for API
-from pepr.utils.slots import Position, Slots
+from ..utils.slots import Position, Slots
 
 
 class Component(PermissionMixin, TemplateResponseMixin, ContextMixin):
@@ -161,12 +161,18 @@ class Widgets(Widget, slots.Slot):
         # `setdefault`
         items = kwargs.get('items')
         if items is None:
-            items = self.fetch(role=role, **kwargs)
+            items = self.fetch(role=role, **{
+                k: v for k, v in kwargs.items()
+                if not hasattr
+            })
             items = list(
                 rendered for rendered in (
-                    item.render(role, **kwargs)
-                    for item in items
-                    if hasattr(item, 'render')
+                    item.render(
+                        role,
+                        sender=kwargs['sender'], slot=kwargs['slot'],
+                        object=kwargs.get('object')
+                    )
+                    for item in items if hasattr(item, 'render')
                 ) if rendered
             )
 

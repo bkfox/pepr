@@ -4,7 +4,7 @@ import itertools
 
 from django.dispatch import Signal
 
-from pepr.utils.register import Register
+from ..utils.register import Register
 
 
 class Position(IntEnum):

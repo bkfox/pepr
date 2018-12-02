@@ -1,20 +1,18 @@
 import uuid
-from enum import IntEnum
 
 from django.db import models
 from django.db.models import Q
 from django.contrib.auth import models as auth
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
-from django.urls import reverse
 
 from model_utils.models import TimeStampedModel
 
-from pepr.perms.models import Context, AccessibleBase, Owned, \
+from ..perms.models import Context, AccessibleBase, Owned, \
         OwnedQuerySet
-from pepr.ui.components import Component, Slots, Widgets
-from pepr.ui.models import UserWidget
-from pepr.utils.fields import ReferenceField
+from ..ui.components import Component, Slots, Widgets
+from ..ui.models import UserWidget
+from ..utils.fields import ReferenceField
 
 from .widgets import DeleteActionWidget
 
@@ -79,7 +77,7 @@ class ContentQuerySet(OwnedQuerySet):
         return super()._get_user_q(user)
 
 
-class Content(Owned,TimeStampedModel):
+class Content(Owned, TimeStampedModel):
     """
     Content can be any kind of content created by user and published in
     a Container (or Context).

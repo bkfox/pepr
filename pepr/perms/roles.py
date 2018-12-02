@@ -3,8 +3,8 @@ import logging
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
-from pepr.perms.permissions import Permission, Permissions
-from pepr.utils.metaclass import RegisterMeta
+from ..perms.permissions import Permission, Permissions
+from ..utils.metaclass import RegisterMeta
 
 logger = logging.getLogger('pepr')
 
@@ -70,7 +70,7 @@ class Role(metaclass=Roles):
         Permissions for this role instance (and its context), as
         a dict of { perm_key: role }
         """
-        from pepr.perms.models import Authorization
+        from ..perms.models import Authorization
 
         perms = self.defaults.copy()
         if not self.context:

@@ -1,6 +1,9 @@
 from django import forms
 
+from .models import Subscription
 
+
+# TODO: field validation => access
 class AccessibleForm(forms.ModelForm):
     _role = None
 
@@ -17,8 +20,7 @@ class AccessibleForm(forms.ModelForm):
         # lead to erronous values).
         if role:
             access = self.fields['access']
-            choices = self._meta.model._meta.get_field('access') \
-                                .choices
+            choices = self._meta.model._meta.get_field('access').choices
             access.choices = [access for access in choices
                               if role.has_access(access[0])]
 
@@ -62,4 +64,9 @@ class AccessibleForm(forms.ModelForm):
 
 OwnedForm = AccessibleForm
 SubscriptionForm = OwnedForm
+
+SubscriptionFormSet = forms.modelformset_factory(
+    Subscription, SubscriptionForm, fields=['owner', 'access'],
+    extra=0
+)
 

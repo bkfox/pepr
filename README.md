@@ -15,6 +15,18 @@ Configuration is done through files in `instance/settings/XX-*.conf.py`.
 For the moment testing mode is activated and the one by default.
 
 
+## Architecture
+Pepr is provided as a full-featured platform.
+
+Code is organized under the following modules:
+
+- ``instance``: django project instance module;
+- ``pepr.api``: base API classes and utilities
+- ``pepr.bootstrap``: higher-level components and services;
+- ``pepr.content``: content and containers editable by users;
+- ``pepr.perms``: permission system, based on Role and Access;
+- ``pepr.ui``: user interface base class, providing Components, Widgets, etc.;
+- ``pepr.utils``: various useful modules
 
 ## TODO
 ### Environment

@@ -8,8 +8,7 @@
  * @fires Request#close
  */
 class Request extends Emitter {
-    constructor(connection, path, payload, keepAlive=false,
-                reportError=false)
+    constructor(connection, path, payload, keepAlive=false, reportError=false)
     {
         super();
         /**
@@ -115,8 +114,10 @@ class Request extends Emitter {
             $pepr.alerts.add('danger', event.message.data.detail);
     }
 
-    /// Called when request has been closed/stopped. By default, emit
-    /// 'close' event.
+    /**
+     * Called when request has been closed/stopped. By default, emit
+     * 'close' event.
+     */
     onclose(event) {
         /**
          *  Request is being removed from {@link Connection#requests} and
@@ -124,6 +125,12 @@ class Request extends Emitter {
          *  @event Request#close
          */
         this.emit('close', event);
+    }
+
+    off(type, listener, self=null) {
+        super.off(type, listener, self);
+        if(!this.listeners['message'])
+            this.close();
     }
 }
 

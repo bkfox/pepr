@@ -1,7 +1,7 @@
 from django.utils.translation import ugettext_lazy as _
 
-from pepr.utils.register import Register
-from pepr.utils.metaclass import RegisterMeta
+from ..utils.register import Register
+from ..utils.metaclass import RegisterMeta
 
 
 class Permissions(RegisterMeta):

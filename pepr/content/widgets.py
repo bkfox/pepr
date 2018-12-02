@@ -1,8 +1,8 @@
 
 from django.utils.translation import ugettext, ugettext_lazy as _
 
-from pepr.ui.components import Widget, Position
-from pepr.ui.widgets import ActionWidget
+from ..ui.components import Widget, Position
+from ..ui.widgets import ActionWidget
 
 
 class ContainerServicesWidget(Widget):

@@ -32,7 +32,8 @@ class Collection {
     }
 
     /**
-     * Update an item in collection.
+     * Update an item in collection. Can be used to ensure item
+     * is stays unique.
      */
     update(item) {
         var index = this.index_of(item);
@@ -56,7 +57,7 @@ class Collection {
      * Clean up the entire collection.
      */
     reset() {
-        this.items = {};
+        this.items = [];
     }
 
     /**
@@ -64,10 +65,9 @@ class Collection {
      */
     index_of(item) {
         var attr = this.idAttr;
-        var v = this.items.findIndex(function(a) {
+        return this.items.findIndex(function(a) {
             return a[attr] == item[attr];
         });
-        return v;
     }
 
     /**
@@ -88,29 +88,33 @@ class Collection {
     }
 }
 
+
 /**
  *  VueJS Component that handles a collection.
  */
 $pepr.comps.Collection = Vue.component('pepr-collection', {
     template: `
-        <div>
-            <slot></slot>
+        <div :class="listClass" >
             <pepr-dynamic v-for="item in collection.items"
                 :html="item.html" :elm="item.elm"
                 :key="this.idAttr" :data="item">
             </pepr-dynamic>
-            <slot name="bottom"></slot>
+            <slot></slot>
         </div>
     `,
     props: {
         /**
-         * Collection's idAttr.
+         * @type {String} idAttr [property] Collection's idAttr.
          */
-        'idAttr': { type: String, default: 'pk', },
+        'idAttr': { type: String, default: 'pk' },
         /**
-         * Collection's sortAttr
+         * @type {String} sortAttr [property] Collection's sortAttr
          */
-        'sortAttr': { type: String, default: 'pk', },
+        'sortAttr': { type: String, default: 'pk' },
+        /**
+         * @type {String} listClass [property] List class
+         */
+        'listClass': { type: String, default: 'list-group' }
     },
     data: function() {
         return {
@@ -155,5 +159,6 @@ $pepr.comps.Collection = Vue.component('pepr-collection', {
         this.coll.unsubscribe();
     },
 });
+
 
 

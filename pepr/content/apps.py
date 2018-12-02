@@ -6,7 +6,7 @@ class PeprContentConfig(AppConfig):
 
     def ready(self):
         pass
-        #from pepr.ui import assets
+        #from ..ui import assets
         #assets.pepr_js.contents += (
         #)
 

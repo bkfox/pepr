@@ -331,7 +331,7 @@ class Connection extends Emitter {
         var req = this.sendOnce(path, {'method': 'POST'}, true);
         if(req[1])
             req[0].on('close', function() {
-                if(!this.connection.isOpen())
+                if(!this.connection.isOpen)
                     return;
                 this.create({'method':'DELETE'}, false).send();
             });

@@ -1,3 +1,5 @@
+from inspect import isclass
+
 from django import template
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
@@ -5,6 +7,9 @@ from django.utils.safestring import mark_safe
 register = template.Library()
 
 
+#
+# Components & slots
+#
 @register.simple_tag(name='component', takes_context=True)
 def do_component(context, component, role=None, *args, **kwargs):
     r"""
@@ -36,6 +41,9 @@ def do_slot(context, slot_name, sender, *args, slots=None, **kwargs):
     return do_component(context, slot, sender=sender, *args, **kwargs)
 
 
+#
+# Tag builders
+#
 @register.simple_tag(name='tag_attrs')
 def do_tag_attrs(attrs=None, **extra_attrs):
     r"""
@@ -82,4 +90,19 @@ def do_icon(icon, class_='mr-2', **tag_attrs):
         icon=icon, class_=class_,
         attrs=do_tag_attrs(tag_attrs) if tag_attrs else ''
     ))
+
+
+#
+# Filters
+#
+@register.filter(name='meta')
+def do_meta(obj, attr=None):
+    """
+    Return ``_meta`` for this object or class
+    """
+    if not isclass(obj):
+        obj = type(obj)
+    meta = getattr(obj, '_meta', None)
+    return getattr(meta, attr) if attr is not None else meta
+
 

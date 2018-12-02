@@ -1,9 +1,9 @@
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
-from pepr.perms.models import Accessible, AccessibleQuerySet
-from pepr.ui.components import Position
-from pepr.utils.fields import ReferenceField
+from ..perms.models import Accessible, AccessibleQuerySet
+from ..ui.components import Position, Widget
+from ..utils.fields import ReferenceField
 
 
 class UserWidgetQuerySet(AccessibleQuerySet):
@@ -31,10 +31,6 @@ class UserWidget(Accessible):
         (int(v), _(k)) for k, v in Position.__members__.items()
     )
 
-    widget = ReferenceField(
-        _('widget'),
-        help_text=_('Widget class used to render component')
-    )
     slot = models.CharField(
         _('slot'), max_length=32,
     )
@@ -53,13 +49,14 @@ class UserWidget(Accessible):
 
     objects = UserWidgetQuerySet.as_manager()
 
+    widget_class = Widget
     widget_initkwargs = ('slot', 'position', 'order', 'text')
 
     def as_widget(self):
         """
         Return UserWidget as a widget.
         """
-        return self.widget(
+        return self.widget_class(
             **{k: getattr(self, k) for k in self.widget_initkwargs},
             user_widget=self
         )

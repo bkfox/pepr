@@ -2,8 +2,8 @@
 {% load i18n widget_tweaks pepr_ui %}
 
 {% block app %}
-<h3>{% icon "fa-cog fas" %} Settings</h3>
-<div class="box mb-3">
+<h3>{% icon "fa-cog fas" %} {% trans "Settings" %}</h3>
+<div class="box">
     <form method="POST" action="">
         {% include "pepr/ui/form.html" %}
         <hr>

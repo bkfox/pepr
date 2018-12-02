@@ -1,7 +1,7 @@
 from django.forms import TextInput, models as model_forms
 
-from pepr.ui.components import Component, Slots, Widgets
-from pepr.ui.widgets import DropdownWidgets
+from ..ui.components import Component, Slots, Widgets
+from ..ui.widgets import DropdownWidgets
 
 from .forms import ContentForm
 from .widgets import DeleteActionWidget, EditActionWidget

@@ -1,6 +1,8 @@
 """
 Provides Request interfaces usable from consumers.
 """
+from urllib.parse import urlparse
+
 from django.http import HttpRequest, QueryDict
 
 from rest_framework import serializers
@@ -39,12 +41,13 @@ class RouterRequest(HttpRequest):
         self.id = data.get('request_id')
         self.method = data.get('method', 'GET')
         self.path = data.get('path', '')
-        self.GET = data.get('query', {})
+        self.GET = QueryDict(urlparse(self.path).query, mutable=True)
         self.POST = data.get('data', {})
 
-        # if 'meta' in self.data:
-        #     request.META = request.META.copy()
-        #     request.META.update(self.data['meta'])
+        if data.get('query'):
+            # FIXME: can values be (list of values or value)? How do we
+            #        do both?
+            self.GET.update(data['query'])
 
     def __getattr__(self, attr):
         try:

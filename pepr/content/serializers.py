@@ -2,7 +2,7 @@ from django.contrib.auth import models as auth
 
 from rest_framework import serializers
 
-from pepr.perms.serializers import AccessibleSerializer
+from ..perms.serializers import AccessibleSerializer
 
 from .models import Container, Content, Service
 

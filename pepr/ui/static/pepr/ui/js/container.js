@@ -21,14 +21,14 @@ class Container extends Collection {
      *
      */
     load(itemsUrl, payload=null, reset=false, connection=null) {
-        if(reset)
-            this.reset(false);
-
         connection = this.get_connection(connection);
         var payload = payload || {};
         var req = connection.send(itemsUrl, payload);
         var collection = this.collection;
         req.on('success', function(event) {
+            if(reset)
+                this.reset(false);
+
             for(var item of event.message.data.results)
                 this.update(item);
         }, this);
@@ -92,7 +92,8 @@ class Container extends Collection {
 }
 
 
-$pepr.comps.Container = Vue.component('pepr-container', {
+// TODO: rename slots
+$pepr.comps.Container = Vue.component('pepr-bound-collection', {
     extends: $pepr.comps.Collection,
     template: `
         <div>
@@ -123,12 +124,17 @@ $pepr.comps.Container = Vue.component('pepr-container', {
         /**
          *  Load more of the list from server.
          */
-        load() {
-            var query = {};
-            query[this.limitParam] = this.limit;
-            query[this.offsetParam] = this.offset;
+        load(payload=null, reset=false, filter_offset=true) {
+            var payload = payload || { query: {} };
+            if(!payload.query)
+                payload.query = {};
 
-            var req = this.collection.load(this.itemsUrl, { query: query });
+            if(filter_offset) {
+                payload.query[this.limitParam] = this.limit;
+                payload.query[this.offsetParam] = this.offset;
+            }
+
+            var req = this.collection.load(this.itemsUrl, payload.query, reset);
             req.on('success', function(event) {
                 this.offset += event.message.data.results.length;
 
@@ -182,7 +188,7 @@ $pepr.comps.Typeahead = Vue.component('pepr-typeahead', {
         'sortAttr': { type: String, default: 'pk' },
         'collectionUrl': { type: String },
 
-        'inputName': { type: String }
+        'inputName': { type: String },
         'inputValue': { type: String },
         'inputType': { type: String, default: 'search' },
         'inputClass': { type: String },
@@ -190,6 +196,8 @@ $pepr.comps.Typeahead = Vue.component('pepr-typeahead', {
         'inputPrepend': { type: String },
         'controlClass': { type: String },
         'placeholder': { type: String },
+
+        'lookupParam': { type: String, default: 'q' },
 
         'listStyle': { type: String },
         'maxItems': { type: Number, default: 10 },
@@ -199,15 +207,15 @@ $pepr.comps.Typeahead = Vue.component('pepr-typeahead', {
         return {
             lookup: '',
             selection: '',
-            collection: new Collection(this.idAttr, this.sortAttr),
+            isFocus: false,
         }
     },
 
     methods: {
         oninput(event) {
-            var lookup = event.target.value;
-            // TODO: HERE - first impl filters
-            // var req = this.collection.load(this.itemsUrl, { query: query });
+            var payload = { query: {} };
+            payload.query[this.lookupParam] = event.target.value;
+            this.load(payload, true, false);
         }
     }
 

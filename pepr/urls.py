@@ -1,27 +1,17 @@
 from django.urls import path, include
 
-from rest_framework.routers import DefaultRouter
+api_urls = []
+""" Urls patterns for API endpoints """
+consumers_urls = []
+"""
+Urls patterns for API endpoints available only as consumers over
+WebSockets
+"""
+urlpatterns = []
 
-from .content.models import Container, Content, Service
-from .content.views import \
-        ContainerServiceView, \
-        ContainerUpdateView, \
-        SubscriptionsUpdateView, \
-        ContentViewSet
 
-
-http_api_router = DefaultRouter()
-http_api_router.register('content', ContentViewSet, base_name='content')
-
-urlpatterns = [
-    path('api/', include(http_api_router.urls), name='api'),
-    path('<uuid:pk>', ContainerServiceView.as_view(),
-         name='pepr.container'),
-    path('<uuid:pk>/s/<slug:service_slug>', ContainerServiceView.as_view(),
-         name='pepr.service'),
-    path('<uuid:pk>/settings', ContainerUpdateView.as_view(),
-         name='pepr.container.settings'),
-    path('<uuid:pk>/subscriptions', SubscriptionsUpdateView.as_view(),
-         name='pepr.container.subscriptions'),
-]
+def get_urlpatterns():
+    return [
+        path('api/', include(api_urls), name='api'),
+    ] + urlpatterns
 

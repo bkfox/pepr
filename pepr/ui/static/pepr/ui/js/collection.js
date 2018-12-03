@@ -146,7 +146,7 @@ $pepr.comps.Collection = Vue.component('pepr-collection', {
                 }
                 catch {}
 
-                elm.parentNode.removeChild(elm);
+                elm.parentNode && elm.parentNode.removeChild(elm);
             }
 
             this.collection.sort();

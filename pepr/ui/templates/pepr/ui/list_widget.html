@@ -1,0 +1,17 @@
+{% extends "pepr/ui/widget.html" %}
+{% load pepr_ui %}
+
+{% block main %}
+    {% block before %}{% endblock %}
+
+    {% block list %}
+    {% for object in object_list %}
+        {% block object %}
+        {% component object %}
+        {% endblock %}
+    {% endfor %}
+    {% endblock %}
+
+    {% block after %}{% endblock %}
+{% endblock %}
+

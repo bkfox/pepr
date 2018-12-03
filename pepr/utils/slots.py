@@ -82,12 +82,12 @@ class Slot:
         """
         :param [] signal_args: extra arguments for the signal instance.
         """
-        super().__init__(**kwargs)
         self.name = name
         self.items = items or []
         self.signal = Signal(self.signal_args) \
             if signal_args is None else \
             Signal(self.signal_args + signal_args)
+        super().__init__(**kwargs)
 
     def add(self, item):
         """ Add an item to items list """

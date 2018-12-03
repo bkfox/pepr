@@ -34,23 +34,22 @@ class ServiceView(ContextMixin, SiteView):
         Widgets('container-sidebar', 'div', {'class': 'col-2 sidebar'},
                 items=[ContainerServicesWidget()]),
         # settings menu
-        DropdownWidgets('container-settings-menu', '', items=[
-            DropdownLinkWidget(
-                text=_("Subscriptions"), icon="fa-user-friends fas",
-                url_name='pepr.container.subscriptions',
-                url_kwargs=lambda s, object, **kwargs: {'pk': str(object.pk)},
-                required_perm='manage',
-            ),
-
-            DropdownLinkWidget(
-                text=_("Settings"), icon="fa-cog fas",
-                url_name='pepr.container.settings',
-                url_kwargs=lambda s, object, **kwargs: {'pk': str(object.pk)},
-                required_perm='manage',
-            )
-        ]),
-        # subscription menu management (invitation, etc.)
-        DropdownWidgets('container-subscriptions-menu', '', items=[]),
+        DropdownWidgets('container-settings-menu', '', {'right': True},
+            items=[
+                DropdownLinkWidget(
+                    text=_("Subscriptions"), icon="fa-user-friends fas",
+                    url_name='pepr.container.subscriptions',
+                    url_kwargs=lambda s, object, **kwargs: {'pk': str(object.pk)},
+                    required_perm='manage',
+                ),
+                DropdownLinkWidget(
+                    text=_("Settings"), icon="fa-cog fas",
+                    url_name='pepr.container.settings',
+                    url_kwargs=lambda s, object, **kwargs: {'pk': str(object.pk)},
+                    required_perm='manage',
+                )
+            ]
+        ),
     ])
 
     template_name = 'pepr/content/container.html'
@@ -210,7 +209,7 @@ class ContentViewSet(AccessibleGenericAPIMixin, viewsets.ModelViewSet):
     form_comp = ContentFormComp()
     filter_backends = (filters_drf.DjangoFilterBackend,)
     filterset_fields = ContentListView.filterset_fields + (
-        'context', 'modifier', 'owner',
+        'context', 'modifier', 'owner', 'text'
     )
 
     @classmethod

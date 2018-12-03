@@ -1,7 +1,7 @@
 
 from .api import consumers as api
 from .content.consumers import ContainerObserver
-from .urls import http_api_router
+from .urls import api_urls, consumers_urls
 
 
 class PeprRouter(api.RouterConsumer):
@@ -11,9 +11,6 @@ class PeprRouter(api.RouterConsumer):
     """
 
 
-PeprRouter.register(
-    ContainerObserver.get_urls('container/<uuid:pk>/', 'api-container'),
-)
-
-PeprRouter.register(http_api_router.urls)
+PeprRouter.register(api_urls)
+PeprRouter.register(consumers_urls)
 

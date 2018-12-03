@@ -12,24 +12,38 @@ from django.urls import reverse
 from .components import Widget, Widgets
 
 
-class LinkWidget(Widget):
-    """
-    Widget rendering an url that can either be dynamically reversed or
-    directly given.
-    """
-    tag_name = 'a'
-    url = None
-    url_name = None
-    url_args = None
-    url_kwargs = None
+class ListWidget(Widget):
+    """ Render multiple provided items. """
+    items = []
+    tag_name = 'ul'
+    template_name = 'pepr/ui/list_widget.html'
 
-    def __init__(self, url=None, url_name=None, url_args=None,
-                 url_kwargs=None, **kwargs):
+    def get_context_data(self, **kwargs):
+        kwargs.setdefault('items', self.items)
+        return super().get_context_data(**kwargs)
+
+
+class UrlWidgetMixin(Widget):
+    """
+    Provides an assignable url to the widget. Url can be given as string,
+    or to reverse using given ``*args`` and ``**kwargs``.
+    """
+    url = None
+    """ Url as a string. """
+    url_name = None
+    """ Reverse url ``name``. """
+    url_kwargs = None
+    """ Reverse url ``kwargs``. Can be a ``lambda self, kwargs`` """
+    url_attr = 'url'
+    """ Tag attribute name to use. If None, do not include it """
+
+    def __init__(self, url=None, url_name=None, url_kwargs=None, **kwargs):
         super().__init__(**kwargs)
-        self.url = url
-        self.url_name = url_name
-        self.url_args = url_args
-        self.url_kwargs = url_kwargs
+        if url:
+            self.url = url
+        if url_name:
+            self.url_name = url_name
+        self.url_kwargs = url_kwargs or {}
 
     def get_url_kwargs(self, **kwargs):
         if callable(self.url_kwargs):
@@ -43,73 +57,98 @@ class LinkWidget(Widget):
         url_kwargs = self.get_url_kwargs(**kwargs)
         return reverse(self.url_name, kwargs=url_kwargs)
 
-    def get_tag_attrs(self, **kwargs):
-        tag_attrs = super().get_tag_attrs(**kwargs).copy()
-        tag_attrs['href'] = self.get_url(**kwargs)
-        return tag_attrs
+    def get_context_data(self, **kwargs):
+        if 'url' not in kwargs:
+            kwargs['url'] = self.get_url(**kwargs)
+        return super().get_context_data(**kwargs)
+
+    def get_tag_attrs(self, tag_attrs, url=None, url_attr=None, **kwargs):
+        url_attr = url_attr or self.url_attr
+        if url and url_attr and url_attr not in tag_attrs:
+            tag_attrs[url_attr] = url
+        return super().get_tag_attrs(tag_attrs, **kwargs)
 
 
-class ActionWidget(Widget):
+class LinkWidget(UrlWidgetMixin):
+    """
+    Widget rendering an url that can either be dynamically reversed or
+    directly given.
+    """
+    tag_name = 'a'
+    url_attr = 'href'
+
+
+class ActionWidget(UrlWidgetMixin):
     """
     Action is a button that send form data over API only. Can be used
-    in dropdown menus too.
+    in dropdown menus too. The widget attribute ``url`` points to an API
+    url.
     """
-
-    url = ''
-    """ API url """
     method = 'POST'
     """ API call method """
     action = 'submit'
-    """
-    Javascript method to call on click.
-    """
+    """ javascript method to call on click. """
     target = None
 
     tag_name = 'button'
     tag_attrs = {'class': 'btn-xs btn-light dropdown-item'}
+    url_attr = 'data-action-url'
     # template_name = 'pepr/ui/action_widget.html'
 
-    def get_url(self, **kwargs):
-        """ Return url formatted with ``this=self``. """
-        return self.get_formatted(self.url, **kwargs)
+    def get_tag_attrs(self, tag_attrs, **kwargs):
+        tag_attrs.setdefault('@click.prevent', self.action)
+        tag_attrs.setdefault('data-action-method', self.method)
+        tag_attrs.setdefault('data-action-target', self.target)
+        return super().get_tag_attrs(tag_attrs, **kwargs)
 
-    def get_tag_attrs(self, **kwargs):
-        tag_attrs = super().get_tag_attrs(**kwargs).copy()
-        tag_attrs['data-action-url'] = self.get_url(**kwargs)
-        if self.action:
-            tag_attrs['@click.prevent'] = self.action
-        if self.method:
-            tag_attrs['data-action-method'] = self.method
-        if self.target:
-            tag_attrs['data-action-target'] = self.target
-        return tag_attrs
-
-    def __init__(self, url=None, method=None, **kwargs):
-        if url is not None:
-            self.url = url
+    def __init__(self, *args, method=None, **kwargs):
         if method is not None:
             self.method = method
-        super().__init__(**kwargs)
+        super().__init__(*args, **kwargs)
 
 
 class DropdownWidgets(Widgets):
     """
-    Dropdown menu using <b-dropdown>.
+    Dropdown menu using ``<b-dropdown>``.
     """
-    tag_name = 'b-dropdown'
+    toggle_class = None
 
+    tag_name = 'b-dropdown'
     template_name = 'pepr/ui/dropdown_widgets.html'
 
-    def get_tag_attrs(self, toggle_class='', right=False, **kwargs):
-        tag_attrs = super().get_tag_attrs(**kwargs)
+    def get_tag_attrs(self, tag_attrs, toggle_class=None, **kwargs):
+        toggle_class = toggle_class or self.toggle_class
         if toggle_class:
-            tag_attrs['toggle-class'] = toggle_class
-        if right:
-            tag_attrs['right'] = right
-        return tag_attrs
+            tag_attrs.setdefault('toggle-class', toggle_class)
+        return super().get_tag_attrs(tag_attrs, **kwargs)
 
 
 class DropdownLinkWidget(LinkWidget):
-    """ Link as a dropdown item """
+    """ Link as a ``<b-dropdown-item>`` """
     tag_name = 'b-dropdown-item'
+
+
+class CollectionWidget(ListWidget):
+    """
+    Render the ``<pepr-collection>`` javascript component, used to
+    dynamically and manage render collection of items.
+    """
+    tag_name = 'pepr-collection'
+    id_attr = None
+    sort_attr = None
+
+    def get_tag_attr(self, tag_attrs, id_attr=None, sort_attr=None,
+                     **kwargs):
+        tag_attrs.setdefault('id_attr', id_attr or self.id_attr)
+        tag_attrs.setdefault('sort_attr', sort_attr or self.sort_attr)
+        return super().get_tag_attrs(tag_attrs, **kwargs)
+
+
+class BoundCollectionWidget(Widget):
+    """
+    Collection that can be dynamically updated from server and observe
+    items updates.
+    """
+    tag_name = 'pepr-bound-collection'
+
 

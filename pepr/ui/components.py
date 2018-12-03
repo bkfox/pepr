@@ -8,7 +8,18 @@ from ..utils import slots
 from ..utils.slots import Position, Slots
 
 
-class Component(PermissionMixin, TemplateResponseMixin, ContextMixin):
+class ComponentBase:
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            if hasattr(self, k):
+                setattr(self, k, v)
+            else:
+                raise ValueError('`kwargs` values must be an attribute '
+                                 'on the object class.')
+
+
+class Component(PermissionMixin, TemplateResponseMixin, ContextMixin,
+                ComponentBase):
     """
     A Component is an element that aims to be rendered in other views.
     It allows rendering item into a string for this purpose.
@@ -26,14 +37,8 @@ class Component(PermissionMixin, TemplateResponseMixin, ContextMixin):
     """ Required object permission to display component """
     slots = None
     """ Component's slots """
-
-    def __init__(self, *args, object=None, required_perm=None,
-                 **kwargs):
-        if object is not None:
-            self.object = object
-        if required_perm is not None:
-            self.required_perm = required_perm
-        super().__init__(*args, **kwargs)
+    object = None
+    """ Object """
 
     def render(self, role, object=None, **kwargs):
         """
@@ -71,7 +76,7 @@ class Component(PermissionMixin, TemplateResponseMixin, ContextMixin):
         return super().get_context_data(role=role, **kwargs)
 
 
-class Widget(Component, slots.SlotItem):
+class Widget(slots.SlotItem, Component):
     """ Base class for Widgets """
     tag_name = ''
     tag_attrs = None
@@ -99,33 +104,37 @@ class Widget(Component, slots.SlotItem):
         """
         return value.format(this=self, **kwargs)
 
-    def get_tag_attrs(self, tag_attrs=None, **kwargs):
+    def get_tag_attrs(self, tag_attrs, **kwargs):
         """
         Return attribute of widget's tag.
         :param dict tag_attrs: add those values to tag_attrs
         """
-        if tag_attrs:
-            tag_attrs.update({k: v for k, v in tag_attrs.items()
+        if self.tag_attrs:
+            tag_attrs.update({k: v for k, v in self.tag_attrs.items()
                               if k not in tag_attrs})
-            return tag_attrs
-        return self.tag_attrs
+        return tag_attrs
 
     def get_text(self, **kwargs):
         """ Return formated ``self.text``. """
         return self.text and self.get_formatted(self.text, **kwargs)
 
     def get_context_data(self, **kwargs):
+        """
+        Provides context values for: *tag_name, tag_attrs, icon, text.*
+        They can be overriden using ``**kwargs``.
+        """
         kwargs.setdefault('tag_name', self.tag_name)
         kwargs.setdefault('icon', self.icon)
 
         if 'tag_attrs' not in kwargs:
-            kwargs['tag_attrs'] = self.get_tag_attrs(**kwargs)
+            kwargs['tag_attrs'] = self.get_tag_attrs(tag_attrs={}, **kwargs)
+
         if 'text' not in kwargs:
             kwargs['text'] = self.get_text(**kwargs)
         return super().get_context_data(**kwargs)
 
 
-class Widgets(Widget, slots.Slot):
+class Widgets(slots.Slot, Widget):
     """
     Widget used to render multiple widgets using the slot system.
     It fetches items in order to pre-render them in ``get_context_data``

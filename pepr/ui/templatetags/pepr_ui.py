@@ -4,6 +4,8 @@ from django import template
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
+from ..components import Component
+
 register = template.Library()
 
 
@@ -12,16 +14,27 @@ register = template.Library()
 #
 @register.simple_tag(name='component', takes_context=True)
 def do_component(context, component, role=None, *args, **kwargs):
+    # TODO: more doc about different rendering depending on type of
+    #       `component`.
     r"""
     Render the given component here. parent view will be set to the
     current view.
 
-    :param Component component: component to render
+    :param (Component|str|callable) component: object or component to render.
     :param \*args: args to pass to `component.render`
     :param \**kwargs: kwargs to pass to `component.render`
     """
     role = role or context.get('role')
-    return component.render(role, *args, **kwargs)
+
+    if isinstance(component, Component):
+        return component.render(role, *args, **kwargs)
+
+    if isinstance(component, str):
+        return component.format(role=role, **kwargs) if kwargs else \
+               component
+    if callable(component):
+        return component(role, *args, **kwargs)
+    return component
 
 
 @register.simple_tag(name='slot', takes_context=True)
@@ -48,7 +61,7 @@ def do_slot(context, slot_name, sender, *args, slots=None, **kwargs):
 def do_tag_attrs(attrs=None, **extra_attrs):
     r"""
     Render given key-values as HTML tag attributes; to be used inside
-    tags.
+    tags. Tags with a value that is ``None`` will be skipped.
 
     :param dict attrs: dict of ``{ 'attribute': 'value' }``.
     :parma \**extra_attrs: extra HTML attributes
@@ -64,7 +77,8 @@ def do_tag_attrs(attrs=None, **extra_attrs):
     return mark_safe(
         ' '.join('{}="{}"'.format(k, escape(v))
                      if v is not True else k
-                 for k, v in attrs.items())
+                 for k, v in attrs.items()
+                 if v is not None)
     )
 
 

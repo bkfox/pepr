@@ -1,13 +1,7 @@
-from django.apps import AppConfig
+from ..apps import PeprAppConfig
 
-class PeprContentConfig(AppConfig):
+
+class PeprContentConfig(PeprAppConfig):
     name = 'pepr.content'
     label = 'pepr_content'
-
-    def ready(self):
-        pass
-        #from ..ui import assets
-        #assets.pepr_js.contents += (
-        #)
-
 

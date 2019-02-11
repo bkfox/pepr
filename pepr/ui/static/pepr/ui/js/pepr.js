@@ -28,6 +28,11 @@ $pepr = {
      */
     comps: {},
 
+    /**
+     *  VueJS available mixins
+     */
+    mixins: {},
+
     get alerts() {
         if($pepr.app)
             return $pepr.app.$refs.alerts;

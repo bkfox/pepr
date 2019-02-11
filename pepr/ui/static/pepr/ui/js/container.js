@@ -1,7 +1,7 @@
 /**
  * Collection that is synchronized to the server with API requests.
  */
-class Container extends Collection {
+class BoundCollection extends Collection {
     /**
      *  Return connection used to send requests.
      */
@@ -92,16 +92,9 @@ class Container extends Collection {
 }
 
 
-// TODO: rename slots
-$pepr.comps.Container = Vue.component('pepr-bound-collection', {
-    extends: $pepr.comps.Collection,
-    template: `
-        <div>
-            <slot name="prepend" :parent="this" :collection="collection"></slot>
-            ${$pepr.comps.Collection.options.template}
-            <slot name="append" :parent="this" :collection="collection"></slot>
-        </div>
-    `,
+$pepr.comps.BoundCollectionView = Vue.component('pepr-bound-collection', {
+    extends: $pepr.comps.CollectionView,
+
     props: {
         collectionUrl: { type: String },
         itemsUrl: { type: String },
@@ -112,14 +105,16 @@ $pepr.comps.Container = Vue.component('pepr-bound-collection', {
         observe: { type: Boolean, default: false },
         maxItems: { type: Number, default: 200 },
     },
+
     data() {
         return {
+            collection: new BoundCollection(this.idAttr, this.sortAttr),
             connection: undefined,
-            collection: new Container(this.idAttr, this.sortAttr),
             offset: this.offsetInit,
             loadReq: null,
         }
     },
+
     methods: {
         /**
          *  Load more of the list from server.
@@ -134,7 +129,7 @@ $pepr.comps.Container = Vue.component('pepr-bound-collection', {
                 payload.query[this.offsetParam] = this.offset;
             }
 
-            var req = this.collection.load(this.itemsUrl, payload.query, reset);
+            var req = this.collection.load(this.itemsUrl, payload, reset);
             req.on('success', function(event) {
                 this.offset += event.message.data.results.length;
 
@@ -146,78 +141,160 @@ $pepr.comps.Container = Vue.component('pepr-bound-collection', {
         }
     },
     mounted() {
+        // TODO: handle changes in collectionUrl && itemsUrl
         if(this.observe)
             this.collection.bind(this.collectionUrl, this.itemsUrl);
     }
 });
 
 
+// TODO:
+// - selector hiding & show + switch with input
+// - selector show: ensure it is on selectedItem
+// - initial value in input
+// - default list (when no result shown)
+//
+// - slot-scope: parent
+// - item unselect/select/focus/blur => on collection: call selector.select/focus
+// - initial value + list (as active & selected item)
+// - follow active item
 $pepr.comps.Typeahead = Vue.component('pepr-typeahead', {
-    extends: $pepr.comps.Container,
     template: `
-        <div>
+        <div class="position-relative">
             <div :class="inputClass">
-                <div v-if="$slots.inputPrepend || inputPrepend" class="input-group-prepend">
-                    <slot name="input-prepend">{{ inputPrepend }}</slot>
-                </div>
-
-                <slot name="input" :parent="this" :collection="collection">
+                <slot name="input" :parent="this" :collection="collection"
+                    :value="selectedValue" :label="selectedLabel">
                     <input ref="input" :type="inputType" :class="controlClass"
                         :placeholder="placeholder"
                         :aria-label="placeholder"
-                        @focus="isFocus=true"
-                        @blur="isFocus=false"
-                        @input="oninput"
+                        @blur="onInputBlur" @focus="onInputFocus"
+                        @keyup="onInputUp" @keydown="onInputDown"
                         />
                 </slot>
-
-                <input type="hidden" :name="inputName" :value="selection" />
-
-                <div v-if="$slots.inputAppend || inputAppend" class="input-group-append">
-                    <slot name="input-append">{{ inputAppend }}</slot>
-                </div>
             </div>
-            <div class="">
-                ${$pepr.comps.Container.options.template}
-            </div>
+            <pepr-selector ref="selector"
+                :view="$refs.collection" :value-attr="itemValueAttr" :label-attr="itemLabelAttr"
+                select-key="Enter"
+                @selected="onSelect"
+                >
+                <template slot="selected" slot-scope="{view,value,label}">
+                    <input type="hidden" :name="inputName" :value="value" />
+                </template>
+            </pepr-selector>
+            <slot name="collection">
+                <pepr-bound-collection ref="collection" selectable
+                    :class="computedListClass" :max-items="maxItems"
+                    :selector="$refs.selector"
+                    :items-url="itemsUrl" :collection-url="collectionUrl"
+                    :item-class="itemClass"
+                    :hidden="!hasFocus"
+                    >
+                    <template slot="before" slot-scope="{parent, view}">
+                        <slot name="before" :parent="parent" :view="view"></slot>
+                    </template>
+
+                    <template slot="item" slot-scope="{parent, view, item}">
+                        <slot name="item" :parent="parent" :view="view" :item="item"></slot>
+                    </template>
+
+                    <template slot="after" slot-scope="{parent, view}">
+                        <slot name="after" :parent="parent" :view="view"></slot>
+                    </template>
+                </pepr-bound-collection>
+            </slot>
         </div>
     `,
 
     props: {
-        'idAttr': { type: String, default: 'pk' },
-        'sortAttr': { type: String, default: 'pk' },
-        'collectionUrl': { type: String },
+        lookupParam: { type: String, default: null },
+        itemValueAttr: { type: String, default: 'value' },
+        itemLabelAttr: { type: String, default: 'text' },
 
-        'inputName': { type: String },
-        'inputValue': { type: String },
-        'inputType': { type: String, default: 'search' },
-        'inputClass': { type: String },
-        'inputAppend': { type: String },
-        'inputPrepend': { type: String },
-        'controlClass': { type: String },
-        'placeholder': { type: String },
+        inputName: { type: String },
+        inputValue: { type: String },
+        inputType: { type: String, default: 'search' },
+        inputClass: { type: String },
+        controlClass: { type: String, default: 'form-text form-control' },
+        placeholder: { type: String },
 
-        'lookupParam': { type: String, default: 'q' },
-
-        'listStyle': { type: String },
-        'maxItems': { type: Number, default: 10 },
+        collectionUrl: { type: String },
+        itemClass: { type: String, default: 'list-group-item list-group-item-action' },
+        itemsUrl: { type: String },
+        listClass: { type: String, default: 'list-group' },
+        listFloat: { type: Boolean },
+        maxItems: { type: Number, default: 10 },
     },
 
     data() {
         return {
             lookup: '',
-            selection: '',
-            isFocus: false,
+            focus: null,
+            collection: null,
+            hasFocus: false,
         }
     },
 
-    methods: {
-        oninput(event) {
-            var payload = { query: {} };
-            payload.query[this.lookupParam] = event.target.value;
-            this.load(payload, true, false);
-        }
-    }
+    computed: {
+        computedListClass() {
+            return this.listClass + (this.listFloat ? ' position-absolute shadow' : '')
+        },
 
+        selectedValue() {
+            return this.$refs.selector && this.$refs.selector.selectedValue;
+        },
+
+        selectedLabel() {
+            return this.$refs.selector && this.$refs.selector.selectedLabel;
+        },
+    },
+
+    methods: {
+        onInputDown(event) {
+            if(this.$refs.selector)
+                this.$refs.selector.keyEvent(event);
+            if(event.key == 'Escape')
+                this.hasFocus = false;
+        },
+
+        onInputUp(event) {
+            var value = event.target.value;
+            if(this.lookup && (this.lookup == value || value == this.selectedLabel))
+                return;
+
+            this.lookup = event.target.value;
+            var payload = { query: {} };
+            payload.query[this.lookupParam] = this.lookup;
+            this.$refs.collection.load(payload, true, false);
+        },
+
+        onInputFocus(event) {
+            if(this.selectedValue)
+                event.target.value = this.selectedLabel
+            this.hasFocus = true;
+        },
+
+        onInputBlur(event) {
+            this.hasFocus = false;
+        },
+
+        onLabelFocus(event) {
+            this.$refs.input && this.$refs.input.focus();
+        },
+
+        onSelect(event) {
+            this.$refs.input.value = event.selector.selectedLabel;
+            this.$refs.input.select();
+        },
+
+        // move those event handling to selector
+        onItemFocus(event) { this.$refs.selector && this.$refs.selector.focus(event.index); },
+        onItemBlur(event) { this.$refs.selector && this.$refs.selector.blur(); },
+        onItemSelect(event) { this.$refs.selector && this.$refs.selector.select(event.index); },
+        onItemUnselect(event) { this.$refs.selector && this.$refs.selector.unselect(); },
+    },
+
+    beforeDestroy: function() {
+        this.$refs.collection.unsubscribe();
+    },
 });
 

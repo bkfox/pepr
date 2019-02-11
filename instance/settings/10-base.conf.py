@@ -9,17 +9,19 @@ except NameError: DEBUG = True
 ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
+    'pepr.bootstrap',
+    'pepr.users',
     'pepr.api',
     'pepr.perms',
     'pepr.ui',
     'pepr.content',
-    'pepr.bootstrap',
 
     'django_assets',
     'widget_tweaks',
     'rest_framework',
-    'channels',
     'django_filters',
+
+    'channels',
 
     'django.contrib.admin',
     'django.contrib.auth',

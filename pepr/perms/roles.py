@@ -64,6 +64,19 @@ class Role(metaclass=Roles):
     subscription = None
     """[instance] if given, Subscription model."""
 
+    @property
+    def is_anonymous(self):
+        return self.user is None or self.user.is_anonymous
+
+    @property
+    def is_subscribed(self):
+        return self.subscription is not None and \
+                self.subscription.is_subscribed
+
+    @property
+    def is_admin(self):
+        return False
+
     @cached_property
     def permissions(self):
         """
@@ -84,11 +97,12 @@ class Role(metaclass=Roles):
         perms.update({self.perm_key(p): p for p in qs})
         return perms
 
-    def has_access(self, access):
+    def has_access(self, access, strict=False):
         """
-        Return True if access level is granted
+        Return True if access level is granted.
+        :param bool strict: access must be strictly < than role.access
         """
-        return self.access >= access
+        return self.access > access if strict else self.access >= access
 
     def has_perm(self, codename, model=None):
         """
@@ -190,6 +204,10 @@ class AdminRole(Role):
     description = _(
         'Thoses who have all rights in the place'
     )
+
+    @property
+    def is_admin(self):
+        return True
 
     @cached_property
     def permissions(self):

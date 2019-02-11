@@ -1,6 +1,29 @@
 TODO
 ====
 
+- Permissions:
+   - ensure an Admin exists at context creation
+   - Accessible => pk => uuid: because accessible means to be accessible...
+
+   - permission granted:
+      - can be forbidden: authorization cant be set by end users
+      - can be default: (instead of delete authorization?)
+
+   - subscription api:
+      - CRUD
+         - restrict edition to role's known people: not private & subscribed in current context
+         - delete: always an admin
+         - save/create: - update status accordingly
+                        - check role.subscription
+         - qs: a subscription can be not validated
+      - Invitation & Request:
+        - user: can change invitation, can not request (except delete)
+
+      Subscription policy:
+      - request: request, invitation
+      - invitation: invitation
+      - validated: auto-subscribe based on default subscribed role;
+
 - Settings:
    - ContextForm
      - how to handle combined ContextForm & AccessibleForm
@@ -44,8 +67,13 @@ Per application:
    - collection:
       - load paginated content; auto-load
       - pagination (for static)
-      - sort: handle date and direction
-   - file upload
+      - autcompletion:
+         - pepr-autocomplete-field: rename, focus/blur, hide/show list
+         - pepr-autocomplete
+   - webpack & organization into ".vue" components & js module
+   - accessibility: aria-* everywhere
+- API:
+   - FILES & file upload over ws
 - Perms:
    - Reusable permission editor view form
    x templatetags: "role" filter ("container|role:request.user")
@@ -66,8 +94,7 @@ Per application:
       - how to handle service creation/enabling, etc.
 - Bootstrap:
    - StreamView:
-      - filters
-      - page loading
+      - filters & loading: cf. ui
       - multiple forms
 - Utils:
    - functional: rename into decorators? + update readme

@@ -8,6 +8,7 @@ from ..utils import slots
 from ..utils.slots import Position, Slots
 
 
+# FIXME: merge in Component?
 class ComponentBase:
     def __init__(self, **kwargs):
         for k, v in kwargs.items():

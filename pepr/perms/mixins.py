@@ -74,32 +74,3 @@ class ContextDetailMixin(ContextMixin):
         self.context = value
 
 
-class AccessibleMixin(PermissionMixin):
-    role = None
-
-    def get_queryset(self):
-        return super().get_queryset().user(self.request.user)
-
-
-class AccessibleGenericAPIMixin(AccessibleMixin):
-    """
-    This mixin enforce permissions checks on the accessible elements.
-    It uses a``.serializer.AccessibleSerializer`` (sub-)class.
-    """
-    def get_object(self):
-        obj = super().get_object()
-        role = obj.related_context.get_role(self.request.user)
-        if not self.has_perms(role, obj):
-            raise PermissionDenied('permission denied')
-        return obj
-
-    def get_serializer(self, *args, **kwargs):
-        if self.role:
-            kwargs.setdefault('role', self.role)
-        kwargs.setdefault('user', self.request.user)
-        return super().get_serializer(*args, **kwargs)
-
-    def perform_destroy(self, instance):
-        role = instance.related_context.get_role(self.request.user)
-        instance.delete(by=role)
-

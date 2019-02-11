@@ -38,6 +38,7 @@ class RouterRequest(HttpRequest):
     _dont_enforce_csrf_checks = True
 
     def __init__(self, data):
+        # TODO: parse path and clean query parameters from self.path
         self.id = data.get('request_id')
         self.method = data.get('method', 'GET')
         self.path = data.get('path', '')

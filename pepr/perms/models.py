@@ -21,6 +21,17 @@ from .roles import Roles, AnonymousRole, DefaultRole, \
 from ..utils.iter import as_choices
 
 
+SUBSCRIPTION_REQUEST = 1
+SUBSCRIPTION_INVITATION = 2
+SUBSCRIPTION_ACCEPTED = 3
+
+SUBSCRIPTION_CHOICES = (
+    (SUBSCRIPTION_REQUEST, _('Request')),
+    (SUBSCRIPTION_INVITATION, _('Invitation')),
+    (SUBSCRIPTION_ACCEPTED, _('Accepted')),
+)
+
+
 class ContextQuerySet(InheritanceQuerySetMixin, models.QuerySet):
     def subscription(self, user, access=None):
         """
@@ -40,15 +51,27 @@ class Context(models.Model):
     Each instance of ``Context`` defines a context in which permissions,
     subscriptions and access to objects take place.
     """
-    # visibility = models.SmallIntegerField(
-    #     verbose_name = _('visibility'),
-    #     choices = as_choices('access','name', Roles.values()),
-    #     blank = True, null = True,
-    # )
+    subscription_policy = models.SmallIntegerField(
+        verbose_name=_('subscription policy'),
+        choices=SUBSCRIPTION_CHOICES,
+        default=SUBSCRIPTION_INVITATION,
+        help_text=_('Defines how subscription works')
+    )
+    subscription_default_access = models.SmallIntegerField(
+        verbose_name=_("subscription's default role"),
+        choices=as_choices('access', 'name', Roles.values()),
+        blank=True, null=True,
+        help_text=_('Role set by default to new subscribers'),
+    )
 
     role = None
-
     objects = ContextQuerySet.as_manager()
+
+
+    @property
+    def subscription_request_allowed(self):
+        return self.subscription_policy in (SUBSCRIPTION_REQUEST,
+                                            SUBSCRIPTION_ACCEPTED)
 
     @staticmethod
     def get_special_role(user):
@@ -81,7 +104,7 @@ class Context(models.Model):
 
         if user is not None and not user.is_anonymous:
             subscription = Subscription.objects.filter(
-                context=self, owner=user
+                context=self, owner=user, status=SUBSCRIPTION_ACCEPTED,
             ).first()
 
             # get role from subscription or from default only if role is
@@ -139,10 +162,12 @@ class AccessibleQuerySet(InheritanceQuerySetMixin, models.QuerySet):
         return (
             # user with registered access
             Q(context__subscription__access__gte=F('access'),
+              context__subscription__status=SUBSCRIPTION_ACCEPTED,
               context__subscription__owner=user) |
             # user with no access, but who is platform member
             (
-                ~Q(context__subscription__owner=user) &
+                ~Q(context__subscription__status=SUBSCRIPTION_ACCEPTED,
+                   context__subscription__owner=user) &
                 Q(access__lte=DefaultRole.access)
             )
         )
@@ -152,6 +177,19 @@ class AccessibleQuerySet(InheritanceQuerySetMixin, models.QuerySet):
         Filter Accessible objects based on user's role.
         """
         return self.filter(self._get_user_q(user)).distinct()
+
+    def create(self, by=None, **kwargs):
+        """
+        Create a new object with the given kwargs, saving it to the database
+        and returning the created object.
+        """
+        obj = self.model(**kwargs)
+        self._for_write = True
+        if by:
+            obj.save_by(by)
+        obj.save(force_insert=True, using=self.db)
+        return obj
+
 
 
 class AccessibleBase(models.Model):
@@ -165,6 +203,12 @@ class AccessibleBase(models.Model):
         help_text=_('who has access this element and its content.')
     )
 
+    change_by = None
+    """
+    Role that executes actions that requires permission check: delete(),
+    save(), ...
+    """
+
     filter_backends = (IsAccessibleFilterBackend,)
     objects = AccessibleQuerySet.as_manager()
 
@@ -174,7 +218,7 @@ class AccessibleBase(models.Model):
         Related Context as its real subclass.
         """
         return Context.objects.get_subclass(id=self.context_id) \
-                if self.context_id is not None else None
+            if self.context_id is not None else None
 
     class Meta:
         abstract = True
@@ -187,14 +231,19 @@ class AccessibleBase(models.Model):
         return self.pk is not None
 
     def has_access(self, role):
+        # Rule: object access is handled by role's access control
         return role.has_access(self.access)
 
     def has_perm(self, role, codename):
         """
-        Return wether user has given permission on this object.
+        Return wether user has given permission on this object. Always
+        use this method instead of `role.has_perm` when dealing with
+        Accessible objects.
         """
+        # Rule: role can only change object he has access to.
+        #       -> role can only set object.access <= role.access
         return self.has_access(role) and \
-               role.has_perm(codename, type(self))
+            role.has_perm(codename, type(self))
 
     def assert_perm(self, role, codename):
         """
@@ -211,6 +260,7 @@ class AccessibleBase(models.Model):
         Perform deletion by this role+user; run permissions check before
         delete.
         """
+        # Action: delete -> role has delete perm on object
         self.assert_perm(role, 'delete')
 
     def save_by(self, role):
@@ -218,17 +268,21 @@ class AccessibleBase(models.Model):
         Save object performed by this role+user; run permissions checks
         before saving.
         """
+        # Action: create -> role has create perm on object
         if not self.is_saved:
             self.assert_perm(role, 'create')
+        # Action: update -> role has update perm on object
         else:
             self.assert_perm(role, 'update')
 
     def delete(self, *args, by=None, **kwargs):
+        by = by or self.change_by
         if by is not None:
             self.delete_by(by)
         super().delete(*args, **kwargs)
 
     def save(self, *args, by=None, **kwargs):
+        by = by or self.change_by
         if by is not None:
             self.save_by(by)
         super().save(*args, **kwargs)
@@ -288,19 +342,38 @@ class Owned(Accessible):
     class Meta:
         abstract = True
 
+    def is_owner(self, role):
+        """
+        Return True if given role is considered the owner of the object.
+        """
+        return self.is_saved and not role.is_anonymous and \
+                self.owner == role.user
+
+    # def has_access(self, role):
+    #     if self.owner is not None and not role.is_anonymous and \
+    #             self.owner != role.user:
+    #         owner_role = self.related_context.get_role(self.owner)
+    #         if not role.has_access(owner_role.access):
+    #             return False
+    #     return super().has_access(role)
     def has_access(self, role):
-        if self.owner is not None and not role.user.is_anonymous and \
-                self.owner != role.user:
-            owner_role = self.related_context.get_role(self.owner)
-            if role.context.pk != owner_role.context.pk or \
-                    not role.has_access(owner_role.access):
-                return False
+        # Rule: owner always has access to its objects
+        if self.is_owner(role):
+            return True
         return super().has_access(role)
 
     def has_perm(self, role, codename):
-        if self.owner is not None and not role.user.is_anonymous and \
-                self.owner == role.user:
+        # Rule: owner always has control of its objects
+        if self.is_owner(role):
             return True
+        # Rule: Role can only edit others' object with <= role access;
+        #       EXCEPT that Admin can not change objects of other Admin
+        if self.is_saved and not role.is_anonymous and \
+                self.owner is not None and self.owner != role.user:
+            owner_role = self.related_context.get_role(self.owner)
+            strict = role.is_admin and owner_role.is_admin
+            if not role.has_access(owner_role.access, strict):
+                return False
         return super().has_perm(role, codename)
 
     def save_by(self, role):
@@ -309,8 +382,9 @@ class Owned(Accessible):
         created.
         """
         super().save_by(role)
-        print('self', self, role, self.is_saved)
-        if not self.is_saved and not role.user.is_anonymous:
+        # Rule: owner is the first user updating element that is not anonymous.
+        if not self.is_saved and self.owner is None and \
+                not role.is_anonymous:
             self.owner = role.user
 
 
@@ -328,8 +402,18 @@ class Subscription(Owned):
 
     There can be only one Subscription for a pair of owner and context.
     """
+    status = models.SmallIntegerField(
+        _('status'),
+        choices=SUBSCRIPTION_CHOICES,
+        blank=True
+    )
+
     class Meta:
         unique_together = ('context', 'owner')
+
+    @property
+    def is_subscribed(self):
+        return self.status == SUBSCRIPTION_ACCEPTED
 
     def get_role(self, access=None):
         """
@@ -340,6 +424,83 @@ class Subscription(Owned):
             access = self.access
         cls = Roles.get(access)
         return cls(self.context, self.owner, self)
+
+    def has_access(self, role):
+        # Rule: Subscriptions are not accessible to anonymous users
+        if role.is_anonymous:
+            return False
+        return super().has_access(role)
+
+    def has_perm(self, role, codename):
+        # Rule: Unsubscribed user can subscribe based on context policy
+        if not self.is_saved and codename == "create" and \
+                not role.is_subscribed:
+            return self.context.subscribe_policy in (SUBSCRIPTION_ACCEPTED,
+                                                     SUBSCRIPTION_REQUEST)
+        return super().has_perm(role, codename)
+
+    def delete_by(self, role):
+        # Context must always have at least on Admin
+        # TODO: ensure that also at context creation
+        my_role = self.get_role()
+
+        # Rule: there must be at least one admin subscribed in Context
+        if isinstance(my_role, AdminRole):
+            qs = Subscription.objects.context(self.context) \
+                                     .access(role.access)
+            if qs.count() < 2:
+                raise PermissionDenied("there must be at least one admin.")
+        super().delete_by(role)
+
+    def subscribe_by(self, role):
+        """
+        Run subscription process by the given role: This method ensure
+        correct status change flow regarding current subscription and
+        role.
+
+        Raise PermissionDenied when this action is not valid.
+
+        Note: this method does not enforce user permission check.
+        """
+        # Subscription.status ==
+        #   (~saved /\ writer = user /\ policy \in {request, accepted}) => policy
+        #   (~saved /\ writer /= user) => invitation
+        #   (saved /\ writer = user /\ original.status in {invitation, accepted}) => accepted
+        #   (saved /\ writer /= user /\ original.status = request) => accepted
+        if not self.is_saved:
+            # Rule: Subscribed users can only create invitations
+            if role.is_subscribed:
+                self.status = SUBSCRIPTION_INVITATION
+                return
+
+            # Rule: Unsubscribed can only create subscription for himself
+            #       in accordance to context's policies.
+            policy = self.context.subscribe_policy
+            if policy not in (SUBSCRIPTION_ACCEPTED, SUBSCRIPTION_REQUEST):
+                raise PermissionDenied("subscription not allowed")
+
+            self.status = policy
+            self.access = self.context.default_access
+            self.owner = role.user
+            return
+
+        # Rule: subscriber can accept an invitation or retry to request
+        #       subscription
+        if role.user == self.owner:
+            if self.status == SUBSCRIPTION_REQUEST:
+                self.status = self.context.subscribe_policy
+            elif self.status in (SUBSCRIPTION_ACCEPTED,
+                                 SUBSCRIPTION_INVITATION):
+                self.status = SUBSCRIPTION_ACCEPTED
+        else:
+            if self.status == SUBSCRIPTION_REQUEST:
+                self.status = SUBSCRIPTION_ACCEPTED
+            # FIXME: raise permission denied? => fix a Rule
+
+        def save_by(self, role):
+            self.subscribe_by(role)
+            super().save_by(role)
+
 
 
 class Authorization(Accessible):

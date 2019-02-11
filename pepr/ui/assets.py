@@ -38,10 +38,12 @@ pepr_js = Bundle(
     # core
     'pepr/ui/js/pepr.js',
     'pepr/ui/js/emitter.js', 'pepr/ui/js/request.js',
-    'pepr/ui/js/connection.js',
+    'pepr/ui/js/connection.js', 'pepr/ui/js/cursor.js',
 
     # ui
-    'pepr/ui/js/collection.js', 'pepr/ui/js/container.js',
+    'pepr/ui/js/collection.js',
+    'pepr/ui/js/container.js',
+    'pepr/ui/js/selector.js',
     'pepr/ui/js/components.js',
     filters='jsmin', output='gen/pepr.packed.js'
 )

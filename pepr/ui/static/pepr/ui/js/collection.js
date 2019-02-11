@@ -1,9 +1,11 @@
 
 /**
- *  Store and manage items objects.
+ *  Collection of unique objects.
  */
-class Collection {
+class Collection extends Emitter {
     constructor(idAttr, sortAttr=null, items=null) {
+        super();
+
         /**
          *  Item's attribute to use as object unique identifier.
          *  @type {String}
@@ -23,12 +25,28 @@ class Collection {
     }
 
     /**
+     *  Number of items in the collection.
+     */
+    get length() {
+        return this.items.length;
+    }
+
+    /**
+     * Splice collection.
+     */
+    splice(index, deleteCount) {
+        var r = this.items.splice.apply(this.items, arguments);
+        this.emit('splice', { index: index, deleteCount: deleteCount,
+                              count: arguments.length-2 });
+        return r;
+    }
+
+    /**
      * Add a given item in the collection.
      */
-    add(item, sort=true) {
+    add(item) {
         this.items.push(item);
-        if(sort)
-            this.sort();
+        this.emit('splice', { index: this.items.length-1, count: 1 });
     }
 
     /**
@@ -36,21 +54,19 @@ class Collection {
      * is stays unique.
      */
     update(item) {
-        var index = this.index_of(item);
+        var index = this.indexOf(item);
         if(index == -1)
             return this.add(item);
-
-        this.items.splice(index, 1, item);
-        this.sort();
+        this.splice(index, 1, item);
     }
 
     /**
      * Delete an item from collection
      */
     remove(item) {
-        var index = this.index_of(item);
+        var index = this.indexOf(item);
         if(index != -1)
-            this.items.splice(index, 1);
+            this.splice(index, 1);
     }
 
     /**
@@ -61,10 +77,12 @@ class Collection {
     }
 
     /**
-     * Return item's index in collection
+     * Return item's index in collection or -1.
      */
-    index_of(item) {
+    indexOf(item) {
         var attr = this.idAttr;
+        if(!attr)
+            return this.items.indexOf(item);
         return this.items.findIndex(function(a) {
             return a[attr] == item[attr];
         });
@@ -73,7 +91,7 @@ class Collection {
     /**
      * Sort items array
      */
-    sort() {
+    /*sort() {
         var attr = this.sortAttr;
         if(attr[0] == '-') {
             attr = attr.slice(1);
@@ -85,47 +103,132 @@ class Collection {
             this.items.sort(function(a,b) {
                 return attr ? a[attr] < b[attr] : a < b;
             });
-    }
+    }*/
 }
+
+
+$pepr.comps.CollectionItem = Vue.component('pepr-collection-item', {
+    template: `
+        <div :class="computedClass"
+            @click="toggleSelect()" @mouseover="focus()">
+            <slot :item="item" :view="view"
+                :active="active" :selected="selected"></slot>
+        </div>
+    `,
+
+    props: {
+        item: { type: Object, default: null },
+        index: { type: Number },
+        itemClass: { type: String, default: 'list-group' },
+        activeClass: { type: String, default: 'active' },
+        selectedClass: { type: String, default: 'list-group-item-primary' },
+    },
+
+    computed: {
+        view() {
+            return this.$parent;
+        },
+
+        selector() {
+            return this.view && this.view.selector;
+        },
+
+        computedClass() {
+            var extra = this.active ? ' ' + this.activeClass :
+                        this.selected ? ' ' + this.selectedClass: '';
+            return this.itemClass + extra;
+        },
+
+        active() {
+            return this.selector && this.index == this.selector.active.index
+        },
+
+        selected() {
+            return this.selector && this.index == this.selector.selected.index
+        },
+    },
+
+    methods: {
+        toggleSelect() {
+            this.selected ? this.unselect() : this.select();
+        },
+
+        select() { this.selector && this.selector.select(this.index); },
+        unselect() { this.selector && this.selector.unselect(this.index); },
+        focus() { this.selector && this.selector.focus(this.index); },
+        blur() { this.selector && this.selector.blur(this.index); },
+    },
+})
 
 
 /**
  *  VueJS Component that handles a collection.
  */
-$pepr.comps.Collection = Vue.component('pepr-collection', {
+$pepr.comps.CollectionView = Vue.component('pepr-collection', {
     template: `
-        <div :class="listClass" >
-            <pepr-dynamic v-for="item in collection.items"
-                :html="item.html" :elm="item.elm"
-                :key="this.idAttr" :data="item">
-            </pepr-dynamic>
+        <div :class="listClass" ref="list">
+            <slot name="before"></slot>
+
+            <div ref="list">
+                <pepr-collection-item v-for="(item, index) in collection.items"
+                    ref="items" :key="item[idAttr]"
+                    :hidden="filter && !filter(item)"
+                    :index="index" :item="item"
+                    :item-class="itemClass"
+                    >
+                    <slot name="item" :collection="collection" :item="item" :index="index">
+                    </slot>
+                </pepr-collection-item>
+            </div>
+
             <slot></slot>
+
+            <slot name="after"></slot>
         </div>
     `,
+
     props: {
         /**
          * @type {String} idAttr [property] Collection's idAttr.
          */
-        'idAttr': { type: String, default: 'pk' },
+        idAttr: { type: String, default: 'pk' },
         /**
          * @type {String} sortAttr [property] Collection's sortAttr
          */
-        'sortAttr': { type: String, default: 'pk' },
+        sortAttr: { type: String, default: 'pk' },
         /**
          * @type {String} listClass [property] List class
          */
-        'listClass': { type: String, default: 'list-group' }
+        listClass: { type: String, default: 'list-group' },
+        /**
+         * @type {String} itemClass [property] Item class
+         */
+        itemClass: { type: String, default: 'list-group' },
+        /**
+         * @type {Selector} selector [property]
+         */
+        selector: { type: Object, default: null },
     },
+
     data: function() {
         return {
             collection: new Collection(this.idAttr, this.sortAttr),
+            filter: null,
         };
     },
+
     methods: {
         /**
-         * Extract items from slot
+         * Return component at given the index
          */
-        to_collection(slot) {
+        getComponent(index) {
+            return index > -1 ? this.$refs.items[index] : null;
+        },
+
+        /**
+         * Extract items from the given slot's elements.
+         */
+        toCollection(slot) {
             if(!slot || slot.length == 0)
                 return;
 
@@ -139,26 +242,22 @@ $pepr.comps.Collection = Vue.component('pepr-collection', {
                 try {
                     data = JSON.parse(data.textContent);
                     data.elm = elm;
-                    data.created_date = Date.parse(data.created_date);
-                    data.mod_date = Date.parse(data.mod_date);
-
-                    this.collection.add(data, false);
+                    this.collection.add(data);
                 }
-                catch {}
+                catch(e) {
+                    console.log(e);
+                }
 
                 elm.parentNode && elm.parentNode.removeChild(elm);
             }
 
-            this.collection.sort();
+            // this.collection.sort();
         }
     },
-    mounted: function() {
-        this.to_collection(this.$slots.default);
-    },
-    beforeDestroy: function() {
-        this.coll.unsubscribe();
+
+    mounted() {
+        this.toCollection(this.$slots.default);
     },
 });
-
 
 

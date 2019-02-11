@@ -8,7 +8,6 @@ from .views import \
     SubscriptionsUpdateView, \
     ContentViewSet
 
-
 urlpatterns = [
     path('<uuid:pk>', ContainerServiceView.as_view(),
          name='pepr.container'),

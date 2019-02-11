@@ -19,8 +19,9 @@
 
         <table class="table table-bordered table-striped">
             <thead>
-                <th>User</th>
-                <th>Role</th>
+                <th scope="col" class="col-5">User</th>
+                <th scope="col" class="col-5">Role</th>
+                <th scope="col" class="col-1">Delete</th>
             </thead>
             <tbody>
             {% for form in formset %}
@@ -31,15 +32,47 @@
                 <input type="hidden" name="{{ field.html_name }}" value="{{ field.value }}">
                 {% endfor %}
 
-                <td class="">
+                <td class="wide">
                     {{ form.instance.owner.username }}
                 </td>
                 <td>
                     {{ form.access|add_class:"form-control" }}
                 </td>
+                <td class="table-danger">
+                    <input type="checkbox" class="form-control"
+                        name="{{ form.prefix }}-DELETE" id="id_{{ form.prefix }}-DELETE"
+                        title="{% trans "Delete subscription" %}"
+                        aria-label="{% trans "Delete subscription" %}"
+                        aria-description="{% trans "Subscription is deleted when this is checked" %}"
+                        >
+                </td>
             </tr>
             {% endif %}
             {% endfor %}
+
+            <tr>
+                <td>
+                    <pepr-typeahead
+                        items-url='/user/'
+                        lookup-param='username__icontains'
+                        input-name='some-name'
+                        list-class="w-auto bg-white" list-float
+                        item-value-attr='pk'
+                        item-label-attr='username'
+                    >
+                        <template slot="item" slot-scope="{item,collection}">
+                            [[ item.username ]]
+                        </template>
+
+                        <template slot="selected" slot-scope="{view,value,label}">
+                            {{ label }}
+                        </template>
+                    </pepr-typeahead>
+                </td>
+                <td>
+
+                </td>
+            </tr>
             </tbody>
         </table>
 

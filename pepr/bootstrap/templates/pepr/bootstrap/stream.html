@@ -8,13 +8,9 @@
 
 <hr>
 
-<pepr-bound-collection sortAttr="-modified" observe
+<pepr-bound-collection id-attr="pk" sort-attr="-modified" observe
     collection-url="/container/{{ context.pk }}/"
-    items-url="/content/">
-
-    <form action="">
-        {# filter.form #}
-    </form>
+    items-url="/content/" >
 
     {% for obj in object_list %}
     <div data-id="{{ obj.pk }}">
@@ -23,10 +19,16 @@
     </div>
     {% endfor %}
 
-    <template slot="append" slot-scope="{parent, collection}">
+    <template slot="after" slot-scope="{parent, collection}">
         <div class="text-center">
             <button @click.prevent="parent.load">{% trans "more..." %}</button>
         </div>
+    </template>
+
+    <template slot="item" slot-scope="{item}">
+        <pepr-dynamic :html="item.html" :elm="item.elm"
+            :key="this.idAttr" :data="item">
+        </pepr-dynamic>
     </template>
 </pepr-container>
 

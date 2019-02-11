@@ -9,9 +9,9 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from ..perms.mixins import AccessibleGenericAPIMixin, ContextMixin, \
-                           ContextDetailMixin
+from ..perms.mixins import ContextMixin, ContextDetailMixin
 from ..perms.forms import SubscriptionFormSet
+from ..perms.views import AccessibleView, AccessibleViewSet
 from ..ui.views import SiteView
 from ..ui.components import Slots, Widgets
 from ..ui.widgets import DropdownLinkWidget, DropdownWidgets
@@ -155,6 +155,10 @@ class SubscriptionsUpdateView(ServiceView, ContextDetailMixin, DetailView):
     def get_context_data(self, **kwargs):
         if not 'formset' in kwargs:
             kwargs['formset'] = self.get_formset()
+
+        formset = kwargs['formset']
+        for form in formset:
+            print(form, form.fields)
         return super().get_context_data(**kwargs)
 
     def post(self, request, *args, **kwargs):
@@ -170,7 +174,7 @@ class SubscriptionsUpdateView(ServiceView, ContextDetailMixin, DetailView):
         return self.get(request, *args, **kwargs)
 
 
-class ContentListView(ServiceView, filters_views.FilterView):
+class ContentListView(AccessibleView, ServiceView, filters_views.FilterView):
     """
     Display a content list.
     """
@@ -179,7 +183,6 @@ class ContentListView(ServiceView, filters_views.FilterView):
     filterset_class = ContentFilter
     filterset_fields = ('modified', 'created')
     strict = False
-
 
     def get_filterset_kwargs(self, filterset_class):
         kwargs = super().get_filterset_kwargs(filterset_class)
@@ -196,11 +199,10 @@ class ContentListView(ServiceView, filters_views.FilterView):
         return qs
 
 
-
 #
 # API
 #
-class ContentViewSet(AccessibleGenericAPIMixin, viewsets.ModelViewSet):
+class ContentViewSet(AccessibleViewSet):
     """
     Model ViewSet for Content elements.
     """
@@ -223,7 +225,7 @@ class ContentViewSet(AccessibleGenericAPIMixin, viewsets.ModelViewSet):
                                cls.model.url_basename)
 
     def get_queryset(self):
-        return self.model.objects.user(self.request.user)
+        return super().get_queryset()
 
     @action(detail=True)
     def edit_form(self, request, pk=None):
@@ -232,3 +234,4 @@ class ContentViewSet(AccessibleGenericAPIMixin, viewsets.ModelViewSet):
         role = instance.related_context.get_role(request.user)
         content = self.form_comp.render(role, instance)
         return HttpResponse(content=content)
+

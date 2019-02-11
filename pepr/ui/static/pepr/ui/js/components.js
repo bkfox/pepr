@@ -69,9 +69,9 @@ $pepr.comps.Alerts = Vue.component('pepr-alerts', {
  * The DOM element will be set only if there is no `html`.
  */
 $pepr.comps.Dynamic = Vue.component('pepr-dynamic', {
-    template: `<div></div>`,
+    template: `<div><slot></slot></div>`,
     data() {
-        return $pepr.app
+        return {}; // $pepr.app
     },
     props: {
         elm: { type: Element },

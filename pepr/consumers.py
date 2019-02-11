@@ -11,6 +11,7 @@ class PeprRouter(api.RouterConsumer):
     """
 
 
+# TODO: 'api/' url prefix
 PeprRouter.register(api_urls)
 PeprRouter.register(consumers_urls)
 

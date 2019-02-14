@@ -85,12 +85,10 @@ class Context(models.Model):
         Return user's role class based on User's object (not subscription)
         or None if nothing special.
 
-        This is used to get special roles as for admin or anonymous user.
+        This is used to get special roles as for anonymous users.
         """
         if user is None or user.is_anonymous:
             return AnonymousRole
-        if user.is_superuser:
-            return AdminRole
         return None
 
     def get_role(self, user, force=False):

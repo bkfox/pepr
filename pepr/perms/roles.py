@@ -47,7 +47,7 @@ class Role(metaclass=Roles):
     """[class] name (displayed to user)"""
     description = ''
     """[class] description displayed to user"""
-    defaults = []
+    defaults = {}
     """
     [class] default permissions as `{ (perm, model): granted }`.
 
@@ -101,15 +101,25 @@ class Role(metaclass=Roles):
         return perms
 
     def has_access(self, access, strict=False):
+        """ Return True if role sufficient access level. If strict is
+        used, role access must be strictly bigger than access. """
         return self.access > access if strict else \
                self.access >= access
 
     def is_granted(self, perm, model):
-        """
-        Return RolePermission for the given perm and model.
-        """
+        """ Return RolePermission for the given perm and model.  """
         permissions = self.permissions
         return permissions.get(self.perm_key(perm, model))
+
+    @classmethod
+    def register(cls, perm, model, granted=False):
+        """ Register a permission for the given model and role.  """
+        cls.defaults[cls.perm_key(perm, model)] = granted
+
+    @classmethod
+    def unregister(cls, perm, model):
+        """ Unregister a permission for this Role class """
+        del cls.defaults[cls.perm_key(perm, model)]
 
     @staticmethod
     def perm_key(perm, model=None):
@@ -119,7 +129,9 @@ class Role(metaclass=Roles):
         :param Permission|str perm: permission or permission codename
         :param Model model: if perm is a string, specifies model.
         """
-        return perm, perm.model
+        from .permissions import Permissions
+        perm = Permissions.get(perm) if isinstance(perm, str) else perm
+        return perm, model
 
     def __init__(self, context, user, subscription=None):
         self.context = context
@@ -174,15 +186,4 @@ class AdminRole(Role):
     def permissions(self):
         # permissions never change
         return self.defaults
-
-# Permission:
-# - has access
-# - has perm
-# - is admin
-# Owned Permission
-# - is owner
-# Subscription
-# - take shit from serializer?
-# - take from Subscription model
-
 

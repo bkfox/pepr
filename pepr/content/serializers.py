@@ -32,6 +32,6 @@ class ContentSerializer(AccessibleSerializer):
                             'modified', 'modifier')
 
     def get_html(self, obj):
-        if self.role or self.user:
-            return obj.as_component().render(self.role)
+        self.role = self.get_role(obj.related_context)
+        return obj.as_component().render(self.role)
 

@@ -14,23 +14,6 @@ class AccessibleSerializer(serializers.ModelSerializer):
     `self.instance` is set.
     """
 
-    _instance = None
-
-    @property
-    def instance(self):
-        return getattr(self, '_instance', None)
-
-    @instance.setter
-    def instance(self, obj):
-        if self._instance is obj:
-            return
-        self._instance = obj
-        if not obj:
-            self.role = None
-        elif self.role is None or \
-                self.role.context.id != obj.context_id:
-            self.role = obj.related_context.get_role(self.user)
-
     class Meta:
         fields = ('pk', 'context', 'access')
         read_only_fields = ('pk',)
@@ -46,6 +29,12 @@ class AccessibleSerializer(serializers.ModelSerializer):
         self.user = role.user if role else user
         self.fields['context'].read_only = self.instance is not None
 
+    def get_role(self, context):
+        """ Get role for the given context """
+        if self.role and self.role.context.pk == context.pk:
+            return self.role
+        return context.get_role(self.user)
+
     def before_change(self, role, instance, validated_data):
         validated_data['access'] = min(role.access, validated_data['access'])
 
@@ -57,14 +46,12 @@ class AccessibleSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         # FIXME: related_context
-        if self.role is None:
-            self.role = validated_data['context'].get_role(self.user)
+        self.role = self.get_role(validated_data['context'])
         self.before_create(self.role, validated_data)
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        if self.role is None:
-            self.role = instance.related_context.get_role(self.user)
+        self.role = self.get_role(instance.related_context)
         self.before_update(self.role, instance, validated_data)
         return super().update(instance, validated_data)
 
@@ -109,6 +96,7 @@ class SubscriptionSerializer(OwnedSerializer):
         fields = OwnedSerializer.Meta.fields + ('status',)
         read_only_fields = OwnedSerializer.Meta.read_only_fields
         extra_kwargs = {'owner': {'required': False}}
+        # TODO/FIXME: add unique validation check; cf. drf doc
         validators = []
 
     def __init__(self, instance=None, *args, **kwargs):
@@ -119,7 +107,7 @@ class SubscriptionSerializer(OwnedSerializer):
 
     def _init_request(self, role, validated_data):
         if not role.context.can_request_subscription:
-            raise PermissionError(
+            raise PermissionDenied(
                 'request not authorized for this context.'
             )
 
@@ -184,7 +172,8 @@ class SubscriptionSerializer(OwnedSerializer):
             raise ValidationError("invalid subscription's update data")
 
     def before_update(self, role, instance, validated_data):
-        # TODO: admin
+        # TODO: admin -> can it do both? maybe it is a good idea to not care
+        #       about superuser status in order to reduce ambient privilege
         if role.is_subscribed:
             self.before_update_subscribed(role, instance, validated_data)
         else:

@@ -6,7 +6,7 @@ from ..perms.mixins import PermissionMixin
 from ..perms.permissions import CanAccess
 
 from ..utils import slots
-# reimport for API
+# reimport for API purpose
 from ..utils.slots import Position, Slots
 
 

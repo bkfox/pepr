@@ -64,11 +64,11 @@ class PermissionBase(BasePermission, metaclass=Permissions):
         return True
 
     def has_permission(self, request, view):
-        return self.can(view.role)
+        return self.can(view.role) or False
 
     def has_object_permission(self, request, view, obj):
         role = obj.related_context.get_role(request.user)
-        return self.can_obj(role, obj)
+        return self.can_obj(role, obj) or False
 
 
 class CanAccess(PermissionBase):
@@ -108,7 +108,7 @@ class CanDelete(CanAction):
 
 
 class IsOwner(PermissionBase):
-    """ Allow owner to act on object """
+    """ Allows owner to act on its objects """
     @classmethod
     def can_obj(cls, role, obj):
         # Rule: Owner of an object always control its object

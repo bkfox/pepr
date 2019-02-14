@@ -1,10 +1,11 @@
 import logging
+from collections import namedtuple
 
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
-from ..perms.permissions import Permission, Permissions
 from ..utils.metaclass import RegisterMeta
+
 
 logger = logging.getLogger('pepr')
 
@@ -14,28 +15,25 @@ class Roles(RegisterMeta):
     Register class that list all defined Role for the project. It also
     keeps track of which role is related to a specific role.
     """
-    entry_key_attr = 'access'
+    entry_key_attr = '__name__'
 
     @classmethod
     def get_base_class(cls):
         return Role
 
     @classmethod
-    def add(cls, role):
+    def add(cls, role, *args, **kwargs):
         if role.access in cls.register:
             logger.debug(
                 '[pepr/perms] register {}: another class is yet '
                 'registered for this access, it will be replaced.'
                 .format(role.__name__)
             )
+        return super().add(role, *args, **kwargs)
 
-        if not isinstance(role.permissions, dict):
-            role.defaults = {
-                role.perm_key(p): p for p in role.defaults
-            }
-        super().add(role)
-
-
+# FIXME: Role as a Register class. Problem: Register meant to be used
+#        as an instance; __getattr__ is also only for an instance.
+# TODO: register/unregister permission
 class Role(metaclass=Roles):
     access = 0
     """
@@ -51,7 +49,7 @@ class Role(metaclass=Roles):
     """[class] description displayed to user"""
     defaults = []
     """
-    [class] default permissions as `{ (perm, model): Permission }`.
+    [class] default permissions as `{ (perm, model): granted }`.
 
     Sugar syntax: it can be set to a list of Permission instead
     of a dict
@@ -70,7 +68,8 @@ class Role(metaclass=Roles):
 
     @property
     def is_subscribed(self):
-        return self.subscription is not None and \
+        return not self.is_anonymous and \
+                self.subscription is not None and \
                 self.subscription.is_subscribed
 
     @property
@@ -81,7 +80,7 @@ class Role(metaclass=Roles):
     def permissions(self):
         """
         Permissions for this role instance (and its context), as
-        a dict of { perm_key: role }
+        a dict of { perm_key: RolePermission }
         """
         from ..perms.models import Authorization
 
@@ -92,61 +91,25 @@ class Role(metaclass=Roles):
         qs = Authorization.objects.filter(
             context=self.context, access=self.access
         ).select_related('model')
-        qs = (p.as_permission() for p in qs)
-
-        perms.update({self.perm_key(p): p for p in qs})
+        for p in qs:
+            key = self.perm_key(p)
+            # Rule: user can only change permission assigned to the role.
+            if key not in perms:
+                # TODO: raise exception: this should never happen
+                continue
+            perms[key] = p.granted
         return perms
 
     def has_access(self, access, strict=False):
-        """
-        Return True if access level is granted.
-        :param bool strict: access must be strictly < than role.access
-        """
-        return self.access > access if strict else self.access >= access
+        return self.access > access if strict else \
+               self.access >= access
 
-    def has_perm(self, codename, model=None):
+    def is_granted(self, perm, model):
         """
-        Return True if user has the given permission allowed.
-
-        :param str codenmae: permission or permission codename
-        :param Model model: if perm is a string, specifies model.
-        """
-        perm = self.get_perm(codename, model)
-        return perm and perm.has_perm(self)
-
-    def get_perm(self, codename, model=None):
-        """
-        Return Permision object corresponding to the given info, get
-        default permission if permission for the given model is not
-        found.
+        Return RolePermission for the given perm and model.
         """
         permissions = self.permissions
-        return permissions.get((codename, model)) or \
-               model and permissions.get((codename, None))
-
-    @classmethod
-    def register(cls, codename=None, model=None, *initargs,
-                 instance=None, **initkwargs):
-        """
-        Register a default permissions for this Role. If ``instance``
-        is not given, create a new one with provided arguments.
-
-        :return registered Permission instance
-        """
-        if instance is None:
-            cls_ = Permissions.get(codename) or Permission
-            instance = cls_(codename, model, *initargs, **initkwargs)
-        cls.defaults[cls.perm_key(instance)] = instance
-        return instance
-
-    @classmethod
-    def unregister(cls, codename=None, model=None, instance=None):
-        """
-        Unregister a default permission for this Role class
-        """
-        key = cls.perm_key(instance) if instance is not None else \
-              cls.perm_key(codename, model)
-        del cls.defaults[key]
+        return permissions.get(self.perm_key(perm, model))
 
     @staticmethod
     def perm_key(perm, model=None):
@@ -156,9 +119,7 @@ class Role(metaclass=Roles):
         :param Permission|str perm: permission or permission codename
         :param Model model: if perm is a string, specifies model.
         """
-        if isinstance(perm, str):
-            return (perm, model)
-        return (perm.codename, perm.model)
+        return perm, perm.model
 
     def __init__(self, context, user, subscription=None):
         self.context = context
@@ -172,37 +133,37 @@ class Role(metaclass=Roles):
 class AnonymousRole(Role):
     access = -0x10
     name = _('Anonymous')
-    description = _('Unregistered user')
+    description = _('Unregistered and unknown user (can be anyone).')
 
 class DefaultRole(Role):
     access = 0x10
     name = _('User')
-    description = _('User not subscribed, we don\'t know who they are.')
+    description = _('Registered user who is not subscribed.')
 
 class SubscriberRole(Role):
     access = 0x20
     name = _('Subscriber')
-    description = _('Subscribed people that follow the place')
+    description = _('They only follow what happens.')
 
 class MemberRole(Role):
     access = 0x40
     name = _('Member')
     description = _(
-        'Subscribed people that can participate'
+        'Subscribed people that can participate.'
     )
 
 class ModeratorRole(Role):
     access = 0x80
     name = _('Moderator')
     description = _(
-        'People that must moderate the place'
+        'People that must moderate the place.'
     )
 
 class AdminRole(Role):
     access = 0x100
     name = _('Admin')
     description = _(
-        'Thoses who have all rights in the place'
+        'Thoses who have all rights in the place.'
     )
 
     @property
@@ -211,14 +172,17 @@ class AdminRole(Role):
 
     @cached_property
     def permissions(self):
-        return [Permission(codename, None, True)
-            for codename in Permissions.items.keys()]
+        # permissions never change
+        return self.defaults
 
-    def get_perm(self, codename, model=None):
-        return Permission(codename, model, True)
+# Permission:
+# - has access
+# - has perm
+# - is admin
+# Owned Permission
+# - is owner
+# Subscription
+# - take shit from serializer?
+# - take from Subscription model
 
-    def has_access(self, access):
-        return True
 
-    def has_perm(self, codename, model=None):
-        return True

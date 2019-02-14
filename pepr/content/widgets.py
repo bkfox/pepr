@@ -1,6 +1,7 @@
 
 from django.utils.translation import ugettext, ugettext_lazy as _
 
+from ..perms.permissions import CanDelete, CanUpdate
 from ..ui.components import Widget, Position
 from ..ui.widgets import ActionWidget
 
@@ -22,7 +23,7 @@ class ContainerServicesWidget(Widget):
 class DeleteActionWidget(ActionWidget):
     text = _('Delete')
     icon = 'fa-trash-alt fas'
-    required_perm = 'delete'
+    permission_classes = (CanDelete,)
 
     url = '{object.api_detail_url}'
     method = 'DELETE'
@@ -31,7 +32,7 @@ class DeleteActionWidget(ActionWidget):
 class EditActionWidget(ActionWidget):
     text = _('Edit')
     icon = 'fa-edit fas'
-    required_perm = 'update'
+    permission_classes = (CanUpdate,)
 
     action = 'submit'
     method = 'GET'

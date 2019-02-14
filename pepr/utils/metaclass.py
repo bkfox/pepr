@@ -46,10 +46,11 @@ class RegisterMeta(type,metaclass=RegisterMetaMeta):
     from the registry if some is returned from `get_base_class()`
     """
     register_class = register.Register
-    """ Class to use as register """
-    entry_key_attr = 'id'
-    """ Register's `key` attribute  """
+    """ Class to use as register. """
+    entry_key_attr = None
+    """ Register's `key` attribute. """
     register = None
+    """ Register instance once created. """
 
     def __new__(cls, name, base, attrs):
         cl = super().__new__(cls, name, base, attrs)
@@ -68,7 +69,7 @@ class RegisterMeta(type,metaclass=RegisterMetaMeta):
     @classmethod
     def get_base_class(cls):
         """
-        Return a class that is excluded from registry or None
+        Return a class that is excluded from registry or None.
         """
         return None
 

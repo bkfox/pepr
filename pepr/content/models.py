@@ -8,7 +8,7 @@ from django.utils.translation import ugettext_lazy as _
 
 from model_utils.models import TimeStampedModel
 
-from ..perms.models import Context, AccessibleBase, Owned, \
+from ..perms.models import Context, Accessible, Owned, \
         OwnedQuerySet
 from ..ui.components import Component, Slots, Widgets
 from ..ui.models import UserWidget
@@ -17,7 +17,7 @@ from ..utils.fields import ReferenceField
 from .widgets import DeleteActionWidget
 
 
-class Container(AccessibleBase, Context):
+class Container(Accessible, Context):
     # POLICY_EVERYONE = 0x00
     # POLICY_ON_REQUEST = 0x01
     # POLICY_ON_INVITE = 0x02
@@ -30,15 +30,15 @@ class Container(AccessibleBase, Context):
     #    _('subscription policy'),
     #    choices = POLICY_CHOICES,
     # )
-    uuid = models.UUIDField(
-        db_index=True, unique=True,
-        primary_key=True,
-        default=uuid.uuid4
-    )
     context = models.ForeignKey(
         Context, on_delete=models.CASCADE,
         blank=True, null=True,
         related_name='children',
+    )
+    uuid = models.UUIDField(
+        db_index=True, unique=True,
+        primary_key=True,
+        default=uuid.uuid4
     )
     title = models.CharField(
         _('title'), max_length=128
@@ -124,13 +124,6 @@ class Content(Owned, TimeStampedModel):
         from .components import ContentComp
         return ContentComp(object=self)
 
-    def as_data(self):
-        """
-        Return serialized version of this content instance without
-        'html' field rendered.
-        """
-        return self.get_serializer_class()(self).data
-
     @classmethod
     def get_serializer_class(cl):
         """
@@ -177,6 +170,6 @@ class Service(UserWidget):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.title)
+            self.slug = slugify(self.text)
         super().save(*args, **kwargs)
 

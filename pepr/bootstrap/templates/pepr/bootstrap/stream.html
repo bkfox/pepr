@@ -1,5 +1,5 @@
 {% extends "pepr/content/service.html" %}
-{% load i18n pepr_ui %}
+{% load i18n pepr_api pepr_ui %}
 
 {% block app %}
 <div class="box mb-3">
@@ -14,7 +14,8 @@
 
     {% for obj in object_list %}
     <div data-id="{{ obj.pk }}">
-        {{ obj.as_data|json_script:obj.pk }}
+        {% serialize obj role=role as data %}
+        {{ data|json_script:obj.pk }}
         {% component obj.as_component %}
     </div>
     {% endfor %}

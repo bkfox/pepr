@@ -1,11 +1,12 @@
 
 class Register:
     entries = None
-    """ the objects """
-    entry_key_attr = 'id'
-    """ use this attribute as key for objects """
+    """ The objects """
+    entry_key_attr = None
+    """ Use this attribute as key for objects. If None, key must always
+    be specified. """
     entry_overwrite = False
-    """ if True, silently overwrite entries """
+    """ If True, silently overwrite entries """
 
     def __init__(self, **kwargs):
         self.entries = {}
@@ -15,6 +16,9 @@ class Register:
         """
         Return key for a given entry
         """
+        if self.entry_key_attr is None:
+            raise KeyError('`entry_key_attr` or `get_entry_key` must be'
+                           ' defined')
         return getattr(entry, self.entry_key_attr)
 
     def reset_entry(self, key, entry=None):

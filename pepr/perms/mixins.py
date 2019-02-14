@@ -1,60 +1,56 @@
 from django.core.exceptions import PermissionDenied
 
-from .models import Accessible
+from rest_framework import views as rf_views
+
+from .permissions import CanAccess, CanCreate, CanUpdate, CanDelete, IsOwner
 
 
 class PermissionMixin:
-    required_perm = None
     """
-    Permission codename to always test when calling has_perms.
+    Mixin adding permission check capabilities to the class. Similar to
+    rf ``APIView``, except it has an ``action_permissions`` attribute
+    that allows specifying permission on a per action or per request's
+    method basis.
+
+    Context can be assigned for this instance's view, updating current
+    role. Usage of this feature is up to class user, although a good
+    practice is to always define a current permission context.
     """
-
-    def has_perm(self, role, codename, obj=None, model=None):
-        """
-        Return True if role has the given permission. If ``obj`` is
-        an accessible, call ``obj.has_perm``. When model is None but
-        object given, set model to ``obj``
-        """
-        if isinstance(obj, Accessible):
-            return obj.has_perm(role, codename)
-        model = model if model is not None else \
-            type(obj) if obj is not None else None
-        return role.has_perm(codename, model)
-
-    def has_perms(self, role, obj=None, model=None):
-        """
-        Test that role has permissions specific to the view with the
-        given parameters.
-        """
-        if self.required_perm:
-            return self.has_perm(role, self.required_perm, obj)
-        return obj.has_access(role) if obj else True
-
-    def assert_perms(self, role, obj=None, model=None):
-        """
-        Raise a PermissionDenied if ``has_perm`` returns False.
-        """
-        if not self.has_perms(role, obj, model):
-            raise PermissionDenied('Permission denied')
-
-
-class ContextMixin(PermissionMixin):
-    """ Provides access control to a context.  """
+    permission_classes = tuple()
+    """ Permissions to check as request is being proceeded """
+    action_permissions = {
+        'GET': (CanAccess,),
+        'POST': (CanCreate,),
+        'PUT': (CanUpdate,),
+        'DELETE': (CanDelete,),
+    }
+    """
+    Permission to apply for a specific action instead of
+    `self.permission_classes`. It can either be a request method or an
+    action (as given by ``viewset.action``)
+    """
     role = None
-    """ User's role """
 
     @property
     def context(self):
+        """ Permission context in which current request occurs. """
         return self.role.context if self.role else None
 
     @context.setter
-    def context(self, value):
-        if value:
-            role = value.get_role(self.request.user)
-            self.assert_perms(role)
-            self.role = role
-        else:
-            self.role = None
+    def context(self, obj):
+        """ Setting ``context``updates current role and check
+        permissions """
+        self.role = obj.get_role(self.request.user) if obj else None
+
+    check_permissions = rf_views.APIView.check_permissions
+    check_object_permissions = rf_views.APIView.check_object_permissions
+
+    def get_permissions(self):
+        """ Return permissions """
+        return [perm() for perm in self.action_permissions.get(
+            getattr(self, 'action', self.request.method),
+            self.permission_classes
+        )]
 
     def get_context_data(self, **kwargs):
         """ Ensure 'role' and 'context' are in resulting context """
@@ -63,8 +59,12 @@ class ContextMixin(PermissionMixin):
         return super().get_context_data(**kwargs)
 
 
-class ContextDetailMixin(ContextMixin):
-    """ Provides access control to a Context that is self.object """
+class ContextMixin(PermissionMixin):
+    """
+    View mixin for views that work with a single Context.
+    """
+    permission_classes = (CanAccess,)
+
     @property
     def object(self):
         return self.context
@@ -72,5 +72,36 @@ class ContextDetailMixin(ContextMixin):
     @object.setter
     def object(self, value):
         self.context = value
+
+    def get_object(self):
+        """  """
+        obj = super().get_object()
+        self.context = obj
+        self.check_object_permissions(self.request, obj)
+        return obj
+
+
+class AccessibleMixin(PermissionMixin):
+    """
+    View mixin handling Accessible objects permission check.
+    """
+    permission_classes = (CanAccess,)
+
+    def get_object(self):
+        """  """
+        obj = super().get_object()
+        self.context = obj.related_context
+        self.assert_perms(self.request, obj)
+        return obj
+
+    def get_queryset(self):
+        return self.model.objects.user(self.request.user)
+
+
+class OwnedMixin(AccessibleMixin):
+    """
+    Mixin handling Owned objects permission check
+    """
+    permission_classes = (IsOwner | CanAccess,)
 
 

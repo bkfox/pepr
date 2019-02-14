@@ -9,9 +9,9 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from ..perms.mixins import ContextMixin, ContextDetailMixin
 from ..perms.forms import SubscriptionFormSet
-from ..perms.views import AccessibleView, AccessibleViewSet
+from ..perms.mixins import PermissionMixin, ContextMixin, OwnedMixin
+from ..perms.views import AccessibleViewSet
 from ..ui.views import SiteView
 from ..ui.components import Slots, Widgets
 from ..ui.widgets import DropdownLinkWidget, DropdownWidgets
@@ -24,7 +24,7 @@ from .serializers import ContentSerializer
 from .widgets import ContainerServicesWidget
 
 
-class ServiceView(ContextMixin, SiteView):
+class ServiceView(PermissionMixin, SiteView):
     """
     A ServiceView is a view rendered inside a container, that can uses
     a Service model as user configuration.
@@ -40,13 +40,13 @@ class ServiceView(ContextMixin, SiteView):
                     text=_("Subscriptions"), icon="fa-user-friends fas",
                     url_name='pepr.container.subscriptions',
                     url_kwargs=lambda s, object, **kwargs: {'pk': str(object.pk)},
-                    required_perm='manage',
+                    # required_perm='manage',
                 ),
                 DropdownLinkWidget(
                     text=_("Settings"), icon="fa-cog fas",
                     url_name='pepr.container.settings',
                     url_kwargs=lambda s, object, **kwargs: {'pk': str(object.pk)},
-                    required_perm='manage',
+                    # required_perm='manage',
                 )
             ]
         ),
@@ -109,14 +109,13 @@ class ContainerServiceView(SingleObjectMixin, View):
                     service=service, **kwargs)
 
 
-class ContainerUpdateView(ServiceView, ContextDetailMixin, UpdateView):
+class ContainerUpdateView(ServiceView, ContextMixin, UpdateView):
     """
     Service used to manage container's settings.
     """
-    required_perm = 'manage'
-
-    form_class = ContainerForm
+    # TODO: permission_classes = tuple()
     model = Container
+    form_class = ContainerForm
     template_name = 'pepr/content/container_form.html'
 
     def get_form_kwargs(self):
@@ -133,12 +132,11 @@ class ContainerUpdateView(ServiceView, ContextDetailMixin, UpdateView):
         return super().get_queryset().select_subclasses()
 
 
-class SubscriptionsUpdateView(ServiceView, ContextDetailMixin, DetailView):
+class SubscriptionsUpdateView(ServiceView, ContextMixin, DetailView):
+    # TODO: permission_classes = tuple()
     model = Container
     formset_class = SubscriptionFormSet
     template_name = 'pepr/content/subscriptions_form.html'
-
-    required_perm = 'manage'
 
     def get_formset_queryset(self):
         return self.formset_class.model.objects \
@@ -174,10 +172,10 @@ class SubscriptionsUpdateView(ServiceView, ContextDetailMixin, DetailView):
         return self.get(request, *args, **kwargs)
 
 
-class ContentListView(AccessibleView, ServiceView, filters_views.FilterView):
-    """
-    Display a content list.
-    """
+class ContentListView(OwnedMixin, ServiceView,
+                      filters_views.FilterView):
+    """ Display a list of content, either for a given context or not """
+    # TODO: permission_classes = tuple()
     model = Content
     template_name = 'pepr/content/content_list.html'
     filterset_class = ContentFilter

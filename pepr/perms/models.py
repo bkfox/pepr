@@ -15,7 +15,6 @@ from model_utils.managers import InheritanceQuerySetMixin, \
         InheritanceManager
 
 from .filters import IsAccessibleFilterBackend
-from .permissions import Permission, Permissions
 from .roles import Roles, AnonymousRole, DefaultRole, \
         AdminRole
 from ..utils.iter import as_choices
@@ -32,6 +31,13 @@ SUBSCRIPTION_CHOICES = (
 )
 
 
+accessible_access_choices = list(as_choices('access', 'name', Roles.values()))
+subscription_access_choices = [
+    access for access in accessible_access_choices
+    if access[0] > DefaultRole.access
+]
+
+
 class ContextQuerySet(InheritanceQuerySetMixin, models.QuerySet):
     def subscription(self, user, access=None):
         """
@@ -42,7 +48,7 @@ class ContextQuerySet(InheritanceQuerySetMixin, models.QuerySet):
             raise RuntimeError('user can not be anonymous')
         if access is not None:
             return self.filter(subscription_set__owner=user,
-                               subscription_set__access=access)
+                               subscription_setaccess=access)
         return self.filter(subscription_set__owner=user)
 
 
@@ -59,7 +65,7 @@ class Context(models.Model):
     )
     subscription_default_access = models.SmallIntegerField(
         verbose_name=_("subscription's default role"),
-        choices=as_choices('access', 'name', Roles.values()),
+        choices=subscription_access_choices,
         blank=True, null=True,
         help_text=_('Role set by default to new subscribers'),
     )
@@ -67,9 +73,9 @@ class Context(models.Model):
     role = None
     objects = ContextQuerySet.as_manager()
 
-
     @property
-    def subscription_request_allowed(self):
+    def can_request_subscription(self):
+        """ Return True if context accepts subscription requests. """
         return self.subscription_policy in (SUBSCRIPTION_REQUEST,
                                             SUBSCRIPTION_ACCEPTED)
 
@@ -98,7 +104,7 @@ class Context(models.Model):
         if not force and self.role and self.role.user == user:
             return self.role
 
-        # special roles overwrites subscriptions
+        # check for special roles (overwrites the subscription)
         role = self.get_special_role(user)
         subscription = None
 
@@ -110,40 +116,32 @@ class Context(models.Model):
             # get role from subscription or from default only if role is
             # not yet given
             if role is None:
-                role = Roles.get(subscription.access) if subscription \
-                        else DefaultRole
+                role = Roles.get(subscription.access) \
+                    if subscription and subscription.is_subscribed \
+                    else DefaultRole
+
         if role is None:
             role = AnonymousRole
 
-        role = role(self, user, subscription)
-        self.role = role
-        return role
-
-    def has_access(self, user, *args, **kwargs):
-        """ Return True if user has this access. """
-        return self.get_role(user).has_access(*args, **kwargs)
-
-    def has_perm(self, user, *args, **kwargs):
-        """ Shortcut to user's Role ``has_perm``. """
-        return self.get_role(user).has_perm(*args, **kwargs)
+        self.role = role(self, user, subscription)
+        return self.role
 
 
 class AccessibleQuerySet(InheritanceQuerySetMixin, models.QuerySet):
     """
     Queryset used by the Accessible model.
     """
+    def access(self, access):
+        """
+        Return contexts available for this access level
+        """
+        return self.filter(access__lte=access)
 
     def context(self, context):
         """
         Filter in elements for the given context
         """
         return self.filter(context=context)
-
-    def access(self, access):
-        """
-        Filter in elements available for this access level.
-        """
-        return self.filter(access__lte=access)
 
     # We use a distinct function to get Q objet in order to allow
     # extensibility of the user() method.
@@ -178,39 +176,23 @@ class AccessibleQuerySet(InheritanceQuerySetMixin, models.QuerySet):
         """
         return self.filter(self._get_user_q(user)).distinct()
 
-    def create(self, by=None, **kwargs):
-        """
-        Create a new object with the given kwargs, saving it to the database
-        and returning the created object.
-        """
-        obj = self.model(**kwargs)
-        self._for_write = True
-        if by:
-            obj.save_by(by)
-        obj.save(force_insert=True, using=self.db)
-        return obj
 
-
-
-class AccessibleBase(models.Model):
+class Accessible(models.Model):
     """
-    Base class for accessible objects. The `context` field must be
-    implemented in children classes.
+    Simple abstract class used to define basic access control
+    based on access's privilege.
     """
+    context = models.ForeignKey(
+        Context, on_delete=models.CASCADE,
+    )
     access = models.SmallIntegerField(
         _('access'), default=0,
-        choices=as_choices('access', 'name', Roles.values()),
+        choices=accessible_access_choices,
         help_text=_('who has access this element and its content.')
     )
 
-    change_by = None
-    """
-    Role that executes actions that requires permission check: delete(),
-    save(), ...
-    """
-
-    filter_backends = (IsAccessibleFilterBackend,)
     objects = AccessibleQuerySet.as_manager()
+    filter_backends = (IsAccessibleFilterBackend,)
 
     @cached_property
     def related_context(self):
@@ -220,82 +202,12 @@ class AccessibleBase(models.Model):
         return Context.objects.get_subclass(id=self.context_id) \
             if self.context_id is not None else None
 
-    class Meta:
-        abstract = True
-
     @property
     def is_saved(self):
         """
         Return True if object has yet been saved.
         """
         return self.pk is not None
-
-    def has_access(self, role):
-        # Rule: object access is handled by role's access control
-        return role.has_access(self.access)
-
-    def has_perm(self, role, codename):
-        """
-        Return wether user has given permission on this object. Always
-        use this method instead of `role.has_perm` when dealing with
-        Accessible objects.
-        """
-        # Rule: role can only change object he has access to.
-        #       -> role can only set object.access <= role.access
-        return self.has_access(role) and \
-            role.has_perm(codename, type(self))
-
-    def assert_perm(self, role, codename):
-        """
-        Assert permission for this instance's model. If permission
-        is not granted, raises a PermissionDenied.
-        """
-        if not self.has_perm(role, codename):
-            raise PermissionDenied(
-                'missing "{}" permission'.format(codename)
-            )
-
-    def delete_by(self, role):
-        """
-        Perform deletion by this role+user; run permissions check before
-        delete.
-        """
-        # Action: delete -> role has delete perm on object
-        self.assert_perm(role, 'delete')
-
-    def save_by(self, role):
-        """
-        Save object performed by this role+user; run permissions checks
-        before saving.
-        """
-        # Action: create -> role has create perm on object
-        if not self.is_saved:
-            self.assert_perm(role, 'create')
-        # Action: update -> role has update perm on object
-        else:
-            self.assert_perm(role, 'update')
-
-    def delete(self, *args, by=None, **kwargs):
-        by = by or self.change_by
-        if by is not None:
-            self.delete_by(by)
-        super().delete(*args, **kwargs)
-
-    def save(self, *args, by=None, **kwargs):
-        by = by or self.change_by
-        if by is not None:
-            self.save_by(by)
-        super().save(*args, **kwargs)
-
-
-class Accessible(AccessibleBase):
-    """
-    Simple abstract class used to define basic access control
-    based on access's privilege.
-    """
-    context = models.ForeignKey(
-        Context, on_delete=models.CASCADE,
-    )
 
     class Meta:
         abstract = True
@@ -349,44 +261,6 @@ class Owned(Accessible):
         return self.is_saved and not role.is_anonymous and \
                 self.owner == role.user
 
-    # def has_access(self, role):
-    #     if self.owner is not None and not role.is_anonymous and \
-    #             self.owner != role.user:
-    #         owner_role = self.related_context.get_role(self.owner)
-    #         if not role.has_access(owner_role.access):
-    #             return False
-    #     return super().has_access(role)
-    def has_access(self, role):
-        # Rule: owner always has access to its objects
-        if self.is_owner(role):
-            return True
-        return super().has_access(role)
-
-    def has_perm(self, role, codename):
-        # Rule: owner always has control of its objects
-        if self.is_owner(role):
-            return True
-        # Rule: Role can only edit others' object with <= role access;
-        #       EXCEPT that Admin can not change objects of other Admin
-        if self.is_saved and not role.is_anonymous and \
-                self.owner is not None and self.owner != role.user:
-            owner_role = self.related_context.get_role(self.owner)
-            strict = role.is_admin and owner_role.is_admin
-            if not role.has_access(owner_role.access, strict):
-                return False
-        return super().has_perm(role, codename)
-
-    def save_by(self, role):
-        """
-        User will be set as owner if there is none or object is being
-        created.
-        """
-        super().save_by(role)
-        # Rule: owner is the first user updating element that is not anonymous.
-        if not self.is_saved and self.owner is None and \
-                not role.is_anonymous:
-            self.owner = role.user
-
 
 class Subscription(Owned):
     """
@@ -425,82 +299,22 @@ class Subscription(Owned):
         cls = Roles.get(access)
         return cls(self.context, self.owner, self)
 
-    def has_access(self, role):
-        # Rule: Subscriptions are not accessible to anonymous users
-        if role.is_anonymous:
-            return False
-        return super().has_access(role)
-
-    def has_perm(self, role, codename):
-        # Rule: Unsubscribed user can subscribe based on context policy
-        if not self.is_saved and codename == "create" and \
-                not role.is_subscribed:
-            return self.context.subscribe_policy in (SUBSCRIPTION_ACCEPTED,
-                                                     SUBSCRIPTION_REQUEST)
-        return super().has_perm(role, codename)
-
-    def delete_by(self, role):
-        # Context must always have at least on Admin
+    def delete(self):
         # TODO: ensure that also at context creation
-        my_role = self.get_role()
-
-        # Rule: there must be at least one admin subscribed in Context
-        if isinstance(my_role, AdminRole):
+        # Rule: there is always at least one admin subscribed in Context
+        if self.access == AdminRole.access:
             qs = Subscription.objects.context(self.context) \
-                                     .access(role.access)
+                                     .access(self.access)
             if qs.count() < 2:
-                raise PermissionDenied("there must be at least one admin.")
-        super().delete_by(role)
+                raise ValidationError(
+                    "there must be at least one admin in context."
+                )
+        return super().delete()
 
-    def subscribe_by(self, role):
-        """
-        Run subscription process by the given role: This method ensure
-        correct status change flow regarding current subscription and
-        role.
 
-        Raise PermissionDenied when this action is not valid.
-
-        Note: this method does not enforce user permission check.
-        """
-        # Subscription.status ==
-        #   (~saved /\ writer = user /\ policy \in {request, accepted}) => policy
-        #   (~saved /\ writer /= user) => invitation
-        #   (saved /\ writer = user /\ original.status in {invitation, accepted}) => accepted
-        #   (saved /\ writer /= user /\ original.status = request) => accepted
-        if not self.is_saved:
-            # Rule: Subscribed users can only create invitations
-            if role.is_subscribed:
-                self.status = SUBSCRIPTION_INVITATION
-                return
-
-            # Rule: Unsubscribed can only create subscription for himself
-            #       in accordance to context's policies.
-            policy = self.context.subscribe_policy
-            if policy not in (SUBSCRIPTION_ACCEPTED, SUBSCRIPTION_REQUEST):
-                raise PermissionDenied("subscription not allowed")
-
-            self.status = policy
-            self.access = self.context.default_access
-            self.owner = role.user
-            return
-
-        # Rule: subscriber can accept an invitation or retry to request
-        #       subscription
-        if role.user == self.owner:
-            if self.status == SUBSCRIPTION_REQUEST:
-                self.status = self.context.subscribe_policy
-            elif self.status in (SUBSCRIPTION_ACCEPTED,
-                                 SUBSCRIPTION_INVITATION):
-                self.status = SUBSCRIPTION_ACCEPTED
-        else:
-            if self.status == SUBSCRIPTION_REQUEST:
-                self.status = SUBSCRIPTION_ACCEPTED
-            # FIXME: raise permission denied? => fix a Rule
-
-        def save_by(self, role):
-            self.subscribe_by(role)
-            super().save_by(role)
-
+# Rule: Subscription access can not be <= DefaultRole's
+#       -> Enforce access restriction for Subscription
+Subscription._meta.get_field('access').choices = subscription_access_choices
 
 
 class Authorization(Accessible):
@@ -514,18 +328,8 @@ class Authorization(Accessible):
     )
     model = models.ForeignKey(
         ContentType, on_delete=models.CASCADE,
-        blank=True, null=True,
     )
     granted = models.BooleanField(
         default=False,
     )
-
-    def as_permission(self):
-        """
-        Return an instance of Permission (sub)class based on self's
-        informations.
-        """
-        model = self.model.model_class() if self.model else None
-        cls = Permissions.get((model, self.codename)) or Permission
-        return cls(self.codename, model, self.granted)
 

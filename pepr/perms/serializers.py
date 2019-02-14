@@ -21,15 +21,15 @@ class AccessibleSerializer(serializers.ModelSerializer):
         return getattr(self, '_instance', None)
 
     @instance.setter
-    def instance(self, value):
-        if self._instance is value:
+    def instance(self, obj):
+        if self._instance is obj:
             return
-        self._instance = value
-        if not value:
+        self._instance = obj
+        if not obj:
             self.role = None
         elif self.role is None or \
-                self.role.context.id != value[0].context_id:
-            self.role = value[0].related_context.get_role(self.user)
+                self.role.context.id != obj.context_id:
+            self.role = obj.related_context.get_role(self.user)
 
     class Meta:
         fields = ('pk', 'context', 'access')
@@ -46,20 +46,26 @@ class AccessibleSerializer(serializers.ModelSerializer):
         self.user = role.user if role else user
         self.fields['context'].read_only = self.instance is not None
 
+    def before_change(self, role, instance, validated_data):
+        validated_data['access'] = min(role.access, validated_data['access'])
+
     def before_create(self, role, validated_data):
-        validated_data.setdefault('change_by', role)
+        self.before_change(role, None, validated_data)
 
     def before_update(self, role, instance, validated_data):
-        validated_data.setdefault('change_by', role)
+        self.before_change(role, instance, validated_data)
 
     def create(self, validated_data):
-        role = validated_data['context'].get_role(self.user)
-        self.before_create(role, validated_data)
+        # FIXME: related_context
+        if self.role is None:
+            self.role = validated_data['context'].get_role(self.user)
+        self.before_create(self.role, validated_data)
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        role = instance.related_context.get_role(self.user)
-        self.before_update(role, instance, validated_data)
+        if self.role is None:
+            self.role = instance.related_context.get_role(self.user)
+        self.before_update(self.role, instance, validated_data)
         return super().update(instance, validated_data)
 
 
@@ -69,7 +75,34 @@ class OwnedSerializer(AccessibleSerializer):
         read_only_fields = AccessibleSerializer.Meta.read_only_fields + \
             ('owner',)
 
+    def is_owner_optional(self):
+        """ Return True if model field "owner" can be null """
+        return self.model._meta.get_field('owner').null
 
+    def before_change(self, role, instance, validated_data):
+        # this should not happen with correct flow. For sugar, we
+        # raise a PermissionDenied instead of RuntimeError.
+        if role.is_anonymous and not self.is_owner_optional:
+            raise PermissionDenied(
+                'Anonymous user can not edit {}'
+                .format(self.model._meta.verbose_name.lower())
+            )
+        super().before_change(role, instance, validated_data)
+
+    def before_create(self, role, validated_data):
+        super().before_create(role, validated_data)
+        if not role.is_anonymous:
+            validated_data['owner'] = role.user
+
+    def before_update(self, role, instance, validated_data):
+        super().before_update(role, instance, validated_data)
+        if not role.is_anonymous and instance.owner is None:
+            validated_data['owner'] = role.user
+
+
+# We check object's state transitions inside serializer because it is
+# responsible for data validation. This means that rules that impplies
+# the Subscription object are implemented here.
 class SubscriptionSerializer(OwnedSerializer):
     class Meta:
         model = Subscription
@@ -85,7 +118,7 @@ class SubscriptionSerializer(OwnedSerializer):
         super().__init__(instance, *args, **kwargs)
 
     def _init_request(self, role, validated_data):
-        if not role.context.subscription_request_allowed:
+        if not role.context.can_request_subscription:
             raise PermissionError(
                 'request not authorized for this context.'
             )
@@ -111,7 +144,6 @@ class SubscriptionSerializer(OwnedSerializer):
         self._init_request(role, validated_data)
 
     def before_create(self, role, validated_data):
-        # TODO: admin
         if role.is_subscribed:
             self.before_create_subscribed(role, validated_data)
         else:

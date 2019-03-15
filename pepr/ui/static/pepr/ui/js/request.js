@@ -93,7 +93,7 @@ class Request extends Emitter {
 
         this.emit('message', event);
 
-        // FIXME: handle redirects
+        // FIXME: handle redirects?
 
         /**
          *  This message received from the connection indicates a success

@@ -111,8 +111,10 @@ $pepr.comps.CollectionItem = Vue.component('pepr-collection-item', {
     template: `
         <div :class="computedClass"
             @click="toggleSelect()" @mouseover="focus()">
-            <slot :item="item" :view="view"
-                :active="active" :selected="selected"></slot>
+            <slot :item="item" :list="list"
+                :active="active" :selected="selected">
+                <p-content :elm="item.elm" :html="item.html"></p-content>
+            </slot>
         </div>
     `,
 

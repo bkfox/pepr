@@ -6,6 +6,8 @@ from ..utils.register import Register
 from ..utils.metaclass import RegisterMeta
 from ..utils.string import camel_to_snake
 
+from .models import Owned
+
 
 class Permissions(RegisterMeta, BasePermissionMetaclass):
     """
@@ -23,8 +25,9 @@ class PermissionBase(BasePermission, metaclass=Permissions):
     This class is used to describe permissions and also to grant
     (or not) permission to roles.
 
-    It assumes that conjoint views are subclassing ``PermissionMixin``
-    (role is retrieved from ``view.role``).
+    It assumes that conjoint views are subclassing ``PermissionMixin``:
+    role is always retrieved from ``view.role`` (including for
+    ``has_object_permissions``.
 
     PermissionBase permission logic is in ``can`` and ``can_obj``
     instead of ``has_permissions`` and ``has_object_permissions``.
@@ -64,53 +67,74 @@ class PermissionBase(BasePermission, metaclass=Permissions):
         return True
 
     def has_permission(self, request, view):
-        return self.can(view.role) or False
+        return self.can(view.role)
 
     def has_object_permission(self, request, view, obj):
-        role = obj.related_context.get_role(request.user)
-        return self.can_obj(role, obj) or False
+        return self.can_obj(view.role, obj)
+
+
+class Can(PermissionBase):
+    """
+    Base class for permission check based on role's granted privileges.
+    """
+    @classmethod
+    def can(cls, role):
+        return role.is_admin or (
+            super(Can, cls).can(role) and
+            role.is_granted(cls, None)
+        )
 
 
 class CanAccess(PermissionBase):
+    """ Permission to access an accessible object """
     @classmethod
     def can_obj(cls, role, obj):
+        # TODO: obj as Context
         return role.is_admin or role.has_access(obj.access)
 
 
-class CanAction(CanAccess):
+class CanObject(CanAccess):
     """
-    Base class for permissions checking if role is granted to
-    change an object.
-
-    In order to ensure that object access is checked, this class inherits
-    from CanAccess.
+    Base class for permission check based on role's granted privileges
+    on an object.
     """
     @classmethod
     def can_obj(cls, role, obj):
-        return role.is_admin or \
-            super(CanAction, cls).can_obj(role, obj) and \
+        return role.is_admin or (
+            super(CanObject, cls).can_obj(role, obj) and
             role.is_granted(cls, type(obj))
+        )
 
 
-class CanCreate(CanAction):
+class CanCreate(CanObject):
     """ Permission to create an accessible object """
     name = _('Create a new {model_name}')
 
 
-class CanUpdate(CanAction):
+class CanUpdate(CanObject):
     """ Permission to update any accessible object """
     name = _('Update any {model_name}')
 
 
-class CanDelete(CanAction):
+class CanDelete(CanObject):
     """ Permission to update any accessible object """
     name = _('Delete any {model_name}')
 
 
+class CanManage(CanObject):
+    name = _('Manage context')
+
+
 class IsOwner(PermissionBase):
-    """ Allows owner to act on its objects """
+    """
+    Permission check for owned objects. If object is not an owned,
+    returns False.
+    """
     @classmethod
     def can_obj(cls, role, obj):
+        if not isinstance(obj, Owned):
+            return False
+
         # Rule: Owner of an object always control its object
         if obj.is_owner(role.user):
             return True
@@ -119,7 +143,7 @@ class IsOwner(PermissionBase):
         #       EXCEPT that Admin can not change objects of other Admin
         if obj.is_saved and not role.is_anonymous and \
                 obj.owner is not None and obj.owner != role.user:
-            owner_role = obj.related_context.get_role(obj.owner)
+            owner_role = obj.get_context().get_role(obj.owner)
             strict = role.is_admin and owner_role.is_admin
             return role.has_access(owner_role.access, strict)
         return True
@@ -134,6 +158,24 @@ class CanRequestSubscription(PermissionBase):
     def can_obj(cls, role, obj):
         # Rule: Unsubscribed user can subscribe based on context policy
         if not role.is_subscribed:
-            return obj.related_context.can_request_subscription
+            return obj.get_context().can_request_subscription
         return True
+
+
+# TODO: also for update
+class CanDeleteSubscription(PermissionBase):
+    """
+    Allow unsubscribed to request a subscription.
+    Note: does not check subscription value (done in serializer)
+    """
+    @classmethod
+    def can_obj(cls, role, obj):
+        from .models import Subscription
+        from .roles import AdminRole
+        if obj.access == AdminRole.access:
+            qs = Subscription.objects.context(obj.context) \
+                                     .access(obj.access)
+            return qs.count() > 1
+        return False
+
 

@@ -50,8 +50,8 @@ class Component(TemplateResponseMixin, ContextMixin, ComponentBase):
     def check_permissions(self, role, obj=None):
         """ Return True if role has component permission for this object """
         perms = self.permission_classes
-        ite = (p for p in perms if not p.can(role)) if obj is None else \
-              (p for p in perms if not p.can_obj(role, obj))
+        ite = (False for p in perms if not p.can(role)) if obj is None else \
+              (False for p in perms if not p.can_obj(role, obj))
         return next(ite, True)
 
     def render(self, role, object=None, **kwargs):

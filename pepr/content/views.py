@@ -1,4 +1,4 @@
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.views.generic import DetailView, ListView, UpdateView, View
 from django.views.generic.detail import SingleObjectMixin
 from django.utils.translation import ugettext_lazy as _
@@ -10,7 +10,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from ..perms.forms import SubscriptionFormSet
-from ..perms.mixins import PermissionMixin, ContextMixin, OwnedMixin
+from ..perms.mixins import PermissionMixin, ContextViewMixin, AccessibleViewMixin
 from ..perms.views import AccessibleViewSet
 from ..ui.views import SiteView
 from ..ui.components import Slots, Widgets
@@ -104,12 +104,14 @@ class ContainerServiceView(SingleObjectMixin, View):
     def dispatch(self, request, *args, **kwargs):
         self.object = self.get_object()
         service = self.get_service()
+        if not service:
+            raise Http404('not found')
         view = service.as_view()
         return view(request, *args, context=self.object,
                     service=service, **kwargs)
 
 
-class ContainerUpdateView(ServiceView, ContextMixin, UpdateView):
+class ContainerUpdateView(ServiceView, ContextViewMixin, UpdateView):
     """
     Service used to manage container's settings.
     """
@@ -132,7 +134,7 @@ class ContainerUpdateView(ServiceView, ContextMixin, UpdateView):
         return super().get_queryset().select_subclasses()
 
 
-class SubscriptionsUpdateView(ServiceView, ContextMixin, DetailView):
+class SubscriptionsUpdateView(ServiceView, ContextViewMixin, DetailView):
     # TODO: permission_classes = tuple()
     model = Container
     formset_class = SubscriptionFormSet
@@ -172,7 +174,7 @@ class SubscriptionsUpdateView(ServiceView, ContextMixin, DetailView):
         return self.get(request, *args, **kwargs)
 
 
-class ContentListView(OwnedMixin, ServiceView,
+class ContentListView(AccessibleViewMixin, ServiceView,
                       filters_views.FilterView):
     """ Display a list of content, either for a given context or not """
     # TODO: permission_classes = tuple()
@@ -229,7 +231,7 @@ class ContentViewSet(AccessibleViewSet):
     def edit_form(self, request, pk=None):
         """ Render an edit form for the given object """
         instance = self.get_object()
-        role = instance.related_context.get_role(request.user)
+        role = instance.get_context().get_role(request.user)
         content = self.form_comp.render(role, instance)
         return HttpResponse(content=content)
 

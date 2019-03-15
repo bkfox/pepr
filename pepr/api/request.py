@@ -40,10 +40,13 @@ class RouterRequest(HttpRequest):
     def __init__(self, data):
         # TODO: parse path and clean query parameters from self.path
         self.id = data.get('request_id')
-        self.method = data.get('method', 'GET')
+        self.method = data.get('method', 'GET').upper()
         self.path = data.get('path', '')
+        self.data = data.get('data', {})
         self.GET = QueryDict(urlparse(self.path).query, mutable=True)
-        self.POST = data.get('data', {})
+
+        if self.method not in ('GET', 'HEAD', 'POST', 'PUT', 'DELETE'):
+            raise ValueError('invalid method {}'.format(self.method))
 
         if data.get('query'):
             # FIXME: can values be (list of values or value)? How do we
@@ -59,7 +62,7 @@ class RouterRequest(HttpRequest):
     def __dir__(self):
         names = super().__dir__()
         names += [name for name in dir(self.defaults)
-                    if not name.startswith('__') and name not in names ]
+                  if not name.startswith('__') and name not in names]
         return names
 
     # HttpRequest overwrites & DRF compatibility
@@ -67,8 +70,12 @@ class RouterRequest(HttpRequest):
     scheme = 'ws'
 
     @property
-    def data(self):
-        return self.POST
+    def POST(self):
+        return self.data if self.method == 'POST' else None
+
+    @property
+    def PUT(self):
+        return self.data if self.method == 'PUT' else None
 
     @property
     def content_type(self):
@@ -84,7 +91,7 @@ class RequestSerializer(serializers.Serializer):
     The save() return type is RouterRequest (or child class).
     """
     request_id = serializers.IntegerField()
-    method = serializers.CharField(max_length=12, default='get')
+    method = serializers.CharField(max_length=12, default='GET')
     path = serializers.CharField(max_length=64)
     status = serializers.IntegerField(required=False)
     query = serializers.DictField(required=False)
@@ -92,7 +99,4 @@ class RequestSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         return RouterRequest(validated_data)
-
-
-
 

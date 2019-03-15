@@ -35,25 +35,25 @@ class AccessibleSerializer(serializers.ModelSerializer):
             return self.role
         return context.get_role(self.user)
 
-    def before_change(self, role, instance, validated_data):
-        validated_data['access'] = min(role.access, validated_data['access'])
+    def before_change(self, role, instance, validated):
+        validated['access'] = min(role.access, validated['access'])
 
-    def before_create(self, role, validated_data):
-        self.before_change(role, None, validated_data)
+    def before_create(self, role, validated):
+        self.before_change(role, None, validated)
 
-    def before_update(self, role, instance, validated_data):
-        self.before_change(role, instance, validated_data)
+    def before_update(self, role, instance, validated):
+        self.before_change(role, instance, validated)
 
-    def create(self, validated_data):
-        # FIXME: related_context
-        self.role = self.get_role(validated_data['context'])
-        self.before_create(self.role, validated_data)
-        return super().create(validated_data)
+    def create(self, validated):
+        # FIXME: get_context()
+        self.role = self.get_role(validated['context'])
+        self.before_create(self.role, validated)
+        return super().create(validated)
 
-    def update(self, instance, validated_data):
-        self.role = self.get_role(instance.related_context)
-        self.before_update(self.role, instance, validated_data)
-        return super().update(instance, validated_data)
+    def update(self, instance, validated):
+        self.role = self.get_role(instance.get_context())
+        self.before_update(self.role, instance, validated)
+        return super().update(instance, validated)
 
 
 class OwnedSerializer(AccessibleSerializer):
@@ -66,7 +66,7 @@ class OwnedSerializer(AccessibleSerializer):
         """ Return True if model field "owner" can be null """
         return self.model._meta.get_field('owner').null
 
-    def before_change(self, role, instance, validated_data):
+    def before_change(self, role, instance, validated):
         # this should not happen with correct flow. For sugar, we
         # raise a PermissionDenied instead of RuntimeError.
         if role.is_anonymous and not self.is_owner_optional:
@@ -74,17 +74,17 @@ class OwnedSerializer(AccessibleSerializer):
                 'Anonymous user can not edit {}'
                 .format(self.model._meta.verbose_name.lower())
             )
-        super().before_change(role, instance, validated_data)
+        super().before_change(role, instance, validated)
 
-    def before_create(self, role, validated_data):
-        super().before_create(role, validated_data)
+    def before_create(self, role, validated):
+        super().before_create(role, validated)
         if not role.is_anonymous:
-            validated_data['owner'] = role.user
+            validated['owner'] = role.user
 
-    def before_update(self, role, instance, validated_data):
-        super().before_update(role, instance, validated_data)
+    def before_update(self, role, instance, validated):
+        super().before_update(role, instance, validated)
         if not role.is_anonymous and instance.owner is None:
-            validated_data['owner'] = role.user
+            validated['owner'] = role.user
 
 
 # We check object's state transitions inside serializer because it is
@@ -105,42 +105,44 @@ class SubscriptionSerializer(OwnedSerializer):
         self.fields['owner'].read_only = instance is not None
         super().__init__(instance, *args, **kwargs)
 
-    def _init_request(self, role, validated_data):
+    def request_init_kwargs(self, role, init_kwargs):
         if not role.context.can_request_subscription:
             raise PermissionDenied(
                 'request not authorized for this context.'
             )
 
-        validated_data['status'] = role.context.subscription_policy
-        validated_data['access'] = role.context.subscription_default_access
-        validated_data['owner'] = role.user
+        init_kwargs.update({
+            'status': role.context.subscription_policy,
+            'access': role.context.subscription_default_access,
+            'owner': role.user,
+        })
 
-    def before_create_subscribed(self, role, validated_data):
-        status = validated_data.get('status')
+    def before_create_subscribed(self, role, validated):
+        status = validated.get('status')
 
         # Rule: subscribed can create only invitation
         if status != models.SUBSCRIPTION_INVITATION:
             raise ValidationError('only invitation is authorized.')
-        validated_data['status'] = models.SUBSCRIPTION_INVITATION
+        validated['status'] = models.SUBSCRIPTION_INVITATION
 
-    def before_create_unsubscribed(self, role, validated_data):
-        status = validated_data.get('status')
+    def before_create_unsubscribed(self, role, validated):
+        status = validated.get('status')
 
         # Rule: unsubscribed can create only subscription request
         if status not in (models.SUBSCRIPTION_REQUEST, None):
             raise ValidationError('only request is authorized')
-        self._init_request(role, validated_data)
+        self.request_init_kwargs(role, validated)
 
-    def before_create(self, role, validated_data):
+    def before_create(self, role, validated):
         if role.is_subscribed:
-            self.before_create_subscribed(role, validated_data)
+            self.before_create_subscribed(role, validated)
         else:
-            self.before_create_unsubscribed(role, validated_data)
-        super().before_create(role, validated_data)
+            self.before_create_unsubscribed(role, validated)
+        super().before_create(role, validated)
 
 
-    def before_update_subscribed(self, role, instance, validated_data):
-        status = validated_data.get('status')
+    def before_update_subscribed(self, role, instance, validated):
+        status = validated.get('status')
 
         # Rule: subscribed can accept request
         # Rule: subscribed can update accepted subscription as regular
@@ -152,11 +154,11 @@ class SubscriptionSerializer(OwnedSerializer):
         else:
             raise ValidationError("invalid subscription's update data")
 
-    def before_update_unsubscribed(self, role, instance, validated_data):
+    def before_update_unsubscribed(self, role, instance, validated):
         if not instance.is_owner(role):
             raise PermissionDenied('must be owner of the object')
 
-        status = validated_data.get('status')
+        status = validated.get('status')
 
         # Rule: unsubscribed can accept an invitation
         if instance.status == models.SUBSCRIPTION_INVITATION and \
@@ -167,18 +169,17 @@ class SubscriptionSerializer(OwnedSerializer):
         #       context policies.
         elif instance.status == models.SUBSCRIPTION_REQUEST and \
                 status == models.SUBSCRIPTION_REQUEST:
-            self._init_request(role, validated_data)
+            self.request_init_kwargs(role, validated)
         else:
             raise ValidationError("invalid subscription's update data")
 
-    def before_update(self, role, instance, validated_data):
+    def before_update(self, role, instance, validated):
         # TODO: admin -> can it do both? maybe it is a good idea to not care
         #       about superuser status in order to reduce ambient privilege
         if role.is_subscribed:
-            self.before_update_subscribed(role, instance, validated_data)
+            self.before_update_subscribed(role, instance, validated)
         else:
-            self.before_update_unsubscribed(role, instance, validated_data)
-        super().before_update(role, instance, validated_data)
-
+            self.before_update_unsubscribed(role, instance, validated)
+        super().before_update(role, instance, validated)
 
 

@@ -1,47 +1,39 @@
-{% load static i18n assets pepr_ui %}
+{% load static i18n pepr_ui %}
+{% load render_bundle from webpack_loader %}
 {% if not standalone %}
 <html>
     <head>
         <meta http-equiv="content-type" content="text/html; charset=UTF-8">
 
-        {% assets "vendor_js" %}
-        <script type="text/javascript" src="{{ ASSET_URL }}"></script>
-        {% endassets %}
-        {% assets "pepr_js" %}
-        <script type="text/javascript" src="{{ ASSET_URL }}"></script>
-        {% endassets %}
+        {% render_bundle "vendor" %}
+        {% render_bundle "vendor" "css" %}
+        {% render_bundle "main" %}
+        {% render_bundle "main" "css" %}
+        {% block assets %}{% endblock %}
 
-        {% assets "vendor_css" %}
-        <link href="{{ ASSET_URL }}" rel="stylesheet">
-        {% endassets %}
-        {% assets "pepr_css" %}
-        <link href="{{ ASSET_URL }}" rel="stylesheet">
-        {% endassets %}
+        {% slot "assets" view %}
 
         <noscript>
             <link href="{% static "pepr/ui/css/noscript.css" %}" rel="stylesheet">
+            {% slot "noscript" view %}
         </noscript>
-
-        {% slot "head" view %}
-
-        {% block head_extra %}{% endblock %}
     </head>
     <body>
         <div id="app" @submit="submit_form">
-            <pepr-modal id="modal" ref="modal" class="remote"></pepr-modal>
+            <p-modal id="modal" ref="modal" class="remote"></p-modal>
 
-            <nav class="navbar mb-3">
+            <nav class="navbar dark mb-3">
                 {% block navbar %}
                 <a class="navbar-brand" href="#">Pepr</a>
 
                 <b-dropdown right class="float-right" toggle-class="btn-info">
                     <span slot="button-content">{{ user }}</span>
-                    <b-dropdown-item>test</b-dropdown-item>
+                    <!-- <b-dropdown-item>test</b-dropdown-item> -->
                 </b-dropdown>
                 {% endblock %}
             </nav>
 
-            <pepr-alerts id="alerts" ref="alerts"></pepr-alerts>
+            <p-alerts id="alerts" ref="alerts"></p-alerts>
 
             <main class="container-fluid p-4">
                 <header class="container-fluide box mb-4">

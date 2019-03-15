@@ -9,32 +9,6 @@ from ..perms.models import Authorization, Context, Subscription
 from ..perms.roles import Roles
 
 
-# TODO:
-# - test authorizations/permissions with *and* without a model
-
-
-# - models & queryset:
-#   x Context
-#   x Accessible
-#   - OwnedAccessible
-#   - Subscription: get_role
-#   - Authorization: as_permission
-# x Role
-# o Permissions:
-# - Consumers:
-#   - ContextObserver
-# - Serializers:
-#   - AccessibleSerializer
-# - Forms:
-#   - AccessibleForm
-# - Mixins:
-#   - PermissionMixin
-#   - ContextMixin
-#   - AccessibleMixin
-#   - AcessibleGenericApiMixin
-# 
-
-
 
 class BaseCase(TestCase):
     context = None

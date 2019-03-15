@@ -2,7 +2,7 @@ from django.urls import path
 
 from rest_framework.routers import DefaultRouter
 
-from .consumers import ContainerObserver
+from .consumers import ContentPubSub
 from .views import \
     ContainerServiceView, ContainerUpdateView, \
     SubscriptionsUpdateView, \
@@ -21,8 +21,7 @@ urlpatterns = [
 
 
 consumers_urls = \
-    ContainerObserver.get_urls('container/<uuid:pk>/', 'api-container')
-
+    ContentPubSub.get_urls('content/', 'api-content')
 
 router = DefaultRouter()
 router.register('content', ContentViewSet, base_name='content')

@@ -6,7 +6,8 @@ API calls when request is done over WebSockets, etc.
 import asyncio
 from inspect import getmembers
 
-from django.core.exceptions import PermissionDenied
+from django.db.models.query import QuerySet
+from django.core.exceptions import PermissionDenied, ImproperlyConfigured
 from django.urls.conf import path
 
 from channels.db import database_sync_to_async
@@ -23,9 +24,54 @@ def is_extra_action(obj):
     return hasattr(obj, 'mapping') and callable(obj)
 
 
+class MultipleObjectMixin:
+    """
+    Provides basic functionalities to retrieve multiple objects.
+    """
+    queryset = None
+    model = None
+
+    def get_queryset(self, request):
+        """
+        Return queryset for the given request.
+
+        Calling this base method implies that one of `queryset` and
+        `model` attributes is set.
+        """
+        if self.queryset is not None:
+            return self.queryset.all()
+        if self.model:
+            return self.model.objects.all()
+        raise ImproperlyConfigured('`queryset` or `model` must be set.')
+
+
+class SingleObjectMixin(MultipleObjectMixin):
+    """
+    Provides basic functionalities to retrieve a single object.
+    """
+    pk_attr = 'pk'
+    pk_field = 'pk'
+
+    def get_object(self, request):
+        """
+        Return object for the given request.
+        """
+        queryset = self.get_queryset(request)
+
+        pk = request.data.get(self.pk_attr, None)
+        if pk is None:
+            return None
+
+        key = self.pk_field or self.pk_attr
+        kwargs = {key: pk}
+        return queryset.get(**kwargs)
+
+
 class ConsumerSetMixin:
     """
-    Equivalent of ViewSet adapted to consumers. Usage is the same.
+    Add basis To allow `RouterConsumer` routing requests to a consumer.
+    `@action` is used on methods to be callable by user as an action
+    (same use as `rest_framework.ViewSet`).
     """
     @classmethod
     def as_view(cls, actions, **initkwargs):

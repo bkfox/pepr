@@ -128,7 +128,6 @@ class RouterBaseConsumer(AsyncWebsocketConsumer):
             })
 
         try:
-            # FIXME: use serializer.validated_data
             path = serializer.validated_data['path']
             match = self.resolve(path)
         except Resolver404:
@@ -236,6 +235,7 @@ class RouterBaseConsumer(AsyncWebsocketConsumer):
 
 
 # TODO: upstream message handling
+# TODO: limit maximum number of running consumers
 class RouterConsumer(RouterBaseConsumer):
     """
     Router that also handle routing to consumers. Their life-cycle is

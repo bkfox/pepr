@@ -1,34 +1,27 @@
 TODO
 ====
 
+- Client:
+  - reorganize how things are working:
+    - POST requests through API
+    - Webpack
+    - differents cases to handle/think:
+      - GET,OBSERVE collection / container
+      - POST forms: error handling & user feedback + flow
+      - Permission implementation client side
+  - moves:
+      - api: emitter, connection, request
+  - others:
+    - collection: do not pass data in dom, fetch them from api and update;
+
 - Permissions:
    - ensure an Admin exists at context creation
    - Accessible => pk => uuid: because accessible means to be accessible...
-
    - permission granted:
       - can be forbidden: authorization cant be set by end users
       - can be default: (instead of delete authorization?)
 
-   - subscription api:
-      - CRUD
-         - restrict edition to role's known people: not private & subscribed in current context
-         - delete: always an admin
-         - save/create: - update status accordingly
-                        - check role.subscription
-         - qs: a subscription can be not validated
-      - Invitation & Request:
-        - user: can change invitation, can not request (except delete)
-
-      Subscription policy:
-      - request: request, invitation
-      - invitation: invitation
-      - validated: auto-subscribe based on default subscribed role;
-
 - Settings:
-   - ContextForm
-     - how to handle combined ContextForm & AccessibleForm
-       they might well combine, each doing its job with correct role
-       assigned (which might yet be done <3)
    - Api endpoint for Container:
      - ContextViewSet & combine with accessible
      - api-* on form

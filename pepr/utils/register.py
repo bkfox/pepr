@@ -1,7 +1,7 @@
 
 class Register:
     entries = None
-    """ The objects """
+    """ The objects as dict of `{key: entry}`. """
     entry_key_attr = None
     """ Use this attribute as key for objects. If None, key must always
     be specified. """
@@ -21,34 +21,42 @@ class Register:
                            ' defined')
         return getattr(entry, self.entry_key_attr)
 
-    def reset_entry(self, key, entry=None):
+    def _reset(self, key, entry=None):
         """
         Update entry at the given key. If ``entry`` is None, delete
-        entry at the given position.
+        entry at the given position. Return previous value.
         """
+        previous = self.entries.get(key)
         if entry:
             self.entries[key] = entry
         else:
             del self.entries[key]
+        return previous
 
     def add(self, entry, key=None, force=False):
         """ Add an entry and return registered entry if success """
         try:
             key = self.get_entry_key(entry) if key is None else key
 
+            # FIXME: what about entry_overwrite = True, force = False ?
+            #           => defaults force=None
             if not (force or self.entry_overwrite) and key in self.entries:
                 raise KeyError('entry exists yet for this key {}'
                                .format(key))
-            self.reset_entry(key, entry)
+            self._reset(key, entry)
             return entry
+        # FIXME: wtf?
         except NameError:
             pass
 
-    def remove(self, entry):
+    def remove(self, key):
         """ Unregister a given entry if present and if is this one """
+        return self._reset(key)
+
+    def remove_entry(self, entry):
         key = self.get_entry_key(entry)
         if self.entries.get(key) is entry:
-            self.reset_entry(key)
+            return self.remove(key)
 
     def get(self, key, default=None):
         """ Get entry by key """
@@ -57,7 +65,7 @@ class Register:
 
     def clear(self):
         """ Reset registry and remove all registered entries """
-        self.entries = {}
+        self.entries.clear()
 
     def update(self, register):
         """ Import entries from a register (by reference), a dict or
@@ -71,6 +79,9 @@ class Register:
         else:
             for entry in entries:
                 self.add(entry, force=True)
+
+    def keys(self):
+        return self.entries.keys()
 
     def values(self):
         """ Return iterator on entries' values """

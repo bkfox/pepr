@@ -4,10 +4,14 @@ if RUNNING_MODE == Mode.Development:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': os.path.join(BASE_DIR, 'dev.sqlite3'),
+            'NAME': os.path.join(BASE_DIR, RUNNING_MODE_NAME + '.sqlite3'),
         }
     }
-    ALLOWED_HOSTS = ['127.0.0.1:8000','localhost:8000']
 
+    try:
+        import rest_framework_swagger
+        INSTALLED_APPS += ['rest_framework_swagger']
+    except ImportError:
+        pass
 
 

@@ -1,7 +1,7 @@
 # FIXME: optimize -> set property as value, add __prop_method on value
 
 
-def cache_method(func):
+def cached_method(func):
     """
     Cache result of a method, including at class level. It assumes that
     input parameters wont change (look at `functools.lru_cache` for

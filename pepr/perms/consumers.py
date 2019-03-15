@@ -1,44 +1,44 @@
-from collections import namedtuple
-
-from django.db.models.signals import post_save, post_delete
-
 from asgiref.sync import async_to_sync
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.layers import get_channel_layer
+# from restframework.consumers import Consumer
 
-from ..api.mixins import ConsumerSetMixin, action
-from ..api.observer import ObserverConsumer
+from ..api.pubsub import PubSubConsumer
 from ..perms.models import Context
+from .mixins import PermissionMixin
+from .permissions import CanAccess, IsOwner
 
 
-# TODO: has_perm / get_perm action (with/without model)
-# TODO: update role (on Subscription/Authorization change)
-# TODO: get_serializer => get role from subscription if any
-class ContextObserver(ObserverConsumer):
-    """
-    Observer on accessibles (filtered by their context's id)
-    """
+class AccessiblePubSub(PermissionMixin, PubSubConsumer):
+    permission_classes = (IsOwner | CanAccess,)
     context_class = Context
+    matches = {
+        'context': lambda cls, obj: obj.get_context().pk,
+    }
 
-    def get_serializer(self, instance, **initkwargs):
-        if 'role' not in initkwargs:
-            initkwargs['role'] = instance.related_context \
-                                         .get_role(self.scope['user'])
-        return super().get_serializer(instance, **initkwargs)
+    def get_context_queryset(self, request, match):
+        return self.context_class.objects.select_subclasses()
 
-    async def get_observer_data(self, request, filter):
-        context = self.context_class.objects.select_subclasses() \
-                      .filter(pk=filter).first()
+    def get_context(self, request, match):
+        qs = self.get_context_queryset(request, match)
+        if match.filter == 'context':
+            return qs.get(pk=match.value)
+
+    async def get_subscription_data(self, request, match, **kwargs):
+        context = self.get_context(request, match)
         if context is None:
             return None
-        return {'role': context.get_role(request.user)}
 
-    @classmethod
-    def get_observer_filter(cls, instance):
-        return str(instance.related_context.pk)
+        if 'role' not in kwargs:
+            kwargs['role'] = context.get_role(request.user)
+        return super().get_subscription_data(request, match, **kwargs)
 
-    async def propagate_observation(self, event, observer, instance):
-        role = observer.data.get('role')
-        if not role or role.access < instance.access:
-            return
-        await super().propagate_observation(event, observer, instance)
+    def get_serializer(self, event, subscription, instance, **initkwargs):
+        initkwargs['role'] = subscription.data['role']
+        return super().get_serializer(instance, **initkwargs)
+
+    def can_notify(self, event, subscription, obj):
+        # only notify if user can read object.
+        return self.can_obj(subscription.data['role'], 'get', obj)
+
+

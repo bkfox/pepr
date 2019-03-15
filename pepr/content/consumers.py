@@ -1,11 +1,10 @@
-
 from channels.generic.websocket import AsyncWebsocketConsumer
 
 from .models import Container, Content
-from ..perms.consumers import ContextObserver
+from ..perms.consumers import AccessiblePubSub
 
 
-class ContainerObserver(ContextObserver, AsyncWebsocketConsumer):
+class ContentPubSub(AccessiblePubSub, AsyncWebsocketConsumer):
     """
     Consumer class for container. This can be used to observe content
     edition.
@@ -17,4 +16,4 @@ class ContainerObserver(ContextObserver, AsyncWebsocketConsumer):
         return instance.get_serializer_class()
 
 
-ContainerObserver.connect_signals()
+ContentPubSub.connect_signals()

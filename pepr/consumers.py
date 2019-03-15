@@ -1,6 +1,5 @@
 
 from .api import consumers as api
-from .content.consumers import ContainerObserver
 from .urls import api_urls, consumers_urls
 
 

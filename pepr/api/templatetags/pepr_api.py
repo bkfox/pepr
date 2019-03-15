@@ -13,6 +13,10 @@ def do_serialize(context, instance, **init_kwargs):
 
     Serializer is initialized using given ``**init_kwargs``.
     """
+    if not 'context' in init_kwargs:
+        init_kwargs['context'] = {'request': context['request']}
+    else:
+        init_kwargs['context'].setdefault('request', context['request'])
     serializer = instance.get_serializer_class()(instance,
                                                  **init_kwargs)
     return serializer.data

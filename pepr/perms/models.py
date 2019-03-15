@@ -11,13 +11,13 @@ from django.core.exceptions import ValidationError, PermissionDenied
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
-from model_utils.managers import InheritanceQuerySetMixin, \
-        InheritanceManager
+from model_utils.managers import InheritanceQuerySetMixin
 
 from .filters import IsAccessibleFilterBackend
 from .roles import Roles, AnonymousRole, DefaultRole, \
         AdminRole
 from ..utils.iter import as_choices
+from ..utils.functional import cached_method
 
 
 SUBSCRIPTION_REQUEST = 1
@@ -192,11 +192,9 @@ class Accessible(models.Model):
     objects = AccessibleQuerySet.as_manager()
     filter_backends = (IsAccessibleFilterBackend,)
 
-    @cached_property
-    def related_context(self):
-        """
-        Related Context as its real subclass.
-        """
+    @cached_method
+    def get_context(self):
+        """ Return self as it real class.  """
         return Context.objects.get_subclass(id=self.context_id) \
             if self.context_id is not None else None
 
@@ -297,19 +295,7 @@ class Subscription(Owned):
         cls = Roles.get(access)
         return cls(self.context, self.owner, self)
 
-    def delete(self):
-        # TODO: ensure that also at context creation
-        # Rule: there is always at least one admin subscribed in Context
-        if self.access == AdminRole.access:
-            qs = Subscription.objects.context(self.context) \
-                                     .access(self.access)
-            if qs.count() < 2:
-                raise ValidationError(
-                    "there must be at least one admin in context."
-                )
-        return super().delete()
-
-
+ 
 # Rule: Subscription access can not be <= DefaultRole's
 #       -> Enforce access restriction for Subscription
 Subscription._meta.get_field('access').choices = subscription_access_choices

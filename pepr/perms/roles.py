@@ -15,7 +15,7 @@ class Roles(RegisterMeta):
     Register class that list all defined Role for the project. It also
     keeps track of which role is related to a specific role.
     """
-    entry_key_attr = '__name__'
+    entry_key_attr = 'access'
 
     @classmethod
     def get_base_class(cls):

@@ -1,7 +1,7 @@
 
 /**
  *  Register listeners and emit events. This class is used since EventTarget
- *  is quiete new.
+ *  does not allow listeners iteration etc.
  */
 class Emitter {
     /**
@@ -20,7 +20,7 @@ class Emitter {
 
         var listeners = this.listeners[type];
         if(force || !listeners.some(function(e) { return e == listener; }))
-            this.listeners[type].push(listener);
+            listeners.push(listener);
     }
 
     /**

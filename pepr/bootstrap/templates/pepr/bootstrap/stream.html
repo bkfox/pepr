@@ -8,6 +8,22 @@
 
 <hr>
 
+<p-list id-attr="pk" observe
+    :connection="connection"
+    filter="context={{ context.id }}"
+    url="/content/"
+    >
+
+    {% for obj in object_list %}
+    <div data-id="{{ obj.pk }}">
+        {% serialize obj role=role render=False as data %}
+        {{ data|json_script:obj.pk }}
+        {% component obj.as_component %}
+    </div>
+    {% endfor %}
+</p-list>
+
+{% comment %}
 <pepr-bound-collection id-attr="pk" sort-attr="-modified" observe
     collection-url="/container/{{ context.pk }}/"
     items-url="/content/" >
@@ -32,6 +48,8 @@
         </pepr-dynamic>
     </template>
 </pepr-container>
+
+{% endcomment %}
 
 {% endblock %}
 

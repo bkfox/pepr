@@ -13,9 +13,9 @@ class ContentAuthorSerializer(serializers.ModelSerializer):
         fields = ('id', 'username')
 
 
-class ContentSerializer(AccessibleSerializer):
+class ContentSerializer(AccessibleSerializer): # , serializers.HyperlinkedModelSerializer):
     html = serializers.SerializerMethodField(required=False)
-    owner = ContentAuthorSerializer(required=False)
+    # owner = serializers.HyperlinkedIdentityField(view_name = 'user')
     modifier = ContentAuthorSerializer(required=False)
 
     class Meta:
@@ -31,7 +31,13 @@ class ContentSerializer(AccessibleSerializer):
         read_only_fields = ('pk', 'created', 'owner',
                             'modified', 'modifier')
 
+    def __init__(self, *args, render=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.render = render
+
     def get_html(self, obj):
-        self.role = self.get_role(obj.related_context)
+        if not self.render:
+            return
+        self.role = self.get_role(obj.get_context())
         return obj.as_component().render(self.role)
 

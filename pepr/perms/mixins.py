@@ -1,7 +1,9 @@
 from django.core.exceptions import PermissionDenied
 
-from rest_framework import views as rf_views
+from rest_framework import exceptions
+from rest_framework.views import APIView
 
+from ..api.mixins import SingleObjectMixin
 from .permissions import CanAccess, CanCreate, CanUpdate, CanDelete, IsOwner
 
 
@@ -19,15 +21,57 @@ class PermissionMixin:
     permission_classes = tuple()
     """ Permissions to check as request is being proceeded """
     action_permissions = {
-        'GET': (CanAccess,),
+        'GET': (IsOwner | CanAccess,),
         'POST': (CanCreate,),
-        'PUT': (CanUpdate,),
-        'DELETE': (CanDelete,),
+        'PUT': (IsOwner | CanUpdate,),
+        'DELETE': (IsOwner | CanDelete,),
     }
     """
     Permission to apply for a specific action instead of
     `self.permission_classes`. It can either be a request method or an
     action (as given by ``viewset.action``)
+    """
+
+    def get_permissions(self, action=None):
+        """
+        Return permissions for the given action or defaults.
+        """
+        permission_classes = self.permission_classes
+        if action is not None:
+            permission_classes = self.action_permissions.get(
+                action, permission_classes
+            )
+        return [perm() for perm in permission_classes]
+
+    def can(self, role, action, throws=False):
+        """
+        Return True when user has permissions for the given action.
+        """
+        failed = next(
+            (permission for permission in self.get_permissions(action)
+             if not permission.can_obj(role)), None
+        )
+        if throws and failed is None:
+            raise exceptions.PermissionDenied('permission denied')
+        return failed is None
+
+    def can_obj(self, role, action, obj, throws=False):
+        """
+        Return True when user has permissions for the given action and
+        object.
+        """
+        failed = next(
+            (permission for permission in self.get_permissions(action)
+             if not permission.can_obj(role, obj)), None
+        )
+        if throws and failed is None:
+            raise exceptions.PermissionDenied('permission denied')
+        return failed is None
+
+
+class PermissionViewMixin(PermissionMixin):
+    """
+    Base mixin for views handling permissions access.
     """
     role = None
 
@@ -38,19 +82,12 @@ class PermissionMixin:
 
     @context.setter
     def context(self, obj):
-        """ Setting ``context``updates current role and check
-        permissions """
+        """ Set ``context``updates current role.  """
         self.role = obj.get_role(self.request.user) if obj else None
 
-    check_permissions = rf_views.APIView.check_permissions
-    check_object_permissions = rf_views.APIView.check_object_permissions
-
-    def get_permissions(self):
-        """ Return permissions """
-        return [perm() for perm in self.action_permissions.get(
-            getattr(self, 'action', self.request.method),
-            self.permission_classes
-        )]
+    def get_permissions(self, action=None):
+        action = self.action if action is None else action
+        return super().get_permissions(action)
 
     def get_context_data(self, **kwargs):
         """ Ensure 'role' and 'context' are in resulting context """
@@ -59,7 +96,7 @@ class PermissionMixin:
         return super().get_context_data(**kwargs)
 
 
-class ContextMixin(PermissionMixin):
+class ContextViewMixin(PermissionViewMixin):
     """
     View mixin for views that work with a single Context.
     """
@@ -74,34 +111,41 @@ class ContextMixin(PermissionMixin):
         self.context = value
 
     def get_object(self):
-        """  """
         obj = super().get_object()
         self.context = obj
         self.check_object_permissions(self.request, obj)
         return obj
 
 
-class AccessibleMixin(PermissionMixin):
+class AccessibleViewMixin(PermissionViewMixin):
     """
     View mixin handling Accessible objects permission check.
     """
-    permission_classes = (CanAccess,)
+    permission_classes = (IsOwner | CanAccess,)
 
-    def get_object(self):
-        """  """
-        obj = super().get_object()
-        self.context = obj.related_context
-        self.assert_perms(self.request, obj)
-        return obj
+    @property
+    def object(self):
+        return getattr(self, '_object')
+
+    @object.setter
+    def object(self, obj):
+        self.context = obj.get_context()
+        self.check_object_permissions(self.request, obj)
 
     def get_queryset(self):
         return self.model.objects.user(self.request.user)
 
 
-class OwnedMixin(AccessibleMixin):
+class AccessibleConsumerMixin(SingleObjectMixin, PermissionMixin):
     """
-    Mixin handling Owned objects permission check
+    Consumer mixin handling Accessible objects permission check
     """
     permission_classes = (IsOwner | CanAccess,)
 
+    def get_queryset(self, request):
+        return super().get_queryset(request).user(request.user)
+
+    def get_object(self, request):
+        obj = super().get_object(request)
+        self.check_object_permissions(request, obj)
 

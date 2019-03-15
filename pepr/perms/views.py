@@ -3,14 +3,14 @@ from django.views.generic import DetailView, UpdateView
 
 from rest_framework import viewsets
 
-from .mixins import PermissionMixin, ContextMixin, AccessibleMixin
+from .mixins import PermissionMixin, ContextViewMixin, AccessibleViewMixin
 from .models import Context, Subscription
 from .permissions import CanAccess, CanCreate, CanUpdate, CanDelete, IsOwner, \
-                         CanRequestSubscription
+                         CanRequestSubscription, CanDeleteSubscription
 from .serializers import SubscriptionSerializer
 
 
-class AccessibleViewSet(AccessibleMixin, viewsets.ModelViewSet):
+class AccessibleViewSet(AccessibleViewMixin, viewsets.ModelViewSet):
     """
     This mixin enforce permissions checks on the accessible elements.
     It uses a``.serializer.AccessibleSerializer`` (sub-)class.
@@ -33,6 +33,7 @@ class AccessibleViewSet(AccessibleMixin, viewsets.ModelViewSet):
     @transaction.atomic
     def perform_create(self, serializer):
         super().perform_create(serializer)
+        self.object = serializer.instance
         self.check_object_permissions(self.request, serializer.instance)
 
     @transaction.atomic
@@ -56,9 +57,9 @@ class SubscriptionViewSet(OwnedViewSet):
     serializer_class = SubscriptionSerializer
     action_permissions = {
         'retrieve': (IsOwner | CanAccess,),
-        'create': (CanRequestSubscription | CanCreate,),
+        'create': (CanCreate, CanRequestSubscription),
         'update': (IsOwner | CanUpdate,),
-        'delete': (IsOwner | CanDelete,),
+        'delete': (IsOwner | CanDelete, CanDeleteSubscription),
     }
 
 

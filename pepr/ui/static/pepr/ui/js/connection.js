@@ -213,6 +213,7 @@ class Connection extends Emitter {
      * forms `action` and `method` attribute as default values for `data-*`
      * attributes.
      */
+    // TODO: specify a target (p-content)
     submit(event, payload) {
         event.preventDefault();
         event.stopPropagation()

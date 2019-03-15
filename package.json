@@ -1,0 +1,30 @@
+{
+  "name": "pepr-assets",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "author": "bkfox",
+  "license": "AGPL",
+  "devDependencies": {
+    "@fortawesome/fontawesome-free": "^5.7.2",
+    "css-loader": "^2.1.0",
+    "lodash": "^4.17.11",
+    "lodash-loader": "^2.0.0",
+    "mini-css-extract-plugin": "^0.5.0",
+    "vue-loader": "^15.7.0",
+    "vue-style-loader": "^4.1.2",
+    "vue-template-compiler": "^2.6.8",
+    "webpack": "^4.29.5",
+    "webpack-bundle-tracker": "^0.4.2-beta",
+    "webpack-cli": "^3.2.3"
+  },
+  "dependencies": {
+    "bootstrap": "^4.3.1",
+    "bootstrap-vue": "^2.0.0-rc.13",
+    "file-loader": "^3.0.1",
+    "lodash-loader": "^2.0.0",
+    "ttf-loader": "^1.0.2",
+    "vue": "^2.6.8",
+    "vue-template-loader": "^1.0.0"
+  }
+}

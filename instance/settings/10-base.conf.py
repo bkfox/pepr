@@ -16,7 +16,9 @@ INSTALLED_APPS = [
     'pepr.ui',
     'pepr.content',
 
-    'django_assets',
+    # FIXME: put them in their respective files
+    #'django_assets'
+    'webpack_loader',
     'widget_tweaks',
     'rest_framework',
     'django_filters',

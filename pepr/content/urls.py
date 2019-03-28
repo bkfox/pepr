@@ -2,7 +2,7 @@ from django.urls import path
 
 from rest_framework.routers import DefaultRouter
 
-from .consumers import ContentPubSub
+from .consumers import ContentPubsub
 from .views import \
     ContainerServiceView, ContainerUpdateView, \
     SubscriptionsUpdateView, \
@@ -21,10 +21,10 @@ urlpatterns = [
 
 
 consumers_urls = \
-    ContentPubSub.get_urls('content/', 'api-content')
+    ContentPubsub.get_urls('content/pubsub/', 'content-pubsub')
 
 router = DefaultRouter()
-router.register('content', ContentViewSet, base_name='content')
+router.register('content/', ContentViewSet, base_name='content')
 
 api_urls = router.urls
 

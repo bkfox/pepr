@@ -1,6 +1,8 @@
 TODO
 ====
 
+- Fixes:
+   - utils.strings => camel case to [...], handles cases such as XMLHttpRequest -> xml_http_request
 - Client:
   - reorganize how things are working:
     - POST requests through API

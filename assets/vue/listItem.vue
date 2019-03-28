@@ -1,9 +1,8 @@
 <template>
     <div :class="computedClass"
         @click="toggleSelect()" @mouseover="focus()">
-        <slot :item="item" :list="list"
+        <slot :list="list" :item="item" :index="index"
             :active="active" :selected="selected">
-            <p-content :elm="item.elm" :html="item.html"></p-content>
         </slot>
     </div>
 </template>

@@ -27,8 +27,15 @@ export var appConf = {
     delimiters: ['[[', ']]'],
 
     created() {
-        this.connection = new Connection(conf.connection);
-        this.user = new User(this.connection);
+        try {
+            this.connection = new Connection(conf.connection);
+            this.connection.connect();
+
+            this.user = new User(this.connection);
+        }
+        catch(e){
+            console.error(e);
+        }
     },
 
     methods: {
@@ -128,9 +135,9 @@ export var appConf = {
 }
 
 
-/**
- * Application init
- */
+//
+// Application initialization
+//
 var app = null;
 
 window.addEventListener('load', function() {

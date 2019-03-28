@@ -9,10 +9,10 @@ from .permissions import CanAccess, CanCreate, CanUpdate, CanDelete, IsOwner
 
 class PermissionMixin:
     """
-    Mixin adding permission check capabilities to the class. Similar to
-    rf ``APIView``, except it has an ``action_permissions`` attribute
-    that allows specifying permission on a per action or per request's
-    method basis.
+    Add support for permission check on the child class. Works in a
+    similar way DRF ``APIView``, except it has an ``action_permissions``
+    attribute that allows specifying permission on a per action or per
+    request's method basis.
 
     Context can be assigned for this instance's view, updating current
     role. Usage of this feature is up to class user, although a good
@@ -37,25 +37,25 @@ class PermissionMixin:
         Return permissions for the given action or defaults.
         """
         permission_classes = self.permission_classes
-        if action is not None:
+        if action is not None and self.action_permissions:
             permission_classes = self.action_permissions.get(
                 action, permission_classes
             )
         return [perm() for perm in permission_classes]
 
-    def can(self, role, action, throws=False):
+    def can(self, role, action=None, throws=False):
         """
         Return True when user has permissions for the given action.
         """
         failed = next(
             (permission for permission in self.get_permissions(action)
-             if not permission.can_obj(role)), None
+             if not permission.can(role)), None
         )
         if throws and failed is None:
             raise exceptions.PermissionDenied('permission denied')
         return failed is None
 
-    def can_obj(self, role, action, obj, throws=False):
+    def can_obj(self, role, obj, action=None, throws=False):
         """
         Return True when user has permissions for the given action and
         object.

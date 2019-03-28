@@ -6,13 +6,18 @@ import Emitter from './emitter';
  *  feature regarding requests, such as timeout.
  */
 export default class Requests extends Emitter {
-    constructor() {
+    constructor({requests={}, timer=null, timeout=null}={}) {
         super();
 
+        this.requests = requests;
+        this.timer = timer;
+        this.timeout = timeout;
         this._lastId = 0;
-        this.requests = {};
-        this.timer = null;
-        this.timeout = null;
+    }
+
+    drop(reason=null) {
+        for(var id in this.requests)
+            this.remove(this.requests[id], reason)
     }
 
     /**
@@ -34,34 +39,33 @@ export default class Requests extends Emitter {
     }
 
     /**
-     * Remove a specific request from the running requests.
+     * Return true if given request is present in this requests
      */
-    remove(request, reason = undefined) {
-        request.emit('close', { reason: reason });
-        delete this.requests[request.id];
+    has(request) {
+        return request.id in this.requests;
     }
 
     /**
-     * Cleanup active requests
+     * Drop a specific request.
      */
-    reset(reason = undefined) {
-        for(var id in this.requests)
-            this.remove(this.requests[id], reason)
+    remove(request, reason=null) {
+        delete this.requests[request.id];
+        request.drop({ reason: null });
     }
 
     /**
      * Start requests' timeout check.
      */
-    startTimeout(timeout) {
+    startTimeout(timeout=null) {
         if(this.timer)
             this.timer.cancel();
 
         var self = this;
-        this.timeout = timeout;
+        this.timeout = timeout || this.timeout;
         this.timer = _.throttle(function() {
             self.applyTimeout(timeout);
-            window.setTimeout(() => self.timer && self.timer(), timeout);
-        }, timeout);
+            window.setTimeout(() => self.timer && self.timer(), self.timeout);
+        }, this.timeout);
     }
 
     /**

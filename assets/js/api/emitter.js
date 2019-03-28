@@ -1,5 +1,9 @@
 import _ from 'lodash';
 
+import Event from './event';
+import Listener from './listener';
+
+
 /**
  *  Register listeners and emit events. This class is used since EventTarget
  *  does not really support registered listeners manipulation.
@@ -16,7 +20,7 @@ export default class Emitter {
      * Clean-up listeners for the given event type: empty listeners
      * container will be removed.
      */
-    cleanupListeners(type) {
+    cleanListeners(type) {
         var listeners = this.getListeners(type);
         if(listeners !== undefined && !listeners)
             delete this.listeners[type];
@@ -30,22 +34,22 @@ export default class Emitter {
      * - `self`: value of `this` on function call;
      * - `once`: execute function only once;
      *
-     * Return the added options object or undefined.
+     * @return the Listener.
      */
-    on(type, listener, options = {}, force = false) {
+    on(type, func, options = {}, force = false) {
         if(!this.listeners)
             this.listeners = {};
 
-        options.func = listener;
+        var listener = new Listener(func, options);
         var listeners = this.getListeners(type);
         if(listeners && !force &&
-            _.findIndex(listeners, options) != -1)
+            _.findIndex(listeners, listener) != -1)
             return;
 
         if(listeners === undefined)
             this.listeners[type] = [];
-        this.listeners[type].push(options);
-        return options;
+        this.listeners[type].push(listener);
+        return listener;
     }
 
     /**
@@ -61,42 +65,94 @@ export default class Emitter {
         if(index != -1)
             listeners.splice(index,1);
 
-        this.cleanupListeners(type);
+        this.cleanListeners(type);
+    }
+
+    /**
+     * Drop all running listeners.
+     * @fires Emitter#drop
+     */
+    drop(data={}) {
+        this.emit('drop', data);
+        this.listeners = [];
+    }
+
+    /**
+     *  Return a promise resolving once for the given event infos.
+     *  `reject` will be called when emitter drops.
+     */
+    promise(type, options={}, force = false) {
+        var self = this;
+        options.once = true;
+
+        return new Promise(function(resolve, reject) {
+            try {
+                var f = {};
+
+                // dispatch event through the promise functions
+                f.onEvent = function(event) {
+                    self.off('drop', f.onDrop, options);
+                    return event.failure ? reject(event) : resolve(event);
+                };
+                // remove dispatcher on drop and call promise's `reject`
+                f.onDrop = function(event) {
+                    self.off(type, f.onEvent, options);
+                    reject(event);
+                };
+
+                var o = self.on(type, f.onEvent, options);
+                if(o)
+                    self.on('drop', f.onDrop, {once: true});
+            }
+            catch(e) {
+                console.error('error', e);
+                throw e
+            }
+        });
+    }
+
+    /**
+     *  Shorthand over {@link Reqeust#promise}'s `then()`.
+     */
+    then(type, onResolve, onReject, options={}, force=false) {
+        return this.promise(type, options, force)
+                   .then(onResolve, onReject || (()=>{}));
     }
 
     /**
      * Called before an event is emitted in order to prepare it.
      */
-    beforeEmit(type, event) {
-        // TODO: document thoses
-        event.type = type;
-        event.target = event.target === undefined ? this : event.target;
-        event.emitter = this;
-        event.propagate = true;
+    createEvent(type, data) {
+        return new Event(this, type, data);
+    }
+
+    /**
+     *  Handle errors that occured while event was running
+     */
+    handleEventErrors(event) {
+        for(var error of event.errors)
+            error.log();
     }
 
     /**
      * Emit event with the given data. Event will be prepared by
      * {@link Emitter#prepareEvent} before being propagated.
      */
-    emit(type, event={}) {
+    emit(type, data=null) {
         var listeners = this.getListeners(type);
         if(!listeners)
             return
 
-        this.beforeEmit(type, event);
+        var event = this.createEvent(type, data);
         for(var i = 0; i < listeners.length; i++) {
             if(!event.propagate)
                 break;
 
             var listener = listeners[i];
-            try {
-                // not registering `this` as listener.self at init avoids bugs in
-                // case of `this.listeners` copy whatever, and also less code update
-                // in case of refactoring whatever.
-                listener.func.call(listener.self || this, event);
-            }
-            catch(e) { console.error(e); }
+            // not registering `this` as listener.self at init avoids bugs in
+            // case of `this.listeners` copy whatever, and also less code update
+            // in case of refactoring whatever.
+            listener.call(this, event);
 
             if(listener.once) {
                 listeners.splice(i, 1);
@@ -104,7 +160,8 @@ export default class Emitter {
             }
         }
 
-        this.cleanupListeners(type);
+        this.cleanListeners(type);
+        this.handleEventErrors(event);
     }
 }
 

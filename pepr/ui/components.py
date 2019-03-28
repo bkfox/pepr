@@ -10,20 +10,7 @@ from ..utils import slots
 from ..utils.slots import Position, Slots
 
 
-# FIXME: merge in Component?
-class ComponentBase:
-    def __init__(self, **kwargs):
-        for k, v in kwargs.items():
-            if hasattr(self, k):
-                setattr(self, k, v)
-            else:
-                raise ValueError(
-                    '"{}" is not an attribute on class {}'
-                    .format(k, type(self).__name__)
-                )
-
-
-class Component(TemplateResponseMixin, ContextMixin, ComponentBase):
+class Component(TemplateResponseMixin, ContextMixin, PermissionMixin):
     """
     A Component is an element that aims to be rendered in other views.
     It allows rendering item into a string for this purpose.
@@ -40,27 +27,37 @@ class Component(TemplateResponseMixin, ContextMixin, ComponentBase):
     Name of the template to load from `get_template` can be a list of/a
     single string.
     """
-    permission_classes = (CanAccess,)
-    """ Required object permission to display component """
     slots = None
     """ Component's slots """
     object = None
     """ Object """
 
-    def check_permissions(self, role, obj=None):
-        """ Return True if role has component permission for this object """
-        perms = self.permission_classes
-        ite = (False for p in perms if not p.can(role)) if obj is None else \
-              (False for p in perms if not p.can_obj(role, obj))
-        return next(ite, True)
+    permission_classes = (CanAccess,)
+    action_permissions = None
+
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            if hasattr(self, k):
+                setattr(self, k, v)
+            else:
+                raise ValueError(
+                    '"{}" is not an attribute on class {}'
+                    .format(k, type(self).__name__)
+                )
+
+    def get_object(self, obj=None):
+        """
+        Return given object or self.object
+        """
+        return self.object if obj is None else obj
 
     def render(self, role, object=None, **kwargs):
         """
         Render Component into a string and return it.
         """
-        object = object if object is not None else \
-            getattr(self, 'object', None)
-        if not self.check_permissions(role, object):
+        object = self.get_object(object)
+        if not (self.can(role) if object is None else
+                self.can_obj(role, object)):
             return ''
 
         context = self.get_context_data(role=role, object=object, **kwargs)

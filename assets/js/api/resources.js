@@ -1,6 +1,6 @@
 import _ from 'lodash';
 
-import Observer from './observer';
+import Pubsub from './pubsub';
 
 
 export default class Resources {
@@ -13,16 +13,45 @@ export default class Resources {
         this.query = query;
         this.nextUrl = null;
         this.previousUrl = null;
-        this.observer = null;
+        this.pubsub = null;
+    }
+
+    drop() {
+        for(var item of this.items)
+            item.drop && item.drop();
+        this.pubsub && this.pubsub.drop();
+    }
+
+    /**
+     *  Subscribe to the server to the given resource and filter.
+     */
+    subscribe(path, filter, lookup) {
+        if(!this.pubsub) {
+            var self = this;
+            var pubsub = new Pubsub(this.connection)
+            pubsub.onCreate = (event, item) => self.update(item);
+            pubsub.onUpdate = (event, item) => self.update(item);
+            pubsub.onDelete = (event, item) => self.remove(item);
+            this.pubsub = pubsub;
+        }
+        return this.pubsub.subscribe(path, filter, lookup);
+    }
+
+    /**
+     *  Unsubscribe from the server.
+     */
+    unsubscribe() {
+        if(this.pubsub)
+            this.pubsub.unsubscribe();
     }
 
     /**
      * Return item's index in collection or -1.
      */
     indexOf(item) {
-        return this.items.findIndex(function(a) {
-            return a[attr] == item[attr];
-        });
+        var predicate = {};
+        predicate[this.key] = item[this.key];
+        return _.findIndex(this.items, predicate);
     }
 
     /**
@@ -34,7 +63,7 @@ export default class Resources {
     }
 
     /**
-     *  Get items from the given address
+     *  Get items from the given address and add them to resources.
      */
     get(path, payload=null, reset=false) {
         payload = payload || {};
@@ -51,7 +80,6 @@ export default class Resources {
             self.previousUrl = data.previous;
             self.items.push(...data.results);
         })
-
         return req;
     }
 
@@ -80,6 +108,13 @@ export default class Resources {
     }
 
     /**
+     * Close active requests
+     */
+    close() {
+        this.unsubscribe();
+    }
+
+    /**
      * Send item to the server.
      */
     submit(payload, item=null) {
@@ -93,104 +128,67 @@ export default class Resources {
      *  Synchronize item to the server (create, update, delete). Request
      *  method is adapted to wether item is saved or not.
      */
-    sync(item, remove=false) {
-        payload = {
-            method: (remove && 'DELETE') ||
-                    (this.isSaved(item) && 'PUT') || 'POST'
+    publish(...items) {
+        var requests = [];
+        for(var item of items) {
+            payload = {method: this.isSaved(item) ? 'PUT' : 'POST'};
+            requests.push(this.submit(payload, item));
         }
-        return this.submit(payload, item);
+        return requests;
+    }
+
+    /**
+     * Delete items from the server.
+     */
+    unpublish(...items) {
+        // TODO: only pk/this.key in stanza
+        var requests = [];
+        for(var item of items) {
+            payload = {method: 'DELETE'};
+            return this.submit(payload, item);
+        }
+        return requests;
     }
 
     /**
      *  Insert item into list at given index, ensure uniqueness and server
      *  synchronization.
      *
-     *  @param {Object} item   object to insert to resources
-     *  @param {Number} index  position
+     *  @param {Number} index    position
+     *  @param {Object} ...items object to insert to resources
+     *  @return inserted items
      */
-    insert(index, item, sync=false) {
+    insert(index, item) {
         var currentIndex = this.indexOf(item);
-        if(currentIndex != -1) {
-            this.items.splice(currentIndex, 1);
-            index = index > currentIndex ? index-1 : index;
-        }
+        if(currentIndex == -1)
+            return;
+        this.items.splice(currentIndex, 1);
+        index = index > currentIndex ? index-1 : index;
+        index = Math.max(-1, index);
         this.items.splice(index, 0, item);
-
-        if(sync)
-            this.sync(item);
+        return item;
     }
 
     /**
      * Replace item if present or insert it.
+     * @return updated/inserted items
      */
-    update(item, sync=false) {
+    update(item) {
         var currentIndex = this.indexOf(item);
         this.items.splice(currentIndex,
                           currentIndex == -1 ? 0 : 1,
                           item);
-
-        if(sync)
-            this.sync(item);
+        return item;
     }
 
     /**
-     * Delete an item from collection
+     * Delete an item from collection.
      */
-    remove(item, sync=false) {
+    remove(item, drop=false) {
         var index = this.indexOf(item);
         if(index != -1)
             this.items.splice(index, 1);
-
-        if(sync)
-            this.sync(item, true);
-    }
-
-    /**
-     * Bind to a specific server resource if not yet bound.
-     *
-     * @param {String} collectionUrl API base url of the collection object;
-     * @param {Boolean} observe observe the distant collection (sync to list changes)
-     * @param {Boolean} force;
-     */
-    observe(path, force=false) {
-        if(this.observer) {
-            if(!force || this.observer.path == path)
-                return;
-            this.observer.off('message', this.onObservation, {self: this});
-            this.observer = null;
-        }
-
-        if(observe) {
-            this.observer = this.connection.observe(path);
-            this.observer.on('message', this.onObservation, {self: this});
-        }
-    }
-
-    /**
-     * Handle a pubsub message and update collection accordingly.
-     */
-    onObservation(event) {
-        if(!event.requestOk)
-            return;
-
-        var message = event.message;
-        var item = message.data;
-        switch(message.method) {
-            case 'POST':
-            case 'PUT': this.update(item); break;
-            case 'DELETE': this.remove(item); break;
-            default:
-                break;
-        }
-    }
-
-    /**
-     * Reset binding to server
-     */
-    resetObserver() {
-        if(!this.observer)
-            return;
-        this.observer.off('message', this.onObservation, {self: this});
+        drop && item.drop && item.drop();
     }
 
     /**
@@ -198,7 +196,7 @@ export default class Resources {
      */
     reset() {
         this.items.splice(0, this.items.length);
-        this.resetObserver();
+        this.unsubscribe();
     }
 }
 

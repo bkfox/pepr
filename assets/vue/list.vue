@@ -25,72 +25,116 @@ import Resources from 'pepr/api/resources';
 
 /**
  * Component rendering items of an array. Data can be retrieved and
- * synchronized from the server using properties ('url', 'observeUrl',
+ * synchronized from the server using properties ('path', 'pubsubPath',
  * ...).
  */
 export default {
     props: {
         /**
-         * @type {Connection} connection [property] Connection used to send
-         * requests
+         * connection [property] Connection used to send requests
+         * @type {Connection}
          */
         connection: { type: Object },
         /**
-         * @type {String} url [property] Property
+         * url [property] Property
+         * @type {String}
          */
-        url: { type: String, default: null },
+        path: { type: String, default: null },
         /**
-         * @type {String} contextUrl [property] Property
-         */
-        observerPath: { type: String, default: 'observer/' },
-        /**
-         * @type {Object} query [property] Extra parameter to
-         * pass to GET items from the server.
+         * query [property] Extra parameter to pass to GET items from the server.
+         * @type {Object}
          */
         query: { type: Object, default: () => {} },
         /**
-         * @type {String} filter [property] Observer's filter
+         * path [property] Path to use for pubsub endpoint. By default, component's `path + '/pubsub/'`
+         * @type {String}
          */
-        observerFilter: { type: String, default: null },
+        pubsubPath: { type: String, default: '' },
         /**
-         * @type {String} filter [property] Observer's lookup
+         * filter [property] pubsub's filter
+         * @type {String}
          */
-        observerLookup: { type: String, default: null },
+        pubsubFilter: { type: String, default: null },
+        /**
+         * filter [property] pubsub's lookup
+         * @type {String}
+         */
+        pubsubLookup: { type: String, default: null },
 
         /**
-         * @type {String} itemKey [property] Resources's idAttr.
+         * items [property] array of items
+         * @type {Array}
+         */
+        items: { type: Array, default: () => [] },
+        /**
+         * itemKey [property] Resources's idAttr.
+         * @type {String}
          */
         itemKey: { type: String, default: 'pk' },
         /**
-         * @type {String} listClass [property] List class
+         * listClass [property] List class
+         * @type {String}
          */
         listClass: { type: String, default: 'list-group' },
         /**
-         * @type {String} itemClass [property] Item class
+         * itemClass [property] Item class
+         * @type {String}
          */
         itemClass: { type: String, default: 'list-group' },
     },
 
+    // TODO: watch connection, path, items, pubsubFilter, path => pubsubPath, pubsubLookup
+    // -> connection change: try unsubscribe
     data: function() {
-        var resources = this.connection && this.url ?
-                        new Resources(this.connection, this.url, this.itemKey,
-                                      [], this.query) :
-                        null;
         return {
             /**
-             * @type {Array} Array of items to render.
-             * 
+             * Resources instance used to link the list to the server.
+             * @type {Resources|null}
              */
-            items: resources.items,
+            resources: null,
+
             /**
-             * @type {Resources} Resources instance used to link the
-             * list to the server.
+             * Pubsub instance used by Resources.
+             * @type {Pubsub|null}
              */
-            resources: resources,
+            get pubsub() {
+                return this.resources && this.resources.pubsub;
+            }
         };
     },
 
     methods: {
+        /**
+         * Reset resources
+         */
+        resetResources(init=false) {
+            if(this.resources)
+                this.resources.drop();
+
+            this.resources = null;
+            if(init && this.connection && this.path) {
+                this.resources = new Resources(this.connection, this.path, this.itemKey,
+                                               this.items, this.query);
+                this.resetPubsub(true);
+            }
+            return this.resources;
+        },
+
+        /**
+         * Reset Pubsub
+         */
+        resetPubsub(init=false) {
+            if(this.resources)
+                this.resources.unsubscribe();
+
+            if(init && this.pubsubFilter) {
+                var path = this.pubsubPath ? this.pubsubPath : this.path + 'pubsub/';
+                this.resources.subscribe(path, this.pubsubFilter, this.pubsubLookup);
+            }
+
+            return this.pubsub;
+        },
+
         /**
          * Return component at given the index
          */
@@ -126,12 +170,16 @@ export default {
     },
 
     mounted() {
+        console.log('===');
+        this.resetResources(true);
+        console.log('init to list');
         this.toList(this.$slots.default);
         var self = this;
-        console.log('resource', self.resources);
-        window.setTimeout(
-            () => self.resources.load({ query: { limit: 2 }}), 5000
-        )
+        console.log('resources', this.resources);
+        /*if(this.resources)
+            window.setTimeout(
+                () => self.resources.load({ query: { limit: 2 }}), 5000
+            )*/
     },
 };
 </script>

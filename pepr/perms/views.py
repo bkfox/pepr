@@ -62,4 +62,6 @@ class SubscriptionViewSet(OwnedViewSet):
         'delete': (IsOwner | CanDelete, CanDeleteSubscription),
     }
 
+    # TODO: add actions: invite, request
+
 

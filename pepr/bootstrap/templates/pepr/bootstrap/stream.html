@@ -10,17 +10,23 @@
 
 <p-list id-attr="pk" observe
     :connection="connection"
-    filter="context={{ context.id }}"
-    url="/content/"
+    :filter="{context: '{{ context.pk }}'}"
+    path="/content/"
+    pubsub-filter="context"
+    pubsub-lookup="{{ context.pk }}"
     >
 
     {% for obj in object_list %}
     <div data-id="{{ obj.pk }}">
-        {% serialize obj role=role render=False as data %}
+        {% serialize obj role=role render=True as data %}
         {{ data|json_script:obj.pk }}
         {% component obj.as_component %}
     </div>
     {% endfor %}
+
+    <template slot="item" slot-scope="{item}">
+        <p-content :elm="item.elm" :html="item.html"></p-content>
+    </template>
 </p-list>
 
 {% comment %}

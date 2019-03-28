@@ -3,13 +3,13 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.layers import get_channel_layer
 # from restframework.consumers import Consumer
 
-from ..api.pubsub import PubSubConsumer
+from ..api.pubsub import PubsubConsumer
 from ..perms.models import Context
 from .mixins import PermissionMixin
 from .permissions import CanAccess, IsOwner
 
 
-class AccessiblePubSub(PermissionMixin, PubSubConsumer):
+class AccessiblePubsub(PermissionMixin, PubsubConsumer):
     permission_classes = (IsOwner | CanAccess,)
     context_class = Context
     matches = {
@@ -22,7 +22,7 @@ class AccessiblePubSub(PermissionMixin, PubSubConsumer):
     def get_context(self, request, match):
         qs = self.get_context_queryset(request, match)
         if match.filter == 'context':
-            return qs.get(pk=match.value)
+            return qs.get(pk=match.lookup)
 
     async def get_subscription_data(self, request, match, **kwargs):
         context = self.get_context(request, match)
@@ -31,14 +31,15 @@ class AccessiblePubSub(PermissionMixin, PubSubConsumer):
 
         if 'role' not in kwargs:
             kwargs['role'] = context.get_role(request.user)
-        return super().get_subscription_data(request, match, **kwargs)
+        return await super().get_subscription_data(request, match, **kwargs)
 
     def get_serializer(self, event, subscription, instance, **initkwargs):
         initkwargs['role'] = subscription.data['role']
-        return super().get_serializer(instance, **initkwargs)
+        return super().get_serializer(event, subscription, instance,
+                                      **initkwargs)
 
     def can_notify(self, event, subscription, obj):
         # only notify if user can read object.
-        return self.can_obj(subscription.data['role'], 'get', obj)
+        return self.can_obj(subscription.data['role'], obj, 'GET')
 
 

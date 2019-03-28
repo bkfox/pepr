@@ -8,6 +8,7 @@
   "devDependencies": {
     "@fortawesome/fontawesome-free": "^5.7.2",
     "css-loader": "^2.1.0",
+    "jsdoc-vuejs": "^2.4.2",
     "lodash": "^4.17.11",
     "lodash-loader": "^2.0.0",
     "mini-css-extract-plugin": "^0.5.0",

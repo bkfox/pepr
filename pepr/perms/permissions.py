@@ -1,6 +1,7 @@
 from django.core.exceptions import PermissionDenied
 from django.utils.translation import ugettext_lazy as _
 from rest_framework.permissions import BasePermission, BasePermissionMetaclass
+from rest_framework import permissions as drf_perms
 
 from ..utils.register import Register
 from ..utils.metaclass import RegisterMeta
@@ -9,7 +10,27 @@ from ..utils.string import camel_to_snake
 from .models import Owned
 
 
-class Permissions(RegisterMeta, BasePermissionMetaclass):
+class AND(drf_perms.AND):
+    def can(self, *args, **kwargs):
+        return (self.op1.can(*args, **kwargs) &
+                self.op2.can(*args, **kwargs))
+
+    def can_obj(self, *args, **kwargs):
+        return (self.op1.can_obj(*args, **kwargs) &
+                self.op2.can_obj(*args, **kwargs))
+
+
+class OR(drf_perms.OR):
+    def can(self, *args, **kwargs):
+        return (self.op1.can(*args, **kwargs) |
+                self.op2.can(*args, **kwargs))
+
+    def can_obj(self, *args, **kwargs):
+        return (self.op1.can_obj(*args, **kwargs) |
+                self.op2.can_obj(*args, **kwargs))
+
+
+class Permissions(RegisterMeta, drf_perms.BasePermissionMetaclass):
     """
     Register class for permissions
     """
@@ -19,8 +40,21 @@ class Permissions(RegisterMeta, BasePermissionMetaclass):
     def get_base_class(cls):
         return PermissionBase
 
+    def __and__(self, other):
+        return drf_perms.OperandHolder(AND, self, other)
 
-class PermissionBase(BasePermission, metaclass=Permissions):
+    def __or__(self, other):
+        return drf_perms.OperandHolder(OR, self, other)
+
+    def __rand__(self, other):
+        return drf_perms.OperandHolder(AND, other, self)
+
+    def __ror__(self, other):
+        return drf_perms.OperandHolder(OR, other, self)
+
+
+
+class PermissionBase(drf_perms.BasePermission, metaclass=Permissions):
     """
     This class is used to describe permissions and also to grant
     (or not) permission to roles.

@@ -126,9 +126,6 @@ class ConsumerSetMixin:
         args = message['args']
         # message['kwargs'] overrides func.kwargs, because given to
         # `path()` (more customizable this way)
-        kwargs.update({k: v for k, v in func.kwargs.items()
-                       if k not in kwargs})
-
         try:
             action = func.mapping[request.method.lower()]
             action = getattr(self, action)

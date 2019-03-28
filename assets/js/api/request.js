@@ -9,37 +9,42 @@ import Emitter from './emitter';
  * is no more active, it is closed (and removed from Connection).
  *
  * @fires Request#message
- * @fires Request#close
  */
 export default class Request extends Emitter {
-    constructor(connection, path, payload={}) {
+    constructor(connection, path, payload={})
+    {
         super();
 
+        // FIXME: remove this.connection
         /**
-         *  @type {Connection}
+         *  @member {Connection}
          */
         this.connection = connection;
         /**
          *  Path to ressource (equivalent to HTTP's path
-         *  @type {String}
+         *  @member {String}
          */
         this.path = path;
         /**
-         *  @type {object}
+         *  Request payload.
+         *  @member {object}
          */
         this.payload = payload;
+
         /**
-         *  @type {Number}
+         *  Request id
+         *  @member {Number}
          */
-        this.id = (payload && payload.request_id) || connection.acquireId();
+        this.id = payload.request_id || connection.acquireId();
         /**
-         *  @type {Date}
+         *  Last time a message has been sent or received.
+         *  @member {Date}
          */
         this.lastTime = null;
     }
 
     /**
-     * Return True if request is espected to receive more than just one
+     * Return `true` if request is espected to receive more than just one
      * response before it is completed. This depends on listeners.
      */
     get keepAlive() {
@@ -57,53 +62,18 @@ export default class Request extends Emitter {
         return payload;
     }
 
-    /**
-     * Send or resend this request
-     */
-    send() {
-        this.connection.send(this);
+    cleanListeners(...args) {
+        // Ensures request is dropped when there are no more message listeners.
+        // TODO: remove from connection
+        var listeners = super.cleanListeners(...args);
+        if(!this.listeners || !this.listeners['message'])
+            this.drop();
     }
 
-    /**
-     * Close request and remove it from connection.
-     */
-    close(reason = undefined) {
-        this.connection.remove(this, reason);
-    }
-
-    /**
-     *  Return a Promise executed when a message is received, that resolves
-     *  or rejects depending on message's status. Promises `value` or `reason`
-     *  is the received message.
-     *
-     *  Note that Promise will work only for one receiving one message.
-     */
-    promise() {
-        var self = this;
-        return new Promise(function(resolve, reject) {
-            self.on('message', function(event) {
-                if(event.message.status < 300)
-                    resolve(event.message)
-                else
-                    reject(event.message)
-            }, { once: true });
-        });
-    }
-
-    /**
-     * Shorthand over {@link Request#promise}.
-     */
-    then(onFullfilled, onRejected = null) {
-        return this.promise().then(onFullfilled, onRejected || (()=>{}));
-    }
-
-    /**
-     *  Ensures request is closed when there is no more message listeners.
-     */
-    cleanupListeners(...args) {
-        var listeners = super.cleanupListeners(...args);
-        if(!this.listeners)
-            this.close();
+    createEvent(type, data) {
+        var event = super.createEvent(type, data);
+        event.failure = data.status > 300;
+        return event;
     }
 }
 

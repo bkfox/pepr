@@ -1,10 +1,10 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
 
 from .models import Container, Content
-from ..perms.consumers import AccessiblePubSub
+from ..perms.consumers import AccessiblePubsub
 
 
-class ContentPubSub(AccessiblePubSub, AsyncWebsocketConsumer):
+class ContentPubsub(AccessiblePubsub, AsyncWebsocketConsumer):
     """
     Consumer class for container. This can be used to observe content
     edition.
@@ -16,4 +16,4 @@ class ContentPubSub(AccessiblePubSub, AsyncWebsocketConsumer):
         return instance.get_serializer_class()
 
 
-ContentPubSub.connect_signals()
+ContentPubsub.connect_signals()

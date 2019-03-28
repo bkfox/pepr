@@ -14,6 +14,7 @@ from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from rest_framework.response import Response as RestResponse
 
+from .debug import report_error
 from .switch import Switch
 from .request import RequestSerializer
 
@@ -51,7 +52,6 @@ class RouterBaseConsumer(AsyncWebsocketConsumer):
         # FIXME: which data to copy, how to update etc.
         meta = dict(self.scope.get('headers'))
         host, *port = meta[b'host'].decode('utf-8').split(':')
-        print(host, port)
 
         request = HttpRequest()
         request.consumer = self
@@ -141,21 +141,7 @@ class RouterBaseConsumer(AsyncWebsocketConsumer):
             response = await self.process_request(request, match)
             await self.process_response(request, response)
         except:
-            if settings.DEBUG:
-                import traceback, sys
-                traceback.print_exc(file=sys.stdout)
-
-                exc_type, exc_value, exc_traceback = sys.exc_info()
-                payload = {'data': {
-                    'detail': 'an exception occured: {}'.format(
-                        traceback.format_exception(
-                            exc_type, exc_value, exc_traceback
-                        )
-                    )
-                }}
-            else:
-                payload = {'data': {'detail': 'internal error'}}
-            await self.reply(data.get('request_id'), 500, payload)
+            await self.reply(data.get('request_id'), 500, report_error())
 
     def create_request(self, serializer, match):
         """
@@ -170,7 +156,9 @@ class RouterBaseConsumer(AsyncWebsocketConsumer):
     async def process_request(self, request, match):
         """ Process request using given ResolverMatch. """
         func, args, kwargs = match
+        print('process request', func)
         if not asyncio.iscoroutinefunction(func):
+            print('sync...')
             # ensure that `func` is async.
             func = database_sync_to_async(func)
         return await func(request, *args, **kwargs)

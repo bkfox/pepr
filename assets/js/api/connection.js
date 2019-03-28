@@ -1,5 +1,5 @@
 // TODO: handle disconnect event from the webbrowser/computer and better
-//       heuristic for autoreconnect
+//       heuristic for reconnect
 import _ from 'lodash';
 import Request from './request';
 import Requests from './requests';
@@ -17,26 +17,22 @@ import Requests from './requests';
 export default class Connection extends Requests {
     /**
      * Creates a new Connection.
-     * @param {String} url server url to connect to
-     * @param {Number} timeout request timeout in milliseconds
-     * @param {Number} autoreconnect if > 0, reconnect to server when
-     *     connection is closed.
      */
-    constructor(conf)
+    constructor(kwargs={})
     {
-        super();
-        this.autoreconnect = conf.autoreconnect;
-        if(conf.timeout)
-            this.startTimeout(conf.timeout);
-        this.connect(conf.url);
+        var { reconnect=false, url=null, requestTimeout=null } = kwargs;
+        super(kwargs);
+
+        this.url = url;
+        this.reconnect = reconnect;
+        this.requestTimeout = requestTimeout;
     }
 
     /**
      * Is connection open
      */
     get isOpen() {
-        return this.ws !== undefined ||
-               this.ws && this.ws.readyState == WebSocket.OPEN;
+        return this.ws && this.ws.readyState == WebSocket.OPEN;
     }
 
     /**
@@ -44,7 +40,7 @@ export default class Connection extends Requests {
      * @param {String} url websocket connection's url;
      * @param {Boolean} force close previous connection if opened;
      */
-    connect(url, force = false) {
+    connect(url = null, force = false) {
         if(this.ws && this.ws.readyState != WebSocket.CLOSED) {
             if(force)
                 this.ws.close();
@@ -52,8 +48,10 @@ export default class Connection extends Requests {
                 return;
         }
 
+        this.url = url || this.url;
+
         var self = this;
-        var ws = new WebSocket(url);
+        var ws = new WebSocket(this.url);
         ws.onopen = function(e) { return self.onOpen(e); };
         ws.onclose = function(e) { return self.onClose(e); };
         ws.onerror = function(e) { return self.onError(e); };
@@ -65,7 +63,7 @@ export default class Connection extends Requests {
      *  Callback for WebSocket's `open` event
      */
     onOpen(event) {
-        if(this.autoreconnect)
+        if(this.reconnect)
             // send previously sent awaiting requests again: it avoids
             // to loose handlers on requests.
             for(var i in this.requests)
@@ -81,22 +79,24 @@ export default class Connection extends Requests {
     }
 
     /**
-     *  Callback for Websocket's `close` event, handles clean-up, autoreconnect,
+     *  Callback for Websocket's `close` event, handles clean-up, reconnect,
      *  etc.
      */
     onClose(event) {
-        if(!this.autoreconnect) {
-            this.reset();
-            return;
+        var reconnect = this.reconnect > 0;
+        if(reconnect) {
+            var self = this;
+            var url = this.ws.url;
+            window.setTimeout(
+                function() { self.connect(url, true); },
+                this.reconnect
+            )
         }
+        else
+            this.reset();
 
-        var self = this;
-        var url = this.ws.url;
-        window.setTimeout(
-            function() { self.connect(url, true); },
-            this.autoreconnect
-        )
-        this.emit('close', {'code': event.code, 'reason': event.reason});
+        this.emit('close', {'code': event.code, 'reason': event.reason,
+                            'reconnect': reconnect });
     }
 
     /**
@@ -106,15 +106,13 @@ export default class Connection extends Requests {
     onMessage(event) {
         console.debug('conn <<< ', event.data);
 
-        event = { message: JSON.parse(event.data), };
-        event.requestOk = event.message.status < 300;
-
-        var requestId = event.message.request_id;
+        var message = JSON.parse(event.data);
+        var requestId = message.request_id;
         var request = this.requests[requestId];
         if(request)
-            request.emit('message', event);
+            request.emit('message', message);
         else
-            this.emit('message', event);
+            this.emit('message', message);
     }
 
     /**
@@ -144,7 +142,7 @@ export default class Connection extends Requests {
     }
 
     /**
-     * Create a Request, send and return it (if success). Given arguments
+     * Create and send a Request, that is returned (if success). Given arguments
      * will be passed as is to the constructor of Request.
      */
     request(...initArgs) {
@@ -196,23 +194,6 @@ export default class Connection extends Requests {
     DELETE(path, payload) {
         payload.method = 'DELETE';
         return this.request(path, payload);
-    }
-
-    /**
-     *  Send a request to observe data using the given `path`. When
-     *  request will be closed, a request is made to remove observer
-     *  from server.
-     */
-    observe(path, filter, lookup) {
-        var data = {filter: filter, lookup: lookup};
-        var { req, is_new } = this.requestOnce(path, {method: 'POST', data: data});
-        if(is_new) {
-            req.on('close', function() {
-                if(this.connection.isOpen)
-                    this.request(path, {method:'DELETE', data: data}).send();
-            }, { self: this });
-        }
-        return req;
     }
 }
 

@@ -6,6 +6,7 @@ def camel_to_snake(value, sep = '_'):
     # we avoid regexps to be lighter
     i_ = 0
     r = ''
+    # TODO: handle XMLHttpRequest -> xml_http_request
     for i, c in enumerate(value):
         if not c.isupper():
             continue

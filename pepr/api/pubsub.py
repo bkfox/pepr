@@ -19,16 +19,16 @@ Subscription = namedtuple('Subscription', ['request_id', 'data'])
 # TODO: - limit maximum number of subscriptions
 #       - request data sanitization / access
 #       - extra action to retrieve/clear all observations
-#       - DOC + rewrite for PubSubConsumer from subscription() method.
+#       - DOC + rewrite for PubsubConsumer from subscription() method.
 #       - model save/delete signal handling in separate class
 #       - TODO: CRUD like interface and serializer for incoming Subscription filters
-class PubSubConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
+class PubsubConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
     """
     Base class to observe model instances changes (Create/Update/Delete).
     A single instance of this consumer can be used to observe multiple
     objects at the same time.
 
-    ``PubSubConsumer`` takes advantages of Channels layers: each
+    ``PubsubConsumer`` takes advantages of Channels layers: each
     subscription is attached to a group based on its match. When an
     object changes, the corresponding groups are notified of the
     change.
@@ -59,8 +59,8 @@ class PubSubConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
     async def add(self, entry, key, *args, **kwargs):
         """ Remove an subscription by key and add channels' group """
         entry = self.subscriptions.add(entry, key, *args, **kwargs)
-        await self.consumer.channel_layer.group_add(
-            key, self.consumer.channel_name
+        await self.channel_layer.group_add(
+            key, self.channel_name
         )
         return entry
 
@@ -85,16 +85,15 @@ class PubSubConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
         """
         if match.lookup is None:
             return None
-        return '{}.{}={}'.format(cls.model._meta.db_table,
-                                 match.filter,
-                                 match.lookup)
+        return '{}.{}.{}'.format(cls.model._meta.db_table,
+                                 match.filter, match.lookup)
 
     @classmethod
     def get_request_match(cls, request, data=None):
         """
         Return ``Match`` for the given request, or None
         """
-        data = request.data.items() if data is None else data
+        data = request.data if data is None else data
         return Match(data.get('filter'), data.get('lookup'))
 
     @classmethod
@@ -219,16 +218,21 @@ class PubSubConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
                 'data': data,
             })
 
+
     def can_notify(self, event, subscription, obj):
         """ Return True if instance update is notified to client. """
         return True
 
     async def instance_changed(self, event):
         """ Handle `instance.changed` event """
-        instance = event['instance']
-        subscription = self.subscriptions.get(event['key'])
-        if subscription:
-            await self.notify(event, subscription, instance)
+        try:
+            instance = event['instance']
+            subscription = self.subscriptions.get(event['key'])
+            if subscription:
+                await self.notify(event, subscription, instance)
+        except Exception as e:
+            from .debug import report_error
+            report_error()
 
     async def websocket_disconnect(self, message):
         self.subscriptions.clear()
@@ -236,7 +240,7 @@ class PubSubConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
     @classmethod
     def connect_signals(cls):
         """
-        Connect PubSub class to observed model's change signals in
+        Connect Pubsub class to observed model's change signals in
         order to notify subscriptions from changes.
         """
         # FIXME: put it into external class/whatever and use @partial shit

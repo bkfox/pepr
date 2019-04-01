@@ -19,7 +19,7 @@
         </noscript>
     </head>
     <body>
-        <div id="app" @submit="submit_form">
+        <div id="app" @submit="onSubmit" v-on:action="action">
             <p-modal id="modal" ref="modal" class="remote"></p-modal>
 
             <nav class="navbar dark mb-3">

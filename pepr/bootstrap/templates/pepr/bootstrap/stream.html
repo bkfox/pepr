@@ -11,21 +11,26 @@
 <p-list id-attr="pk" observe
     :connection="connection"
     :filter="{context: '{{ context.pk }}'}"
-    path="/content/"
+    path="/api/content/"
     pubsub-filter="context"
     pubsub-lookup="{{ context.pk }}"
     >
-
     {% for obj in object_list %}
-    <div data-id="{{ obj.pk }}">
-        {% serialize obj role=role render=True as data %}
+    <template slot="data">
+        {% serialize obj role=role render=False as data %}
         {{ data|json_script:obj.pk }}
-        {% component obj.as_component %}
-    </div>
+    </template>
     {% endfor %}
 
     <template slot="item" slot-scope="{item}">
-        <p-content :elm="item.elm" :html="item.html"></p-content>
+        <template v-if="item.data.html">
+            <p-content :html="item.data.html"></p-content>
+        </template>
+        {% for obj in object_list %}
+        <template v-else-if="item.key=='{{ obj.pk }}'">
+            {% component obj.as_component %}
+        </template>
+        {% endfor %}
     </template>
 </p-list>
 

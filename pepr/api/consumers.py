@@ -19,6 +19,53 @@ from .switch import Switch
 from .request import RequestSerializer
 
 
+class Request:
+    id = 0
+    action = ''
+    method = ''
+    query = None
+    data = None
+    consumer = None
+
+    def __init__(self, consumer, action, **kwargs):
+        self.consumer = consumer
+        self.action = action
+        self.__dict__.update(kwargs)
+
+    def response(self, **kwargs):
+        pass
+
+
+class Response:
+    request_id = 0
+    status = None
+    data = None
+    consumer = None
+
+    def __init__(self, consumer, request=None, **kwargs):
+        self.consumer = consumer
+        if request:
+            this.request_id = request.id
+        self.__dict__.update(kwargs)
+
+
+
+def is_action(func):
+    return callable(func) and func.action:
+
+
+def action(name, **kwargs):
+    def wrapper(func):
+        func.action = name
+        func.action_data = kwargs
+        return func
+
+
+class ApiConsumerBase:
+    pass
+
+
+
 class RouterBaseConsumer(AsyncWebsocketConsumer):
     """
     Consumer that redirect incoming message to different views using

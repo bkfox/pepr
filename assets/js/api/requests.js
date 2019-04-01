@@ -48,9 +48,8 @@ export default class Requests extends Emitter {
     /**
      * Drop a specific request.
      */
-    remove(request, reason=null) {
-        delete this.requests[request.id];
-        request.drop({ reason: null });
+    remove(request) {
+        request.drop();
     }
 
     /**

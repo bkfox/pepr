@@ -68,6 +68,7 @@ module.exports = {
         alias: _.extend(createLodashAliases(), {
             pepr: '../js',
             vue: 'vue/dist/vue.esm.browser.js',
+            vuex: 'vuex/dist/vuex.esm.js',
             vuetifyCss: 'vuetify/dist/vuetify.css',
         }),
         modules: [

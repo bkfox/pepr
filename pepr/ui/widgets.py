@@ -86,19 +86,18 @@ class ActionWidget(UrlWidgetMixin):
     """
     method = 'POST'
     """ API call method """
-    action = 'submit'
+    action = 'request'
     """ javascript method to call on click. """
-    target = None
+    handler = None
 
-    tag_name = 'button'
+    tag_name = 'p-action'
     tag_attrs = {'class': 'btn-xs btn-light dropdown-item'}
-    url_attr = 'data-action-url'
+    url_attr = 'path'
     # template_name = 'pepr/ui/action_widget.html'
 
     def get_tag_attrs(self, tag_attrs, **kwargs):
-        tag_attrs.setdefault('@click.prevent', self.action)
-        tag_attrs.setdefault('data-action-method', self.method)
-        tag_attrs.setdefault('data-action-target', self.target)
+        for k in ('action', 'method', 'hander'):
+            tag_attrs.setdefault(k, getattr(self, k, None))
         return super().get_tag_attrs(tag_attrs, **kwargs)
 
     def __init__(self, *args, method=None, **kwargs):

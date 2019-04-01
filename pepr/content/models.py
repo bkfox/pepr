@@ -119,10 +119,14 @@ class Content(Owned, TimeStampedModel):
         # FIXME: not the most sure ever but beyond our possibilities
         return self.modifier is not None
 
+    @classmethod
+    def get_component_class(cls):
+        from .components import ContentComp
+        return ContentComp
+
     def as_component(self):
         """ Return component that renders self. """
-        from .components import ContentComp
-        return ContentComp(object=self)
+        return self.get_component_class()(object=self)
 
     @classmethod
     def get_serializer_class(cl):

@@ -127,6 +127,28 @@ class CanAccess(PermissionBase):
         return role.is_admin or role.has_access(obj.access)
 
 
+class IsOwner(PermissionBase):
+    """
+    Permission check for owned objects. If object is not an owned,
+    returns False.
+    """
+    @classmethod
+    def can_obj(cls, role, obj):
+        if isinstance(obj, Owned):
+            # Rule: Owner of an object always control its object
+            if obj.is_owner(role.user):
+                return True
+
+            # Rule: Role can only edit others' object with <= role access;
+            #       EXCEPT that Admin can not change objects of other Admin
+            if obj.is_saved and not role.is_anonymous and \
+                    obj.owner is not None and obj.owner != role.user:
+                owner_role = obj.get_context().get_role(obj.owner)
+                strict = role.is_admin and owner_role.is_admin
+                return role.has_access(owner_role.access, strict)
+        return False
+
+
 class CanObject(CanAccess):
     """
     Base class for permission check based on role's granted privileges
@@ -134,6 +156,10 @@ class CanObject(CanAccess):
     """
     @classmethod
     def can_obj(cls, role, obj):
+        # Rule: Owner of an object always control it
+        if IsOwner.can_obj(role, obj):
+            return True
+
         return role.is_admin or (
             super(CanObject, cls).can_obj(role, obj) and
             role.is_granted(cls, type(obj))
@@ -157,30 +183,6 @@ class CanDelete(CanObject):
 
 class CanManage(CanObject):
     name = _('Manage context')
-
-
-class IsOwner(PermissionBase):
-    """
-    Permission check for owned objects. If object is not an owned,
-    returns False.
-    """
-    @classmethod
-    def can_obj(cls, role, obj):
-        if not isinstance(obj, Owned):
-            return False
-
-        # Rule: Owner of an object always control its object
-        if obj.is_owner(role.user):
-            return True
-
-        # Rule: Role can only edit others' object with <= role access;
-        #       EXCEPT that Admin can not change objects of other Admin
-        if obj.is_saved and not role.is_anonymous and \
-                obj.owner is not None and obj.owner != role.user:
-            owner_role = obj.get_context().get_role(obj.owner)
-            strict = role.is_admin and owner_role.is_admin
-            return role.has_access(owner_role.access, strict)
-        return True
 
 
 class CanRequestSubscription(PermissionBase):

@@ -1,5 +1,8 @@
 import './api';
-import './app';
-import '../vue';
+// import './store';
 
+import './app';
+import './actions';
+
+import '../vue';
 

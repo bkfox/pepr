@@ -18,10 +18,10 @@ class PermissionMixin:
     role. Usage of this feature is up to class user, although a good
     practice is to always define a current permission context.
     """
-    permission_classes = tuple()
+    permission_classes = (IsOwner | CanAccess,)
     """ Permissions to check as request is being proceeded """
     action_permissions = {
-        'GET': (IsOwner | CanAccess,),
+        'GET': permission_classes,
         'POST': (CanCreate,),
         'PUT': (IsOwner | CanUpdate,),
         'DELETE': (IsOwner | CanDelete,),
@@ -121,8 +121,6 @@ class AccessibleViewMixin(PermissionViewMixin):
     """
     View mixin handling Accessible objects permission check.
     """
-    permission_classes = (IsOwner | CanAccess,)
-
     @property
     def object(self):
         return getattr(self, '_object')
@@ -140,8 +138,6 @@ class AccessibleConsumerMixin(SingleObjectMixin, PermissionMixin):
     """
     Consumer mixin handling Accessible objects permission check
     """
-    permission_classes = (IsOwner | CanAccess,)
-
     def get_queryset(self, request):
         return super().get_queryset(request).user(request.user)
 

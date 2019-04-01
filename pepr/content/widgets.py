@@ -21,11 +21,12 @@ class ContainerServicesWidget(Widget):
 
 
 class DeleteActionWidget(ActionWidget):
+    action = 'resource:delete'
     text = _('Delete')
     icon = 'fa-trash-alt fas'
     permission_classes = (CanDelete,)
 
-    url = '{object.api_detail_url}'
+    # url = '{object.api_detail_url}'
     method = 'DELETE'
 
 
@@ -36,7 +37,7 @@ class EditActionWidget(ActionWidget):
 
     action = 'submit'
     method = 'GET'
-    target = 'modal'
+    handler = 'modal'
     url = '{object.api_detail_url}edit_form/'
 
 

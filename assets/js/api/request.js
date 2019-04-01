@@ -11,7 +11,7 @@ import Emitter from './emitter';
  * @fires Request#message
  */
 export default class Request extends Emitter {
-    constructor(connection, path, payload={})
+    constructor(connection, path, payload={}, handler=null)
     {
         super();
 
@@ -41,6 +41,11 @@ export default class Request extends Emitter {
          *  @member {Date}
          */
         this.lastTime = null;
+    }
+
+    drop() {
+        delete this.connection.requests[this.id];
+        super.drop();
     }
 
     /**

@@ -1,6 +1,8 @@
 import _ from 'lodash';
+import Vue from 'vue';
 
 import Pubsub from './pubsub';
+import Resource from './resource';
 
 
 export default class Resources {
@@ -22,44 +24,83 @@ export default class Resources {
         this.pubsub && this.pubsub.drop();
     }
 
-    /**
-     *  Subscribe to the server to the given resource and filter.
-     */
-    subscribe(path, filter, lookup) {
-        if(!this.pubsub) {
-            var self = this;
-            var pubsub = new Pubsub(this.connection)
-            pubsub.onCreate = (event, item) => self.update(item);
-            pubsub.onUpdate = (event, item) => self.update(item);
-            pubsub.onDelete = (event, item) => self.remove(item);
-            this.pubsub = pubsub;
-        }
-        return this.pubsub.subscribe(path, filter, lookup);
-    }
-
-    /**
-     *  Unsubscribe from the server.
-     */
-    unsubscribe() {
-        if(this.pubsub)
-            this.pubsub.unsubscribe();
+    asResource(item) {
+        return item instanceof Resource ? item : new Resource(this, item);
     }
 
     /**
      * Return item's index in collection or -1.
      */
     indexOf(item) {
-        var predicate = {};
-        predicate[this.key] = item[this.key];
-        return _.findIndex(this.items, predicate);
+        var value = this.asResource(item).key;
+        return this.items.findIndex(obj => obj.key == value);
     }
 
     /**
-     * Return True if item is saved on the server; this is done by checking
-     * existence of item's key (no request is made to the server).
+     * Insert item into list at given index, ensure uniqueness.
+     *
+     * @param {Number} index position (if -1, insert at the end of array)
+     * @param {Object} item  object to insert to resources
+     * @return the resource for the inserted item
      */
-    isSaved(item) {
-        return item[key] !== null && item[key] !== undefined;
+    insert(index, item) {
+        // TODO: check if reactivity works without currentIndex branching
+        //          => only using items' splices
+        item = this.asResource(item);
+        var currentIndex = this.indexOf(item);
+        if(currentIndex != -1) {
+            const old = this.items.splice(currentIndex, 1)[0];
+            Vue.set(old, 'data', item.data);
+            item = old;
+
+            if(index > currentIndex)
+                // move index to the left if item has been removed before
+                index = Math.max(0, index-1);
+        }
+
+        this.items.splice(index, 0, item);
+        return item;
+    }
+
+    /**
+     * Replace item if present or insert it.
+     * @return the resource for this item
+     */
+    update(item) {
+        item = this.asResource(item);
+        var currentIndex = this.indexOf(item);
+        if(currentIndex == -1) {
+            this.items.push(item);
+            return item;
+        }
+        console.log('update resource', item);
+        Vue.set(this.items[currentIndex], 'data', item.data);
+        return item;
+    }
+
+    /**
+     * Delete an item from collection.
+     * @return the removed item
+     */
+    remove(item, drop=true) {
+        var index = this.indexOf(item);
+        if(index == -1)
+            return;
+
+        drop && this.items[index].drop();
+        return this.items.splice(index, 1)[0];
+    }
+
+    /**
+     * Clean up the entire collection and unsubscribe.
+     * @return the removed items
+     */
+    reset(drop=true) {
+        this.unsubscribe();
+        if(drop)
+            for(var item of this.items)
+                item.drop();
+        return this.items.splice(0, this.items.length);
     }
 
     /**
@@ -78,6 +119,7 @@ export default class Resources {
             var data = message.data;
             self.nextUrl = data.next;
             self.previousUrl = data.previous;
+            // TODO: as Resource
             self.items.push(...data.results);
         })
         return req;
@@ -108,95 +150,26 @@ export default class Resources {
     }
 
     /**
-     * Close active requests
+     *  PubSub subscribe to the server for the given resource and filter.
      */
-    close() {
-        this.unsubscribe();
-    }
-
-    /**
-     * Send item to the server.
-     */
-    submit(payload, item=null) {
-        var path = this.path + '/' + item[this.key];
-        if(item)
-            payload.data = item;
-        return this.connection.request(path, payload);
-    }
-
-    /**
-     *  Synchronize item to the server (create, update, delete). Request
-     *  method is adapted to wether item is saved or not.
-     */
-    publish(...items) {
-        var requests = [];
-        for(var item of items) {
-            payload = {method: this.isSaved(item) ? 'PUT' : 'POST'};
-            requests.push(this.submit(payload, item));
+    subscribe(path, filter, lookup) {
+        if(!this.pubsub) {
+            var self = this;
+            var pubsub = new Pubsub(this.connection)
+            pubsub.onCreate = (event, item) => self.update(item);
+            pubsub.onUpdate = (event, item) => self.update(item);
+            pubsub.onDelete = (event, item) => self.remove(item);
+            this.pubsub = pubsub;
         }
-        return requests;
+        return this.pubsub.subscribe(path, filter, lookup);
     }
 
     /**
-     * Delete items from the server.
+     *  Pubsub unsubscribe from the server.
      */
-    unpublish(...items) {
-        // TODO: only pk/this.key in stanza
-        var requests = [];
-        for(var item of items) {
-            payload = {method: 'DELETE'};
-            return this.submit(payload, item);
-        }
-        return requests;
-    }
-
-    /**
-     *  Insert item into list at given index, ensure uniqueness and server
-     *  synchronization.
-     *
-     *  @param {Number} index    position
-     *  @param {Object} ...items object to insert to resources
-     *  @return inserted items
-     */
-    insert(index, item) {
-        var currentIndex = this.indexOf(item);
-        if(currentIndex == -1)
-            return;
-        this.items.splice(currentIndex, 1);
-        index = index > currentIndex ? index-1 : index;
-        index = Math.max(-1, index);
-        this.items.splice(index, 0, item);
-        return item;
-    }
-
-    /**
-     * Replace item if present or insert it.
-     * @return updated/inserted items
-     */
-    update(item) {
-        var currentIndex = this.indexOf(item);
-        this.items.splice(currentIndex,
-                          currentIndex == -1 ? 0 : 1,
-                          item);
-        return item;
-    }
-
-    /**
-     * Delete an item from collection.
-     */
-    remove(item, drop=false) {
-        var index = this.indexOf(item);
-        if(index != -1)
-            this.items.splice(index, 1);
-        drop && item.drop && item.drop();
-    }
-
-    /**
-     * Clean up the entire collection.
-     */
-    reset() {
-        this.items.splice(0, this.items.length);
-        this.unsubscribe();
+    unsubscribe() {
+        if(this.pubsub)
+            this.pubsub.unsubscribe();
     }
 }
 

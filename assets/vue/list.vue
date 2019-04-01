@@ -8,8 +8,7 @@
                 :index="index" :item="item"
                 :item-class="itemClass"
                 >
-                <slot name="item" :list="this" :item="item" :index="index">
-                </slot>
+                <slot name="item" :list="this" :item="item" :index="index"></slot>
             </p-list-item>
         </div>
 
@@ -149,31 +148,29 @@ export default {
             if(!slot || slot.length == 0)
                 return;
 
-            for(var i in slot) {
-                var elm = slot[i].elm;
-                var id = elm && elm.dataset && elm.dataset.id;
-                if(!id)
+            for(var item of slot) {
+                item = item.children && item.children[0];
+                if(!item || !item.text)
                     continue;
 
-                var data = elm.querySelector(`script[id="${id}"]`);
+                console.log('item', item);
                 try {
-                    data = JSON.parse(data.textContent);
-                    data.elm = elm;
-                    this.items.push(data);
+                    const data = JSON.parse(item.text);
+                    if(data)
+                        this.resources.update(data);
                 }
                 catch(e) {
-                    console.log(e);
+                    console.error(e);
                 }
-                elm.parentNode && elm.parentNode.removeChild(elm);
             }
+            return;
         },
     },
 
     mounted() {
-        console.log('===');
         this.resetResources(true);
-        console.log('init to list');
-        this.toList(this.$slots.default);
+        console.log('init to list', this.$slots);
+        this.toList(this.$slots.data);
         var self = this;
         console.log('resources', this.resources);
         /*if(this.resources)

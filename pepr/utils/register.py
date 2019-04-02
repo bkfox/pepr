@@ -1,3 +1,5 @@
+from copy import copy
+
 
 class Register:
     entries = None
@@ -11,6 +13,11 @@ class Register:
     def __init__(self, **kwargs):
         self.entries = {}
         self.__dict__.update(kwargs)
+
+    def clone(self):
+        clone = copy(self)
+        clone.entries = dict(self.entries.items())
+        return self
 
     def get_entry_key(self, entry):
         """
@@ -68,8 +75,11 @@ class Register:
         self.entries.clear()
 
     def update(self, register):
-        """ Import entries from a register (by reference), a dict or
+        """
+        Import entries from a register (by reference), a dict or
         an iterable of entries.
+
+        :return: self
         """
         entries = register.entries \
             if isinstance(register, Register) else register
@@ -79,6 +89,15 @@ class Register:
         else:
             for entry in entries:
                 self.add(entry, force=True)
+        return self
+
+    def concat(self, register):
+        """
+        Create a new register that concatenate self to another register.
+        """
+        clone = self.clone()
+        clone.update(register)
+        return clone
 
     def keys(self):
         return self.entries.keys()
@@ -98,6 +117,5 @@ class Register:
 
     def __len__(self):
         return len(self.entries)
-
 
 

@@ -1,6 +1,7 @@
 import asyncio
 from collections import namedtuple
 from functools import partial
+from itertools import chain
 
 from channels.consumer import get_handler_name
 
@@ -41,6 +42,8 @@ class Switch(Register):
     """ scope used to initialize consumers """
     consumer_close_timeout = 1.312
     """ Timeout when closing consumers. """
+    consumer_queue_size = 8
+    """ Maximum size for each consumer message queue """
 
     # used to know if websocket_connect has yet happened
     _connect_happened = False
@@ -74,7 +77,7 @@ class Switch(Register):
     #
     # Consumers management
     #
-    async def stop(self, consumers=None):
+    async def stop(self, *consumers):
         """
         Stop and remove given consumers (if None, do it for all
         handled consumers): related tasks will be cancelled *without*
@@ -83,7 +86,7 @@ class Switch(Register):
         :param list consumers: list of ConsumerInfo
         """
         if not consumers:
-            consumers = self.entries.copy()
+            consumers = self.entries.values().copy()
 
         for consumer in consumers:
             try:
@@ -98,33 +101,34 @@ class Switch(Register):
                     del self.entries[consumer.slot]
         self._connect_happened = False
 
-    def create(self, slot, consumer_class, init_kwargs):
+    def create(self, slot, consumer_class, init_kwargs={}):
         r"""
         Create and spawn a new a consumer using given informations, and
         return the correspondig ConsumerInfo.
         :raises ValueError: consumer exists yet for this ``slot``.
         """
-        if slot in self.entries:
-            raise ValueError('consumer for this slot exists yet')
+        if slot in self.entries and not self.entries[slot].task.done():
+            raise ValueError('a consumer is active for slot "{}"'
+                             .format(slot))
 
-        loop = asyncio.get_event_loop()
-        stream = asyncio.Queue()
+        stream = asyncio.Queue(maxsize=self.consumer_queue_size)
         consumer_info = ConsumerInfo(
             slot, consumer_class(self.scope, **init_kwargs), stream
         )
 
-        consumer = consumer_info.instance(
+        loop = asyncio.get_event_loop()
+        consumer_info.task = loop.create_task(consumer_info.instance(
             stream.get,
             partial(self._dispatch_downstream, consumer=consumer_info)
-        )
-        consumer_info.task = loop.create_task(consumer)
+        ))
+        consumer_info.task.consumer_info = consumer_info
         self.entries[slot] = consumer_info
 
         # FIXME: _connect_happened can be false if create is called while
         # websocket_connect task is still running
         if self._connect_happened:
-            consumer.stream.put_nowait({'type': 'websocket.connect'})
-        return consumer
+            consumer_info.stream.put_nowait({'type': 'websocket.connect'})
+        return consumer_info
 
     def create_multiple(self, consumer_classes, init_kwargs={}):
         """
@@ -136,17 +140,35 @@ class Switch(Register):
         return [self.create(consumer_class, slot, init_kwargs)
                 for slot, consumer_class in consumer_classes.items()]
 
-    async def wait(self, consumers=None, **wait_kwargs):
+    def get_or_create(self, slot, consumer_classes, **init_kwargs):
+        if slot not in self:
+            consumer_info = self.create(slot, consumer_classes[slot])
+            return consumer_info, True
+        return self.get(slot).instance, False
+
+    async def wait(self, *extra_aws, **wait_kwargs):
         """
         Create an awaitable (not Task) waiting for consumers to complete.
         If ``consumers`` is None, use registered consumers.
         """
-        consumers = self.entries.values() if consumers is None else consumers
-        if not consumers:
-            return
-        return await asyncio.wait([
-            consumer.task for consumer in consumers
-        ], **wait_kwargs)
+        # FIXME: what if a consumer awaits for another consumer it has
+        #        created and added to the switch
+        aws = chain(self.consumer_tasks, extra_aws)
+        wait_kwargs.setdefault('return_when', asyncio.FIRST_COMPLETED)
+        done, pending = await asyncio.wait(aws, **wait_kwargs)
+
+        for task in done:
+            ci = getattr(task, 'consumer_info', None)
+            if ci is None:
+                continue
+        self.stop(*(task.consumer_info for task in done
+                    if hasattr(task, 'consumer_info')))
+
+        done = (task for task in done
+                if not hasattr(task, 'consumer_info'))
+        pending = (task for task in pending
+                   if not hasattr(task, 'consumer_info'))
+        return done, pending
 
     #
     # Upstream to downstream

@@ -1,12 +1,18 @@
 from django.urls import path
-
 from rest_framework.routers import DefaultRouter
 
+from ..perms.views import SubscriptionViewSet
 from .consumers import ContentPubsub
+from .views import ContentViewSet
 from .views import \
     ContainerServiceView, ContainerUpdateView, \
-    SubscriptionsUpdateView, \
-    ContentViewSet
+    SubscriptionsUpdateView
+
+
+router = DefaultRouter()
+router.register('content', ContentViewSet, base_name='content')
+router.register('subscription', SubscriptionViewSet, basename='subscription')
+api_urlpatterns = router.urls
 
 urlpatterns = [
     path('<uuid:pk>', ContainerServiceView.as_view(),
@@ -19,13 +25,10 @@ urlpatterns = [
          name='pepr.container.subscriptions'),
 ]
 
+api_multiplex = {
+    '/content/pubsub': ContentPubsub,
+}
 
-consumers_urls = \
-    ContentPubsub.get_urls('content/pubsub/', 'content-pubsub')
 
-router = DefaultRouter()
-router.register('content/', ContentViewSet, base_name='content')
-
-api_urls = router.urls
 
 

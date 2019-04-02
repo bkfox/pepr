@@ -27,5 +27,5 @@ if settings.DEBUG:
     except ImportError:
         pass
 
-urlpatterns +=  pepr.urls.get_urlpatterns()
+urlpatterns += pepr.urls.get_urlpatterns()
 

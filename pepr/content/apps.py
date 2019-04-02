@@ -1,7 +1,7 @@
-from ..apps import PeprAppConfig
+from ..api.apps import ApiAppConfig
 
 
-class PeprContentConfig(PeprAppConfig):
+class PeprContentConfig(ApiAppConfig):
     name = 'pepr.content'
     label = 'pepr_content'
 

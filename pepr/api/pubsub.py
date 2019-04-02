@@ -3,13 +3,13 @@ from collections import namedtuple
 from django.db.models.signals import post_save, post_delete
 
 from asgiref.sync import async_to_sync
-from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.layers import get_channel_layer
 
 from rest_framework import serializers
+from rest_framework.exceptions import NotFound
 
 from ..utils.register import Register
-from .mixins import ConsumerSetMixin, action
+from .consumers import ApiConsumer, action
 
 
 Match = namedtuple('Match', ['filter', 'lookup'])
@@ -22,7 +22,7 @@ Subscription = namedtuple('Subscription', ['request_id', 'data'])
 #       - DOC + rewrite for PubsubConsumer from subscription() method.
 #       - model save/delete signal handling in separate class
 #       - TODO: CRUD like interface and serializer for incoming Subscription filters
-class PubsubConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
+class PubsubConsumer(ApiConsumer):
     """
     Base class to observe model instances changes (Create/Update/Delete).
     A single instance of this consumer can be used to observe multiple
@@ -159,7 +159,7 @@ class PubsubConsumer(ConsumerSetMixin, AsyncWebsocketConsumer):
             return 404, {}
 
         # TODO: catch exception & clean-up
-        await self.add(Subscription(request.id, data), key)
+        await self.add(Subscription(request.request_id, data), key)
         return 200, {}
 
     @subscription.mapping.delete

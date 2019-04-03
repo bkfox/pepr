@@ -68,8 +68,11 @@ module.exports = {
         alias: _.extend(createLodashAliases(), {
             pepr: '../js',
             vue: 'vue/dist/vue.esm.browser.js',
-            vuex: 'vuex/dist/vuex.esm.js',
-            vuetifyCss: 'vuetify/dist/vuetify.css',
+            // we have a modified version with v-runtime-template/pull/33
+            'v-runtime-template': './v-runtime-template.js',
+            // vuex: 'vuex/dist/vuex.esm.js',
+            cookies: 'js-cookie/src/js.cookie.js',
+            // 'vuetify-css': 'vuetify/dist/vuetify.css',
         }),
         modules: [
             './assets/css',

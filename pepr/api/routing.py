@@ -13,4 +13,13 @@ class ApiMultiplex(MultiplexConsumer):
     ignore_prefix = '/api'
 
 
+def route_consumers(consumer_classes):
+    """
+    Add given consumers to the `MultiplexConsumer` class used as
+    instance's multiplexer.
+    :param {"consumer_path":Consumer} consumer_classes: consumer \
+           classes to register.
+    """
+    ApiMultiplex.consumer_classes.update(consumer_classes)
+
 

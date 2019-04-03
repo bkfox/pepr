@@ -8,6 +8,8 @@ from channels.layers import get_channel_layer
 from rest_framework import serializers
 from rest_framework.exceptions import NotFound
 
+from ..api.message import ApiRequest
+from ..utils.debug import report_error
 from ..utils.register import Register
 from .consumers import ApiConsumer, action
 
@@ -139,37 +141,37 @@ class PubsubConsumer(ApiConsumer):
         """
         key = self.get_request_key(request)
         if key is None or key not in self.subscriptions:
-            return 404, {}
+            raise NotFound()
 
         subscription = self.subscriptions.get(key)
-        return 200, {'data': {'subscription': {
+        return 200, {'subscription': {
             'request_id': subscription.request_id,
-        }}}
+        }}
 
     @subscription.mapping.post
     async def subscription_post(self, request):
         match = self.get_request_match(request)
         key = self.get_key(match) if match.lookup is not None else None
         if key in self.subscriptions:
-            return 200, {}
+            return 200, None
 
         data = await self.get_subscription_data(request, match) \
             if key is not None else None
         if data is None:
-            return 404, {}
+            raise NotFound()
 
         # TODO: catch exception & clean-up
         await self.add(Subscription(request.request_id, data), key)
-        return 200, {}
+        return 200, None
 
     @subscription.mapping.delete
     async def subscription_delete(self, request):
         key = self.get_request_key(request)
         if key not in self.subscriptions:
-            return 404, {}
+            raise NotFound()
 
         await self.remove(key)
-        return 200, {}
+        return 200, None
 
     async def get_subscription_data(self, request, match, **kwargs):
         """
@@ -211,12 +213,12 @@ class PubsubConsumer(ApiConsumer):
             data = None if serializer is None else serializer.data
 
         if data:
-            await self.send({
-                'request_id': subscription.request_id,
-                'status': 200,
-                'method': event['method'],
-                'data': data,
-            })
+            await self.send_request(ApiRequest(
+                self, '',
+                request_id=subscription.request_id,
+                method=event['method'],
+                data=data
+            ))
 
 
     def can_notify(self, event, subscription, obj):
@@ -231,7 +233,6 @@ class PubsubConsumer(ApiConsumer):
             if subscription:
                 await self.notify(event, subscription, instance)
         except Exception as e:
-            from .debug import report_error
             report_error()
 
     async def websocket_disconnect(self, message):

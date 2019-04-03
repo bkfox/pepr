@@ -224,9 +224,6 @@ class ContentViewSet(AccessibleViewSet):
         return router.register(cls.model.url_prefix, cls,
                                cls.model.url_basename)
 
-    def get_queryset(self):
-        return super().get_queryset()
-
     @action(detail=True)
     def edit_form(self, request, pk=None):
         """ Render an edit form for the given object """

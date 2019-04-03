@@ -28,6 +28,7 @@ class DeleteActionWidget(ActionWidget):
 
     # url = '{object.api_detail_url}'
     method = 'DELETE'
+    item = 'item'
 
     def get_url(self, **kwargs):
         return None
@@ -41,7 +42,8 @@ class EditActionWidget(ActionWidget):
     action = 'submit'
     method = 'GET'
     handler = 'modal'
-    url = '{object.api_detail_url}edit_form/'
+    item = 'item'
+    # url = '{object.api_detail_url}edit_form/'
 
     def get_url(self, **kwargs):
         return None

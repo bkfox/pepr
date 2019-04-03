@@ -2,11 +2,12 @@ import _ from 'lodash';
 
 import Vue from 'vue';
 import BootstrapVue from 'bootstrap-vue';
-import 'bootstrap/dist/css/bootstrap.css'
-import 'bootstrap-vue/dist/bootstrap-vue.css'
+import VRuntimeTemplate from "./v-runtime-template";
 
 Vue.use(BootstrapVue)
 
+import 'bootstrap/dist/css/bootstrap.css'
+import 'bootstrap-vue/dist/bootstrap-vue.css'
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
 
@@ -26,6 +27,7 @@ export var appConf = {
         user: undefined,
         actions: actions,
     },
+    // TODO: remove
     delimiters: ['[[', ']]'],
 
     created() {
@@ -51,16 +53,14 @@ export var appConf = {
             if(!dataset.actionPath)
                 return;
 
-            const data = {};
-            const formData = new FormData(target);
-            formData.forEach(function(v, k) { data[k] = v });
+            event.preventDefault()
+            event.stopPropagation()
 
             return this.action({
-                action: 'request',
+                action: 'fetch',
                 path: dataset.actionPath,
-                data: data,
-                payload: { method: dataset.actionMethod ||
-                           target.getAttribute('method'), },
+                method: dataset.actionMethod || target.getAttribute('method'),
+                data: new FormData(target),
                 handler: dataset.actionHandler
             })
         },
@@ -70,6 +70,11 @@ export var appConf = {
             modal.load(event);
         }
     },
+
+    // TODO: add our vue component here instead
+    components: {
+        VRuntimeTemplate,
+    }
 }
 
 

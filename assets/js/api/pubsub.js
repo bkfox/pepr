@@ -65,7 +65,6 @@ export default class Pubsub {
         );
 
         req.on('message', this.onNotification, { self: this })
-
         if(is_new)
             req.on('drop', function() {
                 if(this.connection.isOpen)
@@ -82,7 +81,6 @@ export default class Pubsub {
     unsubscribe() {
         if(!this.isSubscribed)
             return;
-
         this.subscription.off('message', this.onNotification, { self: this })
         this.subscription = null;
     }

@@ -43,6 +43,10 @@ class PermissionMixin:
             )
         return [perm() for perm in permission_classes]
 
+    def get_role(self, request, obj=None):
+        """ Return context for the given request and object. """
+        return None
+
     def can(self, role, action=None, throws=False):
         """
         Return True when user has permissions for the given action.
@@ -77,13 +81,23 @@ class PermissionViewMixin(PermissionMixin):
 
     @property
     def context(self):
-        """ Permission context in which current request occurs. """
-        return self.role.context if self.role else None
+        return self.role and self.role.context
 
     @context.setter
     def context(self, obj):
-        """ Set ``context``updates current role.  """
-        self.role = obj.get_role(self.request.user) if obj else None
+        self.role = obj.get_role(self.request.user)
+
+    @property
+    def object(self):
+        return getattr(self, '_object', None)
+
+    @object.setter
+    def object(self, obj):
+        setattr(self, '_object', obj)
+        self.role = self.get_role(self.request, obj)
+
+    def get_role(self, request, obj=None):
+        return self.role
 
     def get_permissions(self, action=None):
         action = self.action if action is None else action
@@ -91,7 +105,7 @@ class PermissionViewMixin(PermissionMixin):
 
     def get_context_data(self, **kwargs):
         """ Ensure 'role' and 'context' are in resulting context """
-        kwargs.setdefault('role', self.role)
+        kwargs.setdefault('role', self.get_role(self.request, self.object))
         kwargs.setdefault('context', self.context)
         return super().get_context_data(**kwargs)
 
@@ -102,33 +116,21 @@ class ContextViewMixin(PermissionViewMixin):
     """
     permission_classes = (CanAccess,)
 
-    @property
-    def object(self):
-        return self.context
-
-    @object.setter
-    def object(self, value):
-        self.context = value
-
-    def get_object(self):
-        obj = super().get_object()
-        self.context = obj
-        self.check_object_permissions(self.request, obj)
-        return obj
+    def get_role(self, request, obj=None):
+        return super().get_role(request, obj) or \
+            obj and obj.get_role(request.user)
 
 
 class AccessibleViewMixin(PermissionViewMixin):
     """
     View mixin handling Accessible objects permission check.
     """
-    @property
-    def object(self):
-        return getattr(self, '_object')
-
-    @object.setter
-    def object(self, obj):
-        self.context = obj.get_context()
-        self.check_object_permissions(self.request, obj)
+    def get_role(self, request, obj=None):
+        role = super().get_role(request, obj)
+        if not role and obj:
+            context = obj.get_context()
+            role = context and context.get_role(request.user)
+        return role
 
     def get_queryset(self):
         return self.model.objects.user(self.request.user)

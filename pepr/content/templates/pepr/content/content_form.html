@@ -1,9 +1,9 @@
 {% load i18n widget_tweaks %}
 
 {% if object %}
-<form data-action-url="{{ object.api_detail_url }}" data-action-method="PUT">
+<form data-action-path="{{ object.api_detail_url }}" data-action-method="PUT">
 {% else %}
-<form data-action-url="{{ model.api_base_url }}" data-action-method="POST">
+<form data-action-path="{{ model.api_list_url }}" data-action-method="POST">
 {% endif %}
 
 <div slot="modal-title">

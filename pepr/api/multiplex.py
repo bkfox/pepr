@@ -129,9 +129,6 @@ class MultiplexConsumer(ApiConsumer, metaclass=MultiplexConsumerMeta):
             await handler(message)
 
     async def upstream_websocket_send(self, message):
-        await self.send(
-            self.render_data(message['text']) if 'text' in message else None,
-            self.render_data(message['bytes']) if 'bytes' in message else None
-        )
+        await self.send(message.get('text'), message.get('bytes'))
 
 

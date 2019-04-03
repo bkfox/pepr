@@ -1,19 +1,48 @@
 // TODO: handle disconnect event from the webbrowser/computer and better
 //       heuristic for reconnect
 import _ from 'lodash';
+import Cookies from 'cookies';
 import Request from './request';
 import Requests from './requests';
 
-/// This class manages requests and a connection to the server. It can
-/// auto-reconnect, and also remove old hanging requests.
-///
-/// Events
-/// ------
-/// - open: connection has been opened
-/// - error: an error occured
-/// - close: connection has been closed
-/// - message: a message was received and was not passed to a request
-///
+
+/**
+ * Call `fetch` with various initialization in order to ease our lifes.
+ */
+export function fetch_api(url, options) {
+    const headers = options.headers || {};
+    if(!headers['X-CSRFToken'])
+        headers['X-CSRFToken'] = Cookies.get('csrftoken')
+    if(!headers['Accept'])
+        headers['Accept'] = 'application/json'
+    options.headers = headers;
+    return fetch(url, options)
+}
+
+/**
+ *  Call `fetch` for sending JSON data.
+ */
+export function fetch_json(url, options) {
+    options.headers = options.headers || {}
+    options.headers['Content-Type'] = 'application/json';
+    if(options.body && typeof options.body != 'string')
+        options.body = JSON.stringify(data)
+    return fetch_api(url, options)
+}
+
+
+/**
+ * Manage websocket connection to the server and request multiplexing. It
+ * provides multiple features, such as reconnecting (and re-requesting),
+ * request timeout management.
+ *
+ *  Events
+ *  ------
+ *  - open: connection has been opened
+ *  - error: an error occured
+ *  - close: connection has been closed
+ *  - message: a message was received and was not passed to a request
+ **/
 export default class Connection extends Requests {
     /**
      * Creates a new Connection.
@@ -26,6 +55,12 @@ export default class Connection extends Requests {
         this.url = url;
         this.reconnect = reconnect;
         this.requestTimeout = requestTimeout;
+    }
+
+    drop(data={}) {
+        for(var i in this.requests)
+            this.requests[i].drop(data);
+        this.requests = {};
     }
 
     /**
@@ -61,9 +96,10 @@ export default class Connection extends Requests {
 
     /**
      *  Callback for WebSocket's `open` event
+     *  @fires Connection#open
      */
     onOpen(event) {
-        if(this.reconnect)
+        if(this.reconnect && this.ws.readyState == WebSocket.OPEN)
             // send previously sent awaiting requests again: it avoids
             // to loose handlers on requests.
             for(var i in this.requests)
@@ -73,14 +109,16 @@ export default class Connection extends Requests {
 
     /**
      *  Callback for Websocket's `error` event.
+     *  @fires Connection#error
      */
     onError(event) {
         this.emit('error');
     }
 
     /**
-     *  Callback for Websocket's `close` event, handles clean-up, reconnect,
-     *  etc.
+     * Callback for Websocket's `close` event handling various tasks.
+     * @fires Connection#close
+     * @fires Connection#drop
      */
     onClose(event) {
         var reconnect = this.reconnect > 0;
@@ -93,7 +131,7 @@ export default class Connection extends Requests {
             )
         }
         else
-            this.reset();
+            this.drop();
 
         this.emit('close', {'code': event.code, 'reason': event.reason,
                             'reconnect': reconnect });
@@ -102,10 +140,9 @@ export default class Connection extends Requests {
     /**
      * Callback for Websocket's `message` event, that handle message
      * dispatching to corresponding requests.
+     * @fires Connection#message
      */
     onMessage(event) {
-        console.debug('conn <<< ', event.data);
-
         var message = JSON.parse(event.data);
         var requestId = message.request_id;
         var request = this.requests[requestId];

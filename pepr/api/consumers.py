@@ -9,6 +9,7 @@ from rest_framework.exceptions import APIException, ParseError, ValidationError
 from rest_framework.decorators import MethodMapper
 
 from . import serializers
+from ..utils.debug import report_error
 from .message import ApiResponse
 
 
@@ -149,9 +150,7 @@ class ApiConsumer(ApiConsumerBase, AsyncWebsocketConsumer,
             except Exception as error:
                 if isinstance(error, APIException):
                     raise error
-                if settings.DEBUG:
-                    import traceback, sys
-                    traceback.print_exc(file=sys.stdout)
+                report_error()
                 raise APIException()
         except APIException as error:
             response = request.response(

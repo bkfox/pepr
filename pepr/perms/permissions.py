@@ -101,10 +101,12 @@ class PermissionBase(drf_perms.BasePermission, metaclass=Permissions):
         return True
 
     def has_permission(self, request, view):
-        return self.can(view.role)
+        role = view.get_role(request)
+        return self.can(role)
 
     def has_object_permission(self, request, view, obj):
-        return self.can_obj(view.role, obj)
+        role = view.get_role(request, obj)
+        return self.can_obj(role, obj) if role else False
 
 
 class Can(PermissionBase):
@@ -136,7 +138,7 @@ class IsOwner(PermissionBase):
     def can_obj(cls, role, obj):
         if isinstance(obj, Owned):
             # Rule: Owner of an object always control its object
-            if obj.is_owner(role.user):
+            if obj.is_owner(role):
                 return True
 
             # Rule: Role can only edit others' object with <= role access;

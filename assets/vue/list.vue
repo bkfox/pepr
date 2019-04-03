@@ -8,7 +8,7 @@
                 :index="index" :item="item"
                 :item-class="itemClass"
                 >
-                <slot name="item" :list="this" :item="item" :index="index"></slot>
+                <slot name="item" :item="item" :index="index"></slot>
             </p-list-item>
         </div>
 
@@ -153,7 +153,6 @@ export default {
                 if(!item || !item.text)
                     continue;
 
-                console.log('item', item);
                 try {
                     const data = JSON.parse(item.text);
                     if(data)

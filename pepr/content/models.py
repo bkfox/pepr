@@ -7,6 +7,7 @@ from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 
 from model_utils.models import TimeStampedModel
+from rest_framework.reverse import reverse
 
 from ..perms.models import Context, Accessible, Owned, \
         OwnedQuerySet
@@ -108,11 +109,22 @@ class Content(Owned, TimeStampedModel):
     class Meta:
         ordering = ('-modified',)
 
-    api_base_url = '/content/'
+    api_basename = 'content'
+
+    def get_api_url(self, url_name='', *args, **kwargs):
+        """ Reverse api url for this model """
+        url_name = '{}-{}'.format(self.api_basename, url_name)
+        return reverse(url_name, *args, **kwargs)
+
+    @property
+    def api_list_url(self):
+        """ Get list url for this object's model """
+        return self.get_api_url('list')
 
     @property
     def api_detail_url(self):
-        return self.api_base_url + str(self.pk) + '/'
+        """ Get detail url for this object """
+        return self.get_api_url('detail', kwargs={'pk': str(self.pk)})
 
     @property
     def is_saved(self):

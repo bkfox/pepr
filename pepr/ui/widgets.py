@@ -89,6 +89,9 @@ class ActionWidget(UrlWidgetMixin):
     action = 'request'
     """ javascript method to call on click. """
     handler = None
+    """ action request handler """
+    item = None
+    """ item related to this action """
 
     tag_name = 'p-action'
     tag_attrs = {'class': 'btn-xs btn-light dropdown-item'}
@@ -98,6 +101,8 @@ class ActionWidget(UrlWidgetMixin):
     def get_tag_attrs(self, tag_attrs, **kwargs):
         for k in ('action', 'method', 'hander'):
             tag_attrs.setdefault(k, getattr(self, k, None))
+        if self.item:
+            tag_attrs.setdefault(':item', self.item)
         return super().get_tag_attrs(tag_attrs, **kwargs)
 
     def __init__(self, *args, method=None, **kwargs):

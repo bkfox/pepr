@@ -22,10 +22,9 @@
     </template>
     {% endfor %}
 
-    <template slot="item" slot-scope="{item}">
-        <template v-if="item.data.html">
-            <p-content :html="item.data.html"></p-content>
-        </template>
+    <template v-slot:item="{list,item,index}">
+        <v-runtime-template v-if="item.data.html" :template="item.data.html">
+        </v-runtime-template>
         {% for obj in object_list %}
         <template v-else-if="item.key=='{{ obj.pk }}'">
             {% component obj.as_component %}

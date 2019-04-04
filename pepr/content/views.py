@@ -225,7 +225,7 @@ class ContentViewSet(AccessibleViewSet):
                                cls.model.url_basename)
 
     @action(detail=True)
-    def edit_form(self, request, pk=None):
+    def form(self, request, pk=None):
         """ Render an edit form for the given object """
         instance = self.get_object()
         role = instance.get_context().get_role(request.user)

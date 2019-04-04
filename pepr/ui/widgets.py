@@ -90,7 +90,7 @@ class ActionWidget(UrlWidgetMixin):
     """ javascript method to call on click. """
     handler = None
     """ action request handler """
-    item = None
+    data = None
     """ item related to this action """
 
     tag_name = 'p-action'
@@ -99,7 +99,9 @@ class ActionWidget(UrlWidgetMixin):
     # template_name = 'pepr/ui/action_widget.html'
 
     def get_tag_attrs(self, tag_attrs, **kwargs):
-        for k in ('action', 'method', 'hander'):
+        # FIXME: let user to decide wether he uses binding or value
+        #        for attributes => overwrite tag_attrs
+        for k in ('action', 'method', 'handler'):
             tag_attrs.setdefault(k, getattr(self, k, None))
         if self.item:
             tag_attrs.setdefault(':item', self.item)

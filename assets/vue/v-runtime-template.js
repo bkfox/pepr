@@ -46,7 +46,6 @@ export default {
       let passthrough = {};
       buildPassthrough(self, this.$parent, passthrough, '$data');
       buildPassthrough(self, this.$parent, passthrough, '$props');
-      buildPassthrough(self, this.$parent, passthrough, '$options');
       buildPassthrough(self, this.$parent.$options, passthrough, 'components');
       buildPassthrough(self, this.$parent.$options, passthrough, 'computed');
       buildPassthrough(self, this.$parent.$options, passthrough, 'methods');

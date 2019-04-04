@@ -40,7 +40,7 @@ class Switch(Register):
     """
     scope = None
     """ scope used to initialize consumers """
-    consumer_close_timeout = 1.312
+    consumer_timeout = 1.312
     """ Timeout when closing consumers. """
     consumer_queue_size = 8
     """ Maximum size for each consumer message queue """
@@ -77,7 +77,7 @@ class Switch(Register):
     #
     # Consumers management
     #
-    async def stop(self, *consumers):
+    async def stop(self, consumers=None):
         """
         Stop and remove given consumers (if None, do it for all
         handled consumers): related tasks will be cancelled *without*
@@ -85,7 +85,7 @@ class Switch(Register):
 
         :param list consumers: list of ConsumerInfo
         """
-        if not consumers:
+        if consumers is None:
             consumers = self.entries.values().copy()
 
         for consumer in consumers:
@@ -148,8 +148,8 @@ class Switch(Register):
 
     async def wait(self, *extra_aws, **wait_kwargs):
         """
-        Create an awaitable (not Task) waiting for consumers to complete.
-        If ``consumers`` is None, use registered consumers.
+        Create an awaitable (not Task) waiting for the first consumer
+        tasks to complete.
         """
         # FIXME: what if a consumer awaits for another consumer it has
         #        created and added to the switch
@@ -161,7 +161,7 @@ class Switch(Register):
             ci = getattr(task, 'consumer_info', None)
             if ci is None:
                 continue
-        self.stop(*(task.consumer_info for task in done
+        self.stop((task.consumer_info for task in done
                     if hasattr(task, 'consumer_info')))
 
         done = (task for task in done
@@ -255,10 +255,9 @@ class Switch(Register):
         await self._dispatch_upstream({'type': 'websocket.disconnect',
                                        'code': code})
         try:
-            await asyncio.wait(
-                list(self.consumer_tasks),
-                timeout=self.consumer_close_timeout
-            )
+            tasks = list(self.consumer_tasks)
+            if tasks:
+                await asyncio.wait(tasks, timeout=self.consumer_timeout)
         except asyncio.TimeoutError:
             pass
         finally:

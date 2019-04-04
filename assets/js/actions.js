@@ -13,6 +13,10 @@ export function handle(app, handler, request) {
 }
 
 
+export class Action {
+}
+
+
 /**
  * Action that can be handled by the application.
  */
@@ -59,6 +63,15 @@ export default {
      */
     'resource:delete'(app, {item, handler=null}) {
         const req = item.delete();
+        return handle(app, handler, req);
+    },
+
+    /**
+     * Get a resource form from server for the given item.
+     */
+    // TODO: handle when item is null
+    'resource:form'(app, {item=null, handler=null}) {
+        const req = item.get_form();
         return handle(app, handler, req);
     },
 }

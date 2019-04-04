@@ -1,4 +1,4 @@
-import { fetch_json } from './connection';
+import { fetch_api, fetch_json } from './connection';
 
 
 export default class Resource {
@@ -42,15 +42,12 @@ export default class Resource {
      */
     save(data={}) {
         const self = this;
-        const path = this.path || this.resources.path;
-
-        return fetch_json(
-            this.path || this.resources.path,
-            { method: this.path ? 'PUT' : 'POST',
-              body: Object.assign({}, this.data, data) }
-        ).then(function(data) {
-            return self.resources.update(data);
-        });
+        return fetch_json(this.path || this.resources.path,
+                          { method: this.path ? 'PUT' : 'POST',
+                            body: Object.assign({}, this.data, data) })
+            .then(function(response) {
+                return self.resources.update(response.json());
+            });
     }
 
     /**
@@ -58,16 +55,23 @@ export default class Resource {
      * resource if a request has been made to the server.
      */
     delete() {
-        if(!this.path) {
-            this.resources.remove(this);
-            return;
+        if(this.path) {
+            const self = this;
+            return fetch_json(this.path, { method: 'DELETE' }, false)
+                .then(function(response) {
+                    return self.resources.remove(self);
+                });
         }
+        else
+            self.resources.remove(self)
+    }
 
+    /**
+     * Return edit form for this resource.
+     */
+    get_form() {
         const self = this;
-        return fetch_json(this.path, { method: 'DELETE' }, false)
-            .then(function(response) {
-                return self.resources.remove(self.data);
-            });
+        return fetch_api(this.path + 'form');
     }
 }
 

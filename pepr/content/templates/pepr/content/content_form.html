@@ -22,14 +22,14 @@
 {% endwith %}
 {% endwith %}
 
-<div slot="modal-footer">
+<footer class="modal-footer">
     <div class="text-right">
         {% with form.access as field %}
         {% render_field field aria-label=field.label aria-description=field.help_text|default:field.label title=field.help_text|default:field.label %}
         {% endwith %}
         <button class="btn btn-primary ml-2">{% trans "Publish" %}</button>
     </div>
-</div>
+</footer>
 
 
 </form>

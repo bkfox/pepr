@@ -28,32 +28,6 @@ TODO
      - ContextViewSet & combine with accessible
      - api-* on form
 
-2018-11-29 00:05:02,653 - ERROR - server - Exception inside application: Set of coroutines/Futures is empty.
-  File "/media/data/courants/projets/pepr/venv/lib/python3.7/site-packages/channels/sessions.py", line 175, in __call__
-    return await self.inner(receive, self.send)
-  File "/media/data/courants/projets/pepr/venv/lib/python3.7/site-packages/channels/middleware.py", line 41, in coroutine_call
-    await inner_instance(receive, send)
-  File "/media/data/courants/projets/pepr/pepr/api/consumers.py", line 256, in __call__
-    await my_call
-  File "/media/data/courants/projets/pepr/pepr/api/consumers.py", line 251, in __call__
-    await my_call
-  File "/media/data/courants/projets/pepr/venv/lib/python3.7/site-packages/channels/consumer.py", line 54, in __call__
-    await await_many_dispatch([receive, self.channel_receive], self.dispatch)
-  File "/media/data/courants/projets/pepr/venv/lib/python3.7/site-packages/channels/utils.py", line 50, in await_many_dispatch
-    await dispatch(result)
-  File "/media/data/courants/projets/pepr/venv/lib/python3.7/site-packages/channels/consumer.py", line 67, in dispatch
-    await handler(message)
-  File "/media/data/courants/projets/pepr/venv/lib/python3.7/site-packages/channels/generic/websocket.py", line 244, in websocket_disconnect
-    await self.disconnect(message["code"])
-  File "/media/data/courants/projets/pepr/pepr/api/consumers.py", line 339, in disconnect
-    await self.switch.disconnect()
-  File "/media/data/courants/projets/pepr/pepr/api/switch.py", line 231, in disconnect
-    timeout=self.consumer_close_timeout
-  File "/usr/lib64/python3.7/asyncio/tasks.py", line 354, in wait
-    raise ValueError('Set of coroutines/Futures is empty.')
-  Set of coroutines/Futures is empty.
-]
-
 
 Per application:
 - UI:

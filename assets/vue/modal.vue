@@ -1,12 +1,14 @@
 <template>
-    <b-modal ref="modal">
-        <p-content :html="html">
-            <slot :html="html" :request="request"></slot>
-        </p-content>
+    <b-modal ref="modal" :hide-footer="true">
+        <v-runtime-template :template="html"></v-runtime-template>
+        <slot :html="html" :request="request"></slot>
     </b-modal>
 </template>
 
 <script>
+import VRuntimeTemplate from 'v-runtime-template';
+
+// TODO: 'loading' 'error' state & related slots
 export default {
     data() {
         return {
@@ -17,14 +19,17 @@ export default {
 
     methods: {
         hide() {
-            this.$refs.modal.hide();
+            this.$refs.modal.hide()
         },
 
         show(reset) {
             if(reset)
-                // TODO: 'loading' state
                 this.html = ''
-            this.$refs.modal.show();
+            this.$refs.modal.show()
+        },
+
+        toggle() {
+            this.$refs.modal.toggle();
         },
 
         /**
@@ -38,29 +43,21 @@ export default {
             this.show();
 
             var self = this;
-            request.then(
-                function({ data }) {
-                    self.html = data.content;
-                    if(!self.html)
-                        self.hide();
-                    return 
-                },
-                function({ data }) {
-                    // TODO: handle error
-                    self.html = '-- error --'
-                }
-            );
-
+            // TODO: handle error
+            request.then(response => response.text())
+                   .then(text => {
+                        self.html = text;
+                        if(!self.html)
+                            self.hide();
+                        return 
+                    });
             this.request = request;
             return request;
         },
     },
 
-    render(h) {
-        var html = this.$options.template.replace('${html}', this.html || '');
-        var template = Vue.compile(html);
-        this.$options.staticRenderFns = template.staticRenderFns;
-        return template.render.call(this, h);
+    components: {
+        VRuntimeTemplate,
     },
 };
 </script>

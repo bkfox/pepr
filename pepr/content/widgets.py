@@ -39,7 +39,7 @@ class EditActionWidget(ActionWidget):
     icon = 'fa-edit fas'
     permission_classes = (CanUpdate,)
 
-    action = 'submit'
+    action = 'resource:form'
     method = 'GET'
     handler = 'modal'
     item = 'item'

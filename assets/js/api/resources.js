@@ -73,7 +73,6 @@ export default class Resources {
             this.items.push(item);
             return item;
         }
-        console.log('update resource', item);
         Vue.set(this.items[currentIndex], 'data', item.data);
         return item;
     }

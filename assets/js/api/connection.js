@@ -9,11 +9,11 @@ import Requests from './requests';
 /**
  * Call `fetch` with various initialization in order to ease our lifes.
  */
-export function fetch_api(url, options) {
+export function fetch_api(url, options={}) {
     const headers = options.headers || {};
-    if(!headers['X-CSRFToken'])
+    if(headers['X-CSRFToken'] === undefined)
         headers['X-CSRFToken'] = Cookies.get('csrftoken')
-    if(!headers['Accept'])
+    if(headers['Accept'] === undefined)
         headers['Accept'] = 'application/json'
     options.headers = headers;
     return fetch(url, options)

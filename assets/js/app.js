@@ -39,10 +39,11 @@ export var appConf = {
 
     methods: {
         action(event) {
-            console.log('action:', event);
             const action = actions[event.action];
             if(!action)
                 throw `action ${event.action} not found`;
+            if(event.ask && !confirm(event.ask))
+                return;
             return action(this, event);
         },
 

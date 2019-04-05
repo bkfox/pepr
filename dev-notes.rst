@@ -1,20 +1,36 @@
 TODO
 ====
 
-- Fixes:
-   - utils.strings => camel case to [...], handles cases such as XMLHttpRequest -> xml_http_request
+Todo now
+--------
+
+- subscriptions:
+   - add subscription access policy on context + adapt queryset for subscriptions
+   - viewset filters => context, access
+- client
+   - resources:
+      - load from url: reset options
+      - pagination & load next
+      - items selection (multiple, single) + @select event on collection
+   - user pick:
+      - template
+      - search for user
+   - subscriptions:
+      - template
+      - form submission
+      - action: multiple selection
+      - invite user
+
+Todo-ToFix
+----------
+- utils.strings => camel case to [...], handles cases such as XMLHttpRequest -> xml_http_request
+
+
+To-think
+-------
 - Client:
-  - reorganize how things are working:
-    - POST requests through API
-    - Webpack
-    - differents cases to handle/think:
-      - GET,OBSERVE collection / container
-      - POST forms: error handling & user feedback + flow
-      - Permission implementation client side
-  - moves:
-      - api: emitter, connection, request
-  - others:
-    - collection: do not pass data in dom, fetch them from api and update;
+   - POST forms: error handling & user feedback + flow
+   - Permission implementation client side
 
 - Permissions:
    - ensure an Admin exists at context creation
@@ -87,6 +103,14 @@ Not determined:
    - observer with different filters
 
 
+Choices
+-------
+
+- actions:
+  idea: actions using a single template over p-list and add a field "actions"
+        to serialized object => 
+
+
 Tests
 -----
 - ui:
@@ -99,18 +123,3 @@ Tests
 - utils
 
 
-
-Observers & Collections
------------------------
-- Impl Collection binding
-- Load list & pagination
-- Filters
-
-Stream
-------
-- Create new post
-- Edit content
-
-Content
--------
-- Attach resources: edit & rendering

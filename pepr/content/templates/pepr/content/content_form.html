@@ -1,18 +1,10 @@
-{% load i18n widget_tweaks %}
+{% load i18n widget_tweaks pepr_ui %}
 
 {% if object %}
 <form data-action-path="{{ object.api_detail_url }}" data-action-method="PUT">
 {% else %}
 <form data-action-path="{{ model.api_list_url }}" data-action-method="POST">
 {% endif %}
-
-<div slot="modal-title">
-    {% if object %}
-        {% trans "Edit" %}
-    {% else %}
-        {% trans "Create" %}
-    {% endif %}
-</div>
 
 {% with True as no_label %}
 {% with True as no_help %}
@@ -22,15 +14,16 @@
 {% endwith %}
 {% endwith %}
 
-<footer class="modal-footer">
-    <div class="text-right">
+<footer class="row form-row justify-content-between text-right">
+    <div class="col-2 input-group-sm mb-0">
         {% with form.access as field %}
-        {% render_field field aria-label=field.label aria-description=field.help_text|default:field.label title=field.help_text|default:field.label %}
+        {% render_field field aria-label=field.label aria-description=field.help_text|default:field.label title=field.help_text|default:field.label class="form-control" %}
         {% endwith %}
-        <button class="btn btn-primary ml-2">{% trans "Publish" %}</button>
+    </div>
+    <div class="col-2">
+        <button class="btn btn-primary">{% trans "Publish" %}</button>
     </div>
 </footer>
-
 
 </form>
 

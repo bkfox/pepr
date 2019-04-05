@@ -1,7 +1,7 @@
 from django.forms import TextInput, models as model_forms
 
-from ..ui.components import Component, Slots, Widgets
-from ..ui.widgets import DropdownWidgets
+from ..ui.components import Component, Slots
+from ..ui.widgets import ActionWidgets
 
 from .forms import ContentForm
 from .widgets import DeleteActionWidget, EditActionWidget
@@ -10,13 +10,12 @@ from .widgets import DeleteActionWidget, EditActionWidget
 class ContentComp(Component):
     template_name = 'pepr/content/content.html'
     slots = Slots([
-        DropdownWidgets(
-            'actions-menu', 'b-dropdown',
-            {'right': True, 'toggle-class': 'btn-light'},
-            items=[
-                EditActionWidget(),
-                DeleteActionWidget(),
-            ])
+        ActionWidgets(
+            'menu',
+            tag_attrs={'right': True, 'toggle-class': 'btn-light'},
+            items=[EditActionWidget(),
+                   DeleteActionWidget()],
+        )
     ])
 
 

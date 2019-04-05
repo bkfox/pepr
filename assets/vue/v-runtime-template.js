@@ -50,9 +50,9 @@ export default {
       buildPassthrough(self, this.$parent.$options, passthrough, 'computed');
       buildPassthrough(self, this.$parent.$options, passthrough, 'methods');
 
-      const methodKeys = Object.keys(passthrough.methods || {});
-      const dataKeys = Object.keys(passthrough.$data || {});
-      const propKeys = Object.keys(passthrough.$props || {});
+      const methodKeys = Object.keys(passthrough.methods);
+      const dataKeys = Object.keys(passthrough.$data);
+      const propKeys = Object.keys(passthrough.$props);
       const allKeys = dataKeys.concat(propKeys).concat(methodKeys);
       const methodsFromProps = buildFromProps(this.$parent, methodKeys);
       const props = merge([passthrough.$data, passthrough.$props, methodsFromProps]);

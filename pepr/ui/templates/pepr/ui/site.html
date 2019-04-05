@@ -11,11 +11,11 @@
         {% render_bundle "main" "css" %}
         {% block assets %}{% endblock %}
 
-        {% slot "assets" view %}
+        {% slot view "assets" %}
 
         <noscript>
             <link href="{% static "pepr/ui/css/noscript.css" %}" rel="stylesheet">
-            {% slot "noscript" view %}
+            {% slot view "noscript" %}
         </noscript>
     </head>
     <body>

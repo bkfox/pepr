@@ -106,16 +106,14 @@ class Slot:
         """ Remove receiver from this Slot (forward call to signal) """
         self.signal.disconnect(*args, **kwargs)
 
-    def trigger(self, sender=None, **signal_args):
+    def trigger(self, sender, **signal_kwargs):
         """ Send signal and return result """
+        slot = signal_kwargs.get('slot', self)
         if self.signal.has_listeners(sender):
-            return self.signal.send(slot=self, **{
-                k: v for k, v in signal_args.items()
-                if k in self.signal_args
-            })
+            return self.signal.send(slot=slot, sender=sender, **signal_kwargs)
         return tuple()
 
-    def fetch(self, sender=None, items=None, **kwargs):
+    def fetch(self, sender=None, items=None, **signal_kwargs):
         r"""
         Gather items by triggering signal, and return them sorted by
         priority as an iterator.
@@ -125,9 +123,14 @@ class Slot:
         :param \**kwargs: 'kwargs' attribute to pass to receivers
         """
         items = items or []
+        signal_kwargs = {
+            k: v for k, v in signal_kwargs.items()
+            if k in self.signal_args
+        }
+
         results = (
             v for r, v in self.trigger(
-                sender=sender, items=items, **kwargs)
+                sender, items=items, **signal_kwargs)
             if isinstance(v, SlotItem)
         )
 

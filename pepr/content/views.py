@@ -7,10 +7,10 @@ from django_filters import rest_framework as filters_drf, \
                            views as filters_views
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.response import Response
 
 from ..perms.forms import SubscriptionFormSet
-from ..perms.mixins import PermissionMixin, ContextViewMixin, AccessibleViewMixin
+from ..perms.mixins import PermissionMixin, ContextViewMixin, \
+        AccessibleViewMixin
 from ..perms.views import AccessibleViewSet
 from ..ui.views import SiteView
 from ..ui.components import Slots, Widgets
@@ -50,6 +50,7 @@ class ServiceView(PermissionMixin, SiteView):
                 )
             ]
         ),
+        # content menu
     ])
 
     template_name = 'pepr/content/container.html'
@@ -155,10 +156,6 @@ class SubscriptionsUpdateView(ServiceView, ContextViewMixin, DetailView):
     def get_context_data(self, **kwargs):
         if not 'formset' in kwargs:
             kwargs['formset'] = self.get_formset()
-
-        formset = kwargs['formset']
-        for form in formset:
-            print(form, form.fields)
         return super().get_context_data(**kwargs)
 
     def post(self, request, *args, **kwargs):
@@ -197,6 +194,16 @@ class ContentListView(AccessibleViewMixin, ServiceView,
         if self.context:
             qs = qs.context(self.context)
         return qs
+
+    # TODO/FIXME: move in a parent class?
+    def get_content_slots(self):
+        return self.model.get_component_class().slots
+
+    def get_context_data(self, content_slots=None, **kwargs):
+        return super().get_context_data(
+            content_slots=content_slots or self.get_content_slots(),
+            **kwargs
+        )
 
 
 #

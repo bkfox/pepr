@@ -1,3 +1,5 @@
+import itertools
+
 from django.core.exceptions import ImproperlyConfigured
 from django.template import loader
 from django.views.generic.base import ContextMixin, TemplateResponseMixin
@@ -64,6 +66,24 @@ class Component(TemplateResponseMixin, ContextMixin, PermissionMixin):
         if context is None:
             return ''
         return self.get_template().render(context)
+
+    def render_slots(self, role, *slot_names, slot_class=None, **kwargs):
+        """
+        Render slots of the given names or all them and return
+
+        :param Role role: user role
+        :param \*slot_names: name of the slots to render
+        :param Class slot_class: only render slot instances of this class
+        :param \**kwargs: render kwargs to pass to render
+        """
+        slots = (self.slots.get(name) for name in slot_names) \
+            if slot_names else self.slots
+        # flatten results
+        return list(itertools.chain(*(
+            slot.render(role, **kwargs)
+            for slot in slots
+            if slot and not slot_class or isinstance(slot, slot_class)
+        )))
 
     def get_template(self, template_name=None):
         """
@@ -167,38 +187,39 @@ class Widgets(slots.Slot, Widget):
         super().__init__(name=name, tag_name=tag_name,
                          tag_attrs=tag_attrs, **kwargs)
 
-    def get_context_data(self, role, sender, **kwargs):
+    def render_items(self, role, sender, items, **kwargs):
         """
-        :param [WidgetMixin] items: if given, use this list instead of \
-            thoses from find_items
+        Render the given items and return them as a list of strings.
         """
-        kwargs.setdefault('sender', sender)
+        return list(
+            rendered for rendered in (
+                item.render(
+                    role,
+                    sender=sender, slot=kwargs['slot'],
+                    object=kwargs.get('object')
+                )
+                for item in items if hasattr(item, 'render')
+            ) if rendered
+        )
+
+    def get_context_data(self, role, **kwargs):
+        """
+        :param [Widget] items: if given, use this list instead of \
+            thoses from `fetch`
+        """
         kwargs.setdefault('slot', self)
+        kwargs.setdefault('sender', self)
 
         # check items is empty wether it is in `kwargs` or not. Since
         # items is first get from kwargs, use `__setitem__` instead of
         # `setdefault`
-        items = kwargs.get('items')
+        items = kwargs.get('items') or self.fetch(role=role, **kwargs)
         if items is None:
-            items = self.fetch(role=role, **{
-                k: v for k, v in kwargs.items()
-                if not hasattr
-            })
-            items = list(
-                rendered for rendered in (
-                    item.render(
-                        role,
-                        sender=kwargs['sender'], slot=kwargs['slot'],
-                        object=kwargs.get('object')
-                    )
-                    for item in items if hasattr(item, 'render')
-                ) if rendered
-            )
-
-        if not items:
             return
 
         kwargs['items'] = items
-        return super().get_context_data(role=role, **kwargs)
+        kwargs['items'] = self.render_items(role, **kwargs)
+        return super().get_context_data(role=role, **kwargs) \
+            if items else None
 
 

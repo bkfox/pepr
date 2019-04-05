@@ -1,15 +1,6 @@
 {% load pepr_ui %}
 
-{% if tag_name %}
-<{{ tag_name }} {% tag_attrs tag_attrs %}>
-{% endif %}
-
-{% block main %}
-{% icon icon %}
-{{ text }}
-{% endblock %}
-
-{% if tag_name %}
-</{{ tag_name }}>
-{% endif %}
+{% if tag_name %}<{{ tag_name }} {% tag_attrs tag_attrs %}>{% endif %}
+{% block main %}{% icon icon %}{{ text }}{% endblock %}
+{% if tag_name %}</{{ tag_name }}>{% endif %}
 

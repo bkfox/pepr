@@ -2,25 +2,39 @@
 {% load i18n pepr_api pepr_ui %}
 
 {% block app %}
-<div class="box mb-3">
-    {% component create_form role service=service %}
+<div class="box">
+    {% component create_form role=role service=service %}
 </div>
 
 <hr>
 
+{% with view.model.get_component_class as content_comp %}
 <p-list id-attr="pk" observe
     :connection="connection"
     :filter="{context: '{{ context.pk }}'}"
     path="/api/content/"
     pubsub-filter="context"
     pubsub-lookup="{{ context.pk }}"
+    item-class="box position-relative"
     >
-    {% for obj in object_list %}
-    <template slot="data">
+    {% slot content_comp "menu" role=role fetch=True as content_menu %}
+
+    <template v-slot:data>
+        {% for obj in object_list %}
         {% serialize obj role=role render=False as data %}
+        {% render_actions content_comp "menu" object=obj items=content_menu as_data=True as actions %}
+        {% merge data actions=actions as data %}
         {{ data|json_script:obj.pk }}
+        {% endfor %}
     </template>
-    {% endfor %}
+
+    {# FIXME: does not work with v-slot directive #}
+    <template slot="beforeItem" slot-scope="{list,item,index}">
+        <b-dropdown right class="float-right" style="right: 0"
+            toggle-class="btn-light">
+            {% slot content_comp "menu" items=content_menu toggle_class="btn btn-light" %}
+        </b-dropdown>
+    </template>
 
     <template v-slot:item="{list,item,index}">
         <v-runtime-template v-if="item.data.html" :template="item.data.html">
@@ -32,6 +46,7 @@
         {% endfor %}
     </template>
 </p-list>
+{% endwith %}
 
 {% comment %}
 <pepr-bound-collection id-attr="pk" sort-attr="-modified" observe

@@ -13,10 +13,6 @@ export function handle(app, handler, request) {
 }
 
 
-export class Action {
-}
-
-
 /**
  * Action that can be handled by the application.
  */

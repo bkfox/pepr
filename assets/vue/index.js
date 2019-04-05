@@ -1,6 +1,6 @@
 import Vue from 'vue';
 
-import VRuntimeTemplate from './v-runtime-template';
+import VRuntimeTemplate from 'v-runtime-template';
 
 import Action from './action.vue';
 import Alerts from './alerts.vue';

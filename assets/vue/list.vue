@@ -8,7 +8,17 @@
                 :index="index" :item="item"
                 :item-class="itemClass"
                 >
-                <slot name="item" :item="item" :index="index"></slot>
+                <template v-slot:before="scope">
+                    <slot name="beforeItem" v-bind="scope"></slot>
+                </template>
+
+                <template v-slot="scope">
+                    <slot name="item" v-bind="scope"></slot>
+                </template>
+
+                <template v-slot:after="scope">
+                    <slot name="afterItem" v-bind="scope"></slot>
+                </template>
             </p-list-item>
         </div>
 
@@ -172,6 +182,7 @@ export default {
         this.toList(this.$slots.data);
         var self = this;
         console.log('resources', this.resources);
+        console.log(this.$slots, this.$scopedSlots);
         /*if(this.resources)
             window.setTimeout(
                 () => self.resources.load({ query: { limit: 2 }}), 5000

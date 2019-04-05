@@ -8,8 +8,49 @@ Different attributes on widgets are format()ted at rendering with
 
 """
 from django.urls import reverse
+# FIXME: initialize??? should be done with uuid generator
+import random
 
 from .components import Widget, Widgets
+
+
+class ActionWidget(Widget):
+    name = ''
+    """
+    A unique identifier for the action instance.
+    """
+    tag_name = "p-action"
+    tag_attrs = {'class': 'btn-xs btn-light dropdown-item'}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.name:
+            self.name = '{}-{}'.format(self.text or type(self).__name__,
+                                       str(random.random())[2:])
+
+    def get_tag_attrs(self, *args, **kwargs):
+        tag_attrs = super().get_tag_attrs(*args, **kwargs)
+        tag_attrs.setdefault('name', self.name)
+        return tag_attrs
+
+    def render(self, role, *args, as_data=False, **kwargs):
+        if as_data:
+            obj = kwargs.get('object', self.object)
+            return self.can_obj(role, obj) if obj else self.can(role)
+        return super().render(role, *args, **kwargs)
+
+
+class ActionWidgets(Widgets):
+    def render(self, role, *args, as_data=False, **kwargs):
+        if not as_data:
+            return super().render(role, *args, **kwargs)
+
+        items = kwargs.get('items') or self.fetch(role=role, **kwargs)
+        if items:
+            return [item.name
+                    for item in items
+                    if item.render(role, as_data=True, **kwargs)]
+        return []
 
 
 class ListWidget(Widget):
@@ -76,41 +117,6 @@ class LinkWidget(UrlWidgetMixin):
     """
     tag_name = 'a'
     url_attr = 'href'
-
-
-class ActionWidget(UrlWidgetMixin):
-    """
-    Action is a button that send form data over API only. Can be used
-    in dropdown menus too. The widget attribute ``url`` points to an API
-    url.
-    """
-    method = 'POST'
-    """ API call method """
-    action = 'request'
-    """ javascript method to call on click. """
-    handler = None
-    """ action request handler """
-    data = None
-    """ item related to this action """
-
-    tag_name = 'p-action'
-    tag_attrs = {'class': 'btn-xs btn-light dropdown-item'}
-    url_attr = 'path'
-    # template_name = 'pepr/ui/action_widget.html'
-
-    def get_tag_attrs(self, tag_attrs, **kwargs):
-        # FIXME: let user to decide wether he uses binding or value
-        #        for attributes => overwrite tag_attrs
-        for k in ('action', 'method', 'handler'):
-            tag_attrs.setdefault(k, getattr(self, k, None))
-        if self.item:
-            tag_attrs.setdefault(':item', self.item)
-        return super().get_tag_attrs(tag_attrs, **kwargs)
-
-    def __init__(self, *args, method=None, **kwargs):
-        if method is not None:
-            self.method = method
-        super().__init__(*args, **kwargs)
 
 
 class DropdownWidgets(Widgets):

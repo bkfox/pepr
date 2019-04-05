@@ -21,7 +21,7 @@
     </div>
     <div class="col text-right p-2">
         {# slot "container-subscription-menu" view object=context icon="fa-users fas" right=True toggle_class="btn btn-lg btn-primary" #}
-        {% slot "container-settings-menu" view object=context icon="fa-cog fas" right=True toggle_class="btn btn-secondary" %}
+        {% slot view "container-settings-menu" object=context icon="fa-cog fas" right=True toggle_class="btn btn-secondary" %}
     </div>
     {% endblock %}
 </div>
@@ -30,7 +30,7 @@
 {% block main %}
 <div class="row">
     {% if context %}
-    {% slot "container-sidebar" view object=context service=service %}
+    {% slot view "container-sidebar" object=context service=service %}
     {% endif %}
 
     <div class="col-10">

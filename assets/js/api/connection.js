@@ -1,7 +1,8 @@
 // TODO: handle disconnect event from the webbrowser/computer and better
 //       heuristic for reconnect
 import _ from 'lodash';
-import Cookies from 'cookies';
+import Cookies from 'js-cookie';
+
 import Request from './request';
 import Requests from './requests';
 

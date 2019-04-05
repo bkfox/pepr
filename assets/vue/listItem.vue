@@ -1,6 +1,8 @@
 <template>
     <div :class="computedClass" @click="toggleSelect()" @mouseover="focus()">
-        <slot :list="list" :item="item" :index="index" :listitem="this"></slot>
+        <slot name="before" v-bind="scope"></slot>
+        <slot v-bind="scope"></slot>
+        <slot name="after" v-bind="scope"></slot>
     </div>
 </template>
 
@@ -17,6 +19,15 @@ module.exports = {
     computed: {
         list() {
             return this.$parent;
+        },
+
+        scope() {
+            return {
+                list: this.list,
+                listItem: this,
+                index: this.index,
+                item: this.item,
+            }
         },
 
         selector() {

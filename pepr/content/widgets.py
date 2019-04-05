@@ -21,17 +21,16 @@ class ContainerServicesWidget(Widget):
 
 
 class DeleteActionWidget(ActionWidget):
-    action = 'resource:delete'
     text = _('Delete')
     icon = 'fa-trash-alt fas'
     permission_classes = (CanDelete,)
-
-    # url = '{object.api_detail_url}'
-    method = 'DELETE'
-    item = 'item'
-
-    def get_url(self, **kwargs):
-        return None
+    tag_attrs = {
+        'action': 'resource:delete',
+        'method': 'DELETE',
+        ':item': 'item',
+        'ask': _('Do you really want to delete this element?'),
+    }
+    tag_attrs.update(ActionWidget.tag_attrs)
 
 
 class EditActionWidget(ActionWidget):
@@ -39,13 +38,12 @@ class EditActionWidget(ActionWidget):
     icon = 'fa-edit fas'
     permission_classes = (CanUpdate,)
 
-    action = 'resource:form'
-    method = 'GET'
-    handler = 'modal'
-    item = 'item'
-    # url = '{object.api_detail_url}edit_form/'
+    tag_attrs = {
+        'action': 'resource:form',
+        'method': 'GET',
+        'handler': 'modal',
+        ':item': 'item',
 
-    def get_url(self, **kwargs):
-        return None
-
+    }
+    tag_attrs.update(ActionWidget.tag_attrs)
 

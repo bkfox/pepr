@@ -4,7 +4,7 @@ from rest_framework import exceptions
 from rest_framework.views import APIView
 
 from ..api.mixins import SingleObjectMixin
-from .permissions import CanAccess, CanCreate, CanUpdate, CanDelete, IsOwner
+from .permissions import CanAccess, CanCreate, CanUpdate, CanDelete
 
 
 class PermissionMixin:
@@ -18,13 +18,13 @@ class PermissionMixin:
     role. Usage of this feature is up to class user, although a good
     practice is to always define a current permission context.
     """
-    permission_classes = (IsOwner | CanAccess,)
+    permission_classes = (CanAccess,)
     """ Permissions to check as request is being proceeded """
     action_permissions = {
         'GET': permission_classes,
         'POST': (CanCreate,),
-        'PUT': (IsOwner | CanUpdate,),
-        'DELETE': (IsOwner | CanDelete,),
+        'PUT': (CanUpdate,),
+        'DELETE': (CanDelete,),
     }
     """
     Permission to apply for a specific action instead of
@@ -44,8 +44,11 @@ class PermissionMixin:
         return [perm() for perm in permission_classes]
 
     def get_role(self, request, obj=None):
-        """ Return context for the given request and object. """
-        return None
+        """
+        Return context for the given request and object. By default
+        implements getting role from a given context.
+        """
+        return obj.get_role(request.user)
 
     def can(self, role, action=None, throws=False):
         """
@@ -55,7 +58,7 @@ class PermissionMixin:
             (permission for permission in self.get_permissions(action)
              if not permission.can(role)), None
         )
-        if throws and failed is None:
+        if throws and failed is not None:
             raise exceptions.PermissionDenied('permission denied')
         return failed is None
 
@@ -68,7 +71,7 @@ class PermissionMixin:
             (permission for permission in self.get_permissions(action)
              if not permission.can_obj(role, obj)), None
         )
-        if throws and failed is None:
+        if throws and failed is not None:
             raise exceptions.PermissionDenied('permission denied')
         return failed is None
 
@@ -96,9 +99,6 @@ class PermissionViewMixin(PermissionMixin):
         setattr(self, '_object', obj)
         self.role = self.get_role(self.request, obj)
 
-    def get_role(self, request, obj=None):
-        return self.role
-
     def get_permissions(self, action=None):
         action = self.action if action is None else action
         return super().get_permissions(action)
@@ -109,28 +109,33 @@ class PermissionViewMixin(PermissionMixin):
         kwargs.setdefault('context', self.context)
         return super().get_context_data(**kwargs)
 
+    def get_role(self, request=None, obj=None):
+        """
+        Get role for the given context and obj.
+        """
+        if not obj:
+            return self.role
+
+        request = request or getattr(self, 'request', None)
+        obj = obj or getattr(self, 'object', None)
+        role = self.role
+        return role if role and role.context.pk == obj.pk else \
+            obj.get_role(request.user)
+
 
 class ContextViewMixin(PermissionViewMixin):
     """
     View mixin for views that work with a single Context.
     """
-    permission_classes = (CanAccess,)
-
-    def get_role(self, request, obj=None):
-        return super().get_role(request, obj) or \
-            obj and obj.get_role(request.user)
 
 
 class AccessibleViewMixin(PermissionViewMixin):
     """
     View mixin handling Accessible objects permission check.
     """
-    def get_role(self, request, obj=None):
-        role = super().get_role(request, obj)
-        if not role and obj:
-            context = obj.get_context()
-            role = context and context.get_role(request.user)
-        return role
+    def get_role(self, request=None, obj=None):
+        obj = obj or self.object
+        return super().get_role(request, obj and obj.get_context())
 
     def get_queryset(self):
         return self.model.objects.user(self.request.user)

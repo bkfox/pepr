@@ -6,11 +6,11 @@ from channels.layers import get_channel_layer
 from ..api.pubsub import PubsubConsumer
 from ..perms.models import Context
 from .mixins import PermissionMixin
-from .permissions import CanAccess, IsOwner
+from .permissions import CanAccess
 
 
 class AccessiblePubsub(PermissionMixin, PubsubConsumer):
-    permission_classes = (IsOwner | CanAccess,)
+    permission_classes = (CanAccess,)
     context_class = Context
     matches = {
         'context': lambda cls, obj: obj.get_context().pk,

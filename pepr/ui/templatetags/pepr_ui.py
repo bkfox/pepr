@@ -36,8 +36,7 @@ def do_component(context, component, **kwargs):
 
 
 @register.simple_tag(name='slot', takes_context=True)
-def do_slot(context, component, name, fetch=False, slots=None,
-            **kwargs):
+def do_slot(context, component, name, slots=None, **kwargs):
     r"""
     Render a Widgets by slot name (using context's "slots"
     attribute).
@@ -49,31 +48,63 @@ def do_slot(context, component, name, fetch=False, slots=None,
     """
     kwargs.setdefault('sender', context['view'])
     slot = component.slots.get(name)
-    if fetch:
-        return slot and slot.fetch(**kwargs)
     return do_component(context, slot, **kwargs) \
         if slot else ''
 
 
-@register.simple_tag(name='render_slots', takes_context=True)
-def do_render_slots(context, component, *slot_names, **kwargs):
+@register.simple_tag(name='fetch_slot', takes_context=True)
+def do_fetch_slot(context, component, name, slots=None, **kwargs):
+    r"""
+    Render a Widgets by slot name (using context's "slots"
+    attribute).
+
+    :param str name: name of the slot on the container.
+    :param object sender: signal sender.
+    :param bool fetch: if true return fetched items instead of rendering
+    :param \**kwargs: pass thoses values to ``render()``.
     """
-    Call and return ``component.render_slots``.
+    kwargs.setdefault('sender', context['view'])
+    slot = component.slots.get(name)
+    return slot and slot.fetch(**kwargs)
+
+
+@register.simple_tag(name='slots', takes_context=True)
+def do_slots(context, component, *names, **kwargs):
+    """
+    Render slots of the given component.
+    Flowchart: component.render
     """
     kwargs.setdefault('sender', context['view'])
     role = kwargs.pop('role', context['role'])
-    return component.render_slots(role, *slot_names, **kwargs)
+    return component.render_slots(role, *names, **kwargs)
 
 
-@register.simple_tag(name='render_actions', takes_context=True)
-def do_render_actions(context, component, *slot_names, **kwargs):
+@register.simple_tag(name='fetch_slots', takes_context=True)
+def do_fetch_slots(context, component, *names, **kwargs):
     """
-    Call and return ``component.render_slots`` for ActionWidgets slots
-    only.
+    Fetch slots of the given component.
+    Flowchart: component.fetch
     """
-    kwargs.setdefault('slot_class', ActionWidgets)
-    kwargs.setdefault('sender', context['view'])
-    return do_render_slots(context, component, *slot_names, **kwargs)
+    kwargs.setdefault('senter', context['view'])
+    return component.fetch_slots(*names, **kwargs)
+
+
+@register.simple_tag(name='actions', takes_context=True)
+def do_actions(context, component, *names, **kwargs):
+    """
+    Render ActionWidgets slots of the given component.
+    """
+    kwargs['filter_pred'] = lambda k, e: isinstance(e, ActionWidgets)
+    return do_fetch_slots(context, component, *names, **kwargs)
+
+
+@register.simple_tag(name='actions', takes_context=True)
+def do_fetch_actions(context, component, *names, **kwargs):
+    """
+    Fetch ActionWidgets slots of the given component.
+    """
+    kwargs.setdefault('filter_class', ActionWidgets)
+    return do_slots(context, component, *names, **kwargs)
 
 
 #

@@ -4,9 +4,16 @@ TODO
 Todo now
 --------
 
+- modal:
+   - close when no html content => response is json || or just hide() by rendered component,
+     on demand??? how to when request result from a submit event and we need request
+     result before closing
+   - error handling
 - subscriptions:
-   - add subscription access policy on context + adapt queryset for subscriptions
-   - viewset filters => context, access
+   x add subscription access policy on context
+   x adapt queryset for subscriptions -> no need since access and role are different
+   x viewset filters => context, access
+   x Subscription permissions & serializer & endpoint
 - client
    - resources:
       - load from url: reset options
@@ -25,6 +32,10 @@ Todo-ToFix
 ----------
 - utils.strings => camel case to [...], handles cases such as XMLHttpRequest -> xml_http_request
 
+Todo-Doc
+--------
+- Action system
+- pepr_ui templatetags
 
 To-think
 -------

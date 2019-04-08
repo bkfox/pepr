@@ -3,7 +3,9 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
 from . import models
-from .models import Context, Subscription
+from .models import Context, Subscription, \
+        SUBSCRIPTION_INVITATION, SUBSCRIPTION_REQUEST, \
+        SUBSCRIPTION_ACCEPTED
 
 
 class AccessibleSerializer(serializers.ModelSerializer):
@@ -26,7 +28,10 @@ class AccessibleSerializer(serializers.ModelSerializer):
         if user is None and role is None:
             raise RuntimeError('at least `user` or `role` must be given')
 
+        self.role = role
         self.user = role.user if role else user
+
+        # Rule: context can not be changed once assigned
         self.fields['context'].read_only = self.instance is not None
 
     def get_role(self, context):
@@ -35,25 +40,13 @@ class AccessibleSerializer(serializers.ModelSerializer):
             return self.role
         return context.get_role(self.user)
 
-    def before_change(self, role, instance, validated):
-        validated['access'] = min(role.access, validated['access'])
-
-    def before_create(self, role, validated):
-        self.before_change(role, None, validated)
-
-    def before_update(self, role, instance, validated):
-        self.before_change(role, instance, validated)
-
-    def create(self, validated):
-        # FIXME: get_context()
-        self.role = self.get_role(validated['context'])
-        self.before_create(self.role, validated)
-        return super().create(validated)
-
-    def update(self, instance, validated):
-        self.role = self.get_role(instance.get_context())
-        self.before_update(self.role, instance, validated)
-        return super().update(instance, validated)
+    def to_internal_value(self, data):
+        value = super().to_internal_value(data)
+        if self.role is None:
+            context = value['context'] if self.instance is None else \
+                      self.instance.get_context()
+            self.role = self.get_role(context)
+        return value
 
 
 class OwnedSerializer(AccessibleSerializer):
@@ -66,120 +59,117 @@ class OwnedSerializer(AccessibleSerializer):
         """ Return True if model field "owner" can be null """
         return self.model._meta.get_field('owner').null
 
-    def before_change(self, role, instance, validated):
+    def validate(self, data):
         # this should not happen with correct flow. For sugar, we
         # raise a PermissionDenied instead of RuntimeError.
-        if role.is_anonymous and not self.is_owner_optional:
+        if self.role.is_anonymous and not self.is_owner_optional:
             raise PermissionDenied(
-                'Anonymous user can not edit {}'
+                'Anonymous not allowed to edit {}'
                 .format(self.model._meta.verbose_name.lower())
             )
-        super().before_change(role, instance, validated)
+        return super().validate(data)
 
-    def before_create(self, role, validated):
-        super().before_create(role, validated)
-        if not role.is_anonymous:
-            validated['owner'] = role.user
+    def create(self, validated):
+        owner = validated.get('owner')
+        if not self.role.is_anonymous and owner is None:
+            # child class can have overwrite validated['owner']
+            validated['owner'] = self.role.user
+        return super().create(validated)
 
-    def before_update(self, role, instance, validated):
-        super().before_update(role, instance, validated)
-        if not role.is_anonymous and instance.owner is None:
-            validated['owner'] = role.user
+    def update(self, instance, validated):
+        owner = validated.get('owner')
+        if not self.role.is_anonymous and owner is None:
+            validated['owner'] = self.role.user
+        return super().update(instance, validated)
 
 
 # We check object's state transitions inside serializer because it is
 # responsible for data validation. This means that rules that impplies
 # the Subscription object are implemented here.
 class SubscriptionSerializer(OwnedSerializer):
+    """ Serializer class for Subscription instances. """
     class Meta:
         model = Subscription
-        fields = OwnedSerializer.Meta.fields + ('status',)
+        fields = OwnedSerializer.Meta.fields + ('status', 'access', 'role')
         read_only_fields = OwnedSerializer.Meta.read_only_fields
-        extra_kwargs = {'owner': {'required': False}}
-        # TODO/FIXME: add unique validation check; cf. drf doc
-        validators = []
+        extra_kwargs = {
+            'owner': {'required': False, 'allow_null': True}
+        }
 
-    def __init__(self, instance=None, *args, **kwargs):
-        # owner is writable only on create for subscribed. Unsubscribed
-        # role will always be assigned
-        self.fields['owner'].read_only = instance is not None
-        super().__init__(instance, *args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        """
+        :param SUBSCRIPTION_CHOICES status: set status at creation
+        """
+        super().__init__(*args, **kwargs)
 
-    def request_init_kwargs(self, role, init_kwargs):
-        if not role.context.can_request_subscription:
-            raise PermissionDenied(
-                'request not authorized for this context.'
-            )
+        # Rule: invitations require owner to be set
+        self.fields['owner'].read_only = self.instance is not None
 
-        init_kwargs.update({
-            'status': role.context.subscription_policy,
-            'access': role.context.subscription_default_access,
-            'owner': role.user,
-        })
+    def validate_create(self, data):
+        role, is_subscribed = self.role, self.role.is_subscribed
 
-    def before_create_subscribed(self, role, validated):
-        status = validated.get('status')
+        # status validation
+        status = data.setdefault('status', SUBSCRIPTION_REQUEST)
+        is_invite = status is SUBSCRIPTION_INVITATION
+        if status is SUBSCRIPTION_ACCEPTED or \
+                (not is_subscribed and is_invite) or \
+                (is_subscribed and not is_invite):
+            raise ValidationError('invalid status')
 
-        # Rule: subscribed can create only invitation
-        if status != models.SUBSCRIPTION_INVITATION:
-            raise ValidationError('only invitation is authorized.')
-        validated['status'] = models.SUBSCRIPTION_INVITATION
+        owner = data.get('owner')
 
-    def before_create_unsubscribed(self, role, validated):
-        status = validated.get('status')
+        # Rule: Owner are set only for invitations and must be for other
+        #       users.
+        if (is_invite and owner in (None, role.user)) or \
+                not is_invite and owner is not None:
+            raise ValidationError("'owner' is required for invitations "
+                                  "only and must not be request user")
 
-        # Rule: unsubscribed can create only subscription request
-        if status not in (models.SUBSCRIPTION_REQUEST, None):
-            raise ValidationError('only request is authorized')
-        self.request_init_kwargs(role, validated)
+        # role validation
+        # Rule: maximum role access for a subscription depends of the
+        #       context policies for request, otherwise of the current
+        #       user's role.
+        role_max = role.access if is_invite else \
+            role.context.subscription_default_role
+        data['role'] = min(role_max, data.get('role'))
 
-    def before_create(self, role, validated):
-        if role.is_subscribed:
-            self.before_create_subscribed(role, validated)
+    def validate_update(self, data):
+        role, instance = self.role, self.instance
+
+        # status validation
+        # Rule: a subscription status can update only to the same
+        #       value or accepted.
+        # Rule: invitation can't be accepted by others, while
+        #       request can't be accepted by owner.
+        status = data.get('status')
+        if status is SUBSCRIPTION_ACCEPTED:
+            test = instance.status is SUBSCRIPTION_INVITATION \
+                if instance.is_owner(role) else \
+                instance.status is SUBSCRIPTION_REQUEST
         else:
-            self.before_create_unsubscribed(role, validated)
-        super().before_create(role, validated)
+            test = status in (instance.status, None)
 
+        if not test:
+            raise ValidationError("status {} can not become {}"
+                                  .format(instance.status, status))
 
-    def before_update_subscribed(self, role, instance, validated):
-        status = validated.get('status')
+        # role validation
+        # Rule: can't set role higher than the one attributed to user.
+        #
+        # If obj owner is user, use `obj.role` because role can be
+        # DefaultRole (e.g. when an invitation is accepted).
+        role_max = instance.role if instance.is_owner(role) else \
+            role.access
+        data['role'] = min(role_max, data.get('role', instance.role))
 
-        # Rule: subscribed can accept request
-        # Rule: subscribed can update accepted subscription as regular
-        #       Owned object excluding its owner and status
-        if instance.status in (models.SUBSCRIPTION_REQUEST,
-                               models.SUBSCRIPTION_ACCEPTED) and \
-                status == models.SUBSCRIPTION_ACCEPTED:
-            pass
+    def validate(self, data):
+        if self.role.is_anonymous:
+            raise ValidationError('role must not be anonymous')
+
+        if self.instance is None:
+            self.validate_create(data)
         else:
-            raise ValidationError("invalid subscription's update data")
-
-    def before_update_unsubscribed(self, role, instance, validated):
-        if not instance.is_owner(role):
-            raise PermissionDenied('must be owner of the object')
-
-        status = validated.get('status')
-
-        # Rule: unsubscribed can accept an invitation
-        if instance.status == models.SUBSCRIPTION_INVITATION and \
-                status in (models.SUBSCRIPTION_INVITATION,
-                           models.SUBSCRIPTION_ACCEPTED):
-            pass
-        # Rule: unsubscribed can retry to request subscription using
-        #       context policies.
-        elif instance.status == models.SUBSCRIPTION_REQUEST and \
-                status == models.SUBSCRIPTION_REQUEST:
-            self.request_init_kwargs(role, validated)
-        else:
-            raise ValidationError("invalid subscription's update data")
-
-    def before_update(self, role, instance, validated):
-        # TODO: admin -> can it do both? maybe it is a good idea to not care
-        #       about superuser status in order to reduce ambient privilege
-        if role.is_subscribed:
-            self.before_update_subscribed(role, instance, validated)
-        else:
-            self.before_update_unsubscribed(role, instance, validated)
-        super().before_update(role, instance, validated)
+            self.validate_update(data)
+        return super().validate(data)
 
 

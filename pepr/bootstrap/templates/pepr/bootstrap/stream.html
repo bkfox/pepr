@@ -17,12 +17,12 @@
     pubsub-lookup="{{ context.pk }}"
     item-class="box position-relative"
     >
-    {% slot content_comp "menu" role=role fetch=True as content_menu %}
+    {% fetch_slot content_comp "menu" role=role as content_menu %}
 
     <template v-slot:data>
         {% for obj in object_list %}
         {% serialize obj role=role render=False as data %}
-        {% render_actions content_comp "menu" object=obj items=content_menu as_data=True as actions %}
+        {% actions content_comp "menu" object=obj items=content_menu as_data=True as actions %}
         {% merge data actions=actions as data %}
         {{ data|json_script:obj.pk }}
         {% endfor %}

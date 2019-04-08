@@ -7,14 +7,19 @@ Different attributes on widgets are format()ted at rendering with
 (e.g. related to ``self.object``).
 
 """
+import random
+
 from django.urls import reverse
 # FIXME: initialize??? should be done with uuid generator
-import random
 
 from .components import Widget, Widgets
 
 
 class ActionWidget(Widget):
+    """
+    Widget used to render actions. Each instance must have a unique name
+    assigned (if not given, one will be generated).
+    """
     name = ''
     """
     A unique identifier for the action instance.

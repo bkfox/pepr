@@ -7,7 +7,12 @@ from ..utils.register import Register
 from ..utils.metaclass import RegisterMeta
 from ..utils.string import camel_to_snake
 
-from .models import Owned
+from .models import Accessible, Owned
+
+
+__all__ = ['AND', 'OR', 'Permissions', 'PermissionBase',
+           'CanAccess', 'CanObject', 'CanCreate', 'CanUpdate',
+           'CanDelete', 'CanSubscribe', 'CanInvite', 'CanUnsubscribe']
 
 
 class AND(drf_perms.AND):
@@ -93,79 +98,68 @@ class PermissionBase(drf_perms.BasePermission, metaclass=Permissions):
     @classmethod
     def can(cls, role):
         """ Return True if ``role```has permission """
-        return True
+        return role.is_admin or role.is_grantd(cls, None)
 
     @classmethod
     def can_obj(cls, role, obj):
         """ Return True if ``role`` has permission for given obj. """
-        return True
+        # TODO: obj as Context
+        if isinstance(obj, Owned) and obj.is_owner(role):
+            return True
+        if isinstance(obj, Accessible):
+            return role.is_admin or role.has_access(obj.access)
+        return False
 
     def has_permission(self, request, view):
         role = view.get_role(request)
-        return self.can(role)
+        # We return True because if role is not defined, it means that
+        # action occured before we can get the object. Hacky fix.
+        return self.can(role) if role else True
 
     def has_object_permission(self, request, view, obj):
         role = view.get_role(request, obj)
         return self.can_obj(role, obj) if role else False
 
 
-class Can(PermissionBase):
-    """
-    Base class for permission check based on role's granted privileges.
-    """
-    @classmethod
-    def can(cls, role):
-        return role.is_admin or (
-            super(Can, cls).can(role) and
-            role.is_granted(cls, None)
-        )
+# Only declared for module API purposes.
+CanAccess = PermissionBase
 
 
-class CanAccess(PermissionBase):
-    """ Permission to access an accessible object """
-    @classmethod
-    def can_obj(cls, role, obj):
-        # TODO: obj as Context
-        return role.is_admin or role.has_access(obj.access)
-
-
-class IsOwner(PermissionBase):
-    """
-    Permission check for owned objects. If object is not an owned,
-    returns False.
-    """
-    @classmethod
-    def can_obj(cls, role, obj):
-        if isinstance(obj, Owned):
-            # Rule: Owner of an object always control its object
-            if obj.is_owner(role):
-                return True
-
-            # Rule: Role can only edit others' object with <= role access;
-            #       EXCEPT that Admin can not change objects of other Admin
-            if obj.is_saved and not role.is_anonymous and \
-                    obj.owner is not None and obj.owner != role.user:
-                owner_role = obj.get_context().get_role(obj.owner)
-                strict = role.is_admin and owner_role.is_admin
-                return role.has_access(owner_role.access, strict)
-        return False
-
-
-class CanObject(CanAccess):
+class CanObject(PermissionBase):
     """
     Base class for permission check based on role's granted privileges
     on an object.
     """
     @classmethod
-    def can_obj(cls, role, obj):
-        # Rule: Owner of an object always control it
-        if IsOwner.can_obj(role, obj):
+    def test_owned(cls, role, obj):
+        """
+        Test wether role can or not act on object. A boolean value is
+        returned when role is granted or not to act on the object.
+        None is returned when further tests are required.
+
+        Do not use this function unless you've understood how it works.
+        """
+        # Rule: Owner always has control over its content
+        if obj.is_owner(role):
             return True
 
-        return role.is_admin or (
-            super(CanObject, cls).can_obj(role, obj) and
-            role.is_granted(cls, type(obj))
-        )
+        # Rule: Role can only act upon others' object when they have a
+        #       lower privilege level; EXCEPT when both are admin.
+        if obj.is_saved and not role.is_anonymous and \
+                obj.owner is not None and obj.owner != role.user:
+            owner_role = obj.get_context().get_role(obj.owner)
+            strict = role.is_admin and owner_role.is_admin
+            test = role.has_access(owner_role.access, strict)
+            # if role has access, further permissions tests must be
+            # done (role has Permission, etc.).
+            return None if test else False
+
+    @classmethod
+    def can_obj(cls, role, obj):
+        test = cls.test_owned(role, obj) if isinstance(obj, Owned) else\
+               None
+        return False if test is False else \
+            super(CanObject, cls).can_obj(role, obj)
 
 
 class CanCreate(CanObject):
@@ -187,33 +181,55 @@ class CanManage(CanObject):
     name = _('Manage context')
 
 
-class CanRequestSubscription(PermissionBase):
+class CanSubscribe(PermissionBase):
     """
-    Allow unsubscribed to request a subscription.
-    Note: does not check subscription value (done in serializer)
+    User can request subscription on the context assuming ``obj`` is
+    valid.
     """
+    name = _('Subscribe')
+
     @classmethod
     def can_obj(cls, role, obj):
         # Rule: Unsubscribed user can subscribe based on context policy
-        if not role.is_subscribed:
+        #       only, while subscribed can't subscribe.
+        if not role.is_subscribed and not role.is_anonymous:
             return obj.get_context().can_request_subscription
-        return True
+        return False
 
 
-# TODO: also for update
-class CanDeleteSubscription(PermissionBase):
+class CanInvite(CanCreate):
     """
-    Allow unsubscribed to request a subscription.
-    Note: does not check subscription value (done in serializer)
+    User can invite others to context assuming ``obj`` is valid.
     """
+    name = _('Subscribe other users')
+
+    @classmethod
+    def can_obj(cls, role, obj):
+        if role.is_subscribed and not role.is_anonymous:
+            return super().can_obj(role, obj)
+        return False
+
+
+class CanUnsubscribe(CanDelete):
+    """
+    Checks that deletion does not leave the context without admin.
+    """
+    name = _('Unsubscribe')
+
     @classmethod
     def can_obj(cls, role, obj):
         from .models import Subscription
         from .roles import AdminRole
-        if obj.access == AdminRole.access:
+        if role.is_anonymous or \
+                not super(CanUnsubscribe, cls).can_obj(role, obj):
+            return False
+
+        # according to owned's action rules, admin can not delete other
+        # admin's subscription. we put this test here to avoid db call
+        # whenever possible.
+        if obj.role == AdminRole.access:
             qs = Subscription.objects.context(obj.context) \
                                      .access(obj.access)
             return qs.count() > 1
         return False
-
 

@@ -1,41 +1,44 @@
 """
 Models for permission management.
 """
-from functools import lru_cache
-
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.db.models import F, Q
-from django.core.exceptions import ValidationError, PermissionDenied
-from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
 from model_utils.managers import InheritanceQuerySetMixin
 
-from .filters import IsAccessibleFilterBackend
-from .roles import Roles, AnonymousRole, DefaultRole, \
-        AdminRole
+from .roles import Roles, AnonymousRole, DefaultRole, MemberRole
 from ..utils.iter import as_choices
 from ..utils.functional import cached_method
 
 
-SUBSCRIPTION_REQUEST = 1
-SUBSCRIPTION_INVITATION = 2
+SUBSCRIPTION_INVITATION = 1
+SUBSCRIPTION_REQUEST = 2
 SUBSCRIPTION_ACCEPTED = 3
 
 SUBSCRIPTION_CHOICES = (
-    (SUBSCRIPTION_REQUEST, _('Request')),
     (SUBSCRIPTION_INVITATION, _('Invitation')),
+    (SUBSCRIPTION_REQUEST, _('Request')),
     (SUBSCRIPTION_ACCEPTED, _('Accepted')),
 )
 
 
-accessible_access_choices = list(as_choices('access', 'name', Roles.values()))
-subscription_access_choices = [
-    access for access in accessible_access_choices
-    if access[0] > DefaultRole.access
-]
+def access_choices(pred=None):
+    """
+    Return Roles' access as field choices. If ``pred`` is given,
+    use it to filter which access
+    """
+    roles = Roles.values() if pred is None else \
+        (r for r in Roles.values() if pred(r))
+    return list(as_choices('access', 'name', roles))
+
+# Rule: Subscription allowed roles are all with access > than default
+#       role.
+subscription_role_choices = access_choices(
+    lambda r: r.access > DefaultRole.access
+)
 
 
 class ContextQuerySet(InheritanceQuerySetMixin, models.QuerySet):
@@ -65,8 +68,14 @@ class Context(models.Model):
     )
     subscription_default_access = models.SmallIntegerField(
         verbose_name=_("subscription's default role"),
-        choices=subscription_access_choices,
-        blank=True, null=True,
+        choices=subscription_role_choices,
+        default=MemberRole.access,
+        help_text=_('Define who can view user subscriptions.'),
+    )
+    subscription_default_role = models.SmallIntegerField(
+        verbose_name=_("subscription's default role"),
+        choices=subscription_role_choices,
+        default=MemberRole.access,
         help_text=_('Role set by default to new subscribers'),
     )
 
@@ -114,7 +123,7 @@ class Context(models.Model):
             # get role from subscription or from default only if role is
             # not yet given
             if role is None:
-                role = Roles.get(subscription.access) \
+                role = Roles.get(subscription.role) \
                     if subscription and subscription.is_subscribed \
                     else DefaultRole
 
@@ -157,7 +166,7 @@ class AccessibleQuerySet(InheritanceQuerySetMixin, models.QuerySet):
         # registered user
         return (
             # user with registered access
-            Q(context__subscription__access__gte=F('access'),
+            Q(context__subscription__role__gte=F('access'),
               context__subscription__status=SUBSCRIPTION_ACCEPTED,
               context__subscription__owner=user) |
             # user with no access, but who is platform member
@@ -185,16 +194,15 @@ class Accessible(models.Model):
     )
     access = models.SmallIntegerField(
         _('access'), default=0,
-        choices=accessible_access_choices,
-        help_text=_('who has access this element and its content.')
+        choices=access_choices(),
+        help_text=_('People with the given access or higher would be '
+                    'able to access this element.')
     )
-
     objects = AccessibleQuerySet.as_manager()
-    filter_backends = (IsAccessibleFilterBackend,)
 
     @cached_method
     def get_context(self):
-        """ Return self as it real class.  """
+        """ Return context as its real class. """
         return Context.objects.get_subclass(id=self.context_id) \
             if self.context_id is not None else None
 
@@ -255,7 +263,7 @@ class Owned(Accessible):
         Return True if given role is considered the owner of the object.
         """
         return self.is_saved and not role.is_anonymous and \
-                self.owner == role.user
+                self.owner_id == role.user.id
 
 
 class Subscription(Owned):
@@ -277,6 +285,12 @@ class Subscription(Owned):
         choices=SUBSCRIPTION_CHOICES,
         blank=True
     )
+    role = models.SmallIntegerField(
+        _('role'), default=0,
+        choices=subscription_role_choices,
+        help_text=_('Defines the role of the user and his access level '
+                    'to content.')
+    )
 
     class Meta:
         unique_together = ('context', 'owner')
@@ -291,14 +305,10 @@ class Subscription(Owned):
         is given, it overrides ``self.access``.
         """
         if access is None:
-            access = self.access
+            access = self.role
         cls = Roles.get(access)
         return cls(self.context, self.owner, self)
 
- 
-# Rule: Subscription access can not be <= DefaultRole's
-#       -> Enforce access restriction for Subscription
-Subscription._meta.get_field('access').choices = subscription_access_choices
 
 
 class Authorization(Accessible):

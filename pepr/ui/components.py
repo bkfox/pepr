@@ -7,9 +7,8 @@ from django.views.generic.base import ContextMixin, TemplateResponseMixin
 from ..perms.mixins import PermissionMixin
 from ..perms.permissions import CanAccess
 
-from ..utils import slots
 # reimport for API purpose
-from ..utils.slots import Position, Slots
+from ..utils.slots import Position, SlotItem, Slot, Slots
 
 
 class Component(TemplateResponseMixin, ContextMixin, PermissionMixin):
@@ -67,22 +66,32 @@ class Component(TemplateResponseMixin, ContextMixin, PermissionMixin):
             return ''
         return self.get_template().render(context)
 
-    def render_slots(self, role, *slot_names, slot_class=None, **kwargs):
+    def fetch_slots(self, *names, filter_pred=None, filter_strict=False,
+                    **kwargs):
+        """
+        Fetch slots and return them as a dict of `{ name: widgets }`.
+        """
+        slots = self.slots.filter(*names, pred=filter_pred,
+                                  strict=filter_strict)
+        return {name: slot.fetch(**kwargs) for name, slot in slots}
+
+    def render_slots(self, role, *names, filter_pred=None,
+                     filter_strict=False, **kwargs):
         """
         Render slots of the given names or all them and return
 
         :param Role role: user role
-        :param \*slot_names: name of the slots to render
-        :param Class slot_class: only render slot instances of this class
+        :param \*names: filter slots by name
+        :param Class filter_pred: filter slots by predicate
+        :param bool filter_strict: use strict filtering (see \
+            :meth:`pepr.utils.register.Register.filter`)
         :param \**kwargs: render kwargs to pass to render
         """
-        slots = (self.slots.get(name) for name in slot_names) \
-            if slot_names else self.slots
-        # flatten results
+        slots = self.slots.filter(*names, pred=filter_pred,
+                                  strict=filter_strict)
+        # return flatten results
         return list(itertools.chain(*(
-            slot.render(role, **kwargs)
-            for slot in slots
-            if slot and not slot_class or isinstance(slot, slot_class)
+            slot.render(role, **kwargs) for name, slot in slots
         )))
 
     def get_template(self, template_name=None):
@@ -106,7 +115,7 @@ class Component(TemplateResponseMixin, ContextMixin, PermissionMixin):
         return super().get_context_data(role=role, **kwargs)
 
 
-class Widget(slots.SlotItem, Component):
+class Widget(SlotItem, Component):
     """ Base class for Widgets """
     tag_name = ''
     tag_attrs = None
@@ -164,7 +173,7 @@ class Widget(slots.SlotItem, Component):
         return super().get_context_data(**kwargs)
 
 
-class Widgets(slots.Slot, Widget):
+class Widgets(Slot, Widget):
     """
     Widget used to render multiple widgets using the slot system.
     It fetches items in order to pre-render them in ``get_context_data``

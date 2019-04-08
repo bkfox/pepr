@@ -1,4 +1,4 @@
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.views.generic import DetailView, ListView, UpdateView, View
 from django.views.generic.detail import SingleObjectMixin
 from django.utils.translation import ugettext_lazy as _
@@ -168,7 +168,7 @@ class SubscriptionsUpdateView(ServiceView, ContextViewMixin, DetailView):
         for obj in formset.deleted_objects:
             obj.delete(by=self.role)
 
-        return self.get(request, *args, **kwargs)
+        return HttpResponseRedirect(request.path)
 
 
 class ContentListView(AccessibleViewMixin, ServiceView,
@@ -190,7 +190,7 @@ class ContentListView(AccessibleViewMixin, ServiceView,
 
     def get_queryset(self):
         qs = super().get_queryset().select_subclasses() \
-                      .user(self.request.user)
+                    .user(self.request.user)
         if self.context:
             qs = qs.context(self.context)
         return qs

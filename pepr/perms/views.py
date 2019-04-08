@@ -1,12 +1,13 @@
 from django.db import transaction
-from django.views.generic import DetailView, UpdateView
 
 from rest_framework import viewsets
+from rest_framework.decorators import action
+from django_filters.rest_framework import DjangoFilterBackend
 
-from .mixins import PermissionMixin, ContextViewMixin, AccessibleViewMixin
-from .models import Context, Subscription
-from .permissions import CanAccess, CanCreate, CanUpdate, CanDelete, IsOwner, \
-                         CanRequestSubscription, CanDeleteSubscription
+from .mixins import AccessibleViewMixin
+from .models import Subscription, \
+    SUBSCRIPTION_INVITATION
+from .permissions import *
 from .serializers import SubscriptionSerializer
 
 
@@ -25,43 +26,43 @@ class AccessibleViewSet(AccessibleViewMixin, viewsets.ModelViewSet):
     Permission to apply for a specific action instead of
     `self.permissions`.
     """
+    filter_backends = (DjangoFilterBackend,)
+    filterset_fields = ('context', 'access')
 
     def get_serializer(self, *args, **kwargs):
         kwargs.setdefault('user', self.request.user)
         return super().get_serializer(*args, **kwargs)
 
+    # FIXME: with correct serializer this should not be necessary
     @transaction.atomic
     def perform_create(self, serializer):
         super().perform_create(serializer)
-        self.object = serializer.instance
-        self.check_object_permissions(self.request, serializer.instance)
+        # double check that ensure that the object is valid
+        role = self.get_role(obj=serializer.instance)
+        self.can_obj(role, serializer.instance, throws=True)
 
     @transaction.atomic
     def perform_update(self, serializer):
         super().perform_update(serializer)
         # double check that ensures the updated object is still valid
-        self.check_object_permission(self.request, serializer.instance)
+        role = self.get_role(obj=serializer.instance)
+        self.can_obj(role, serializer.instance, throws=True)
 
 
 class OwnedViewSet(AccessibleViewSet):
-    action_permissions = {
-        'retrieve': (IsOwner | CanAccess,),
-        'create': (CanCreate,),
-        'update': (IsOwner | CanUpdate,),
-        'delete': (IsOwner | CanDelete,),
-    }
+    filterset_fields = AccessibleViewSet.filterset_fields + ('owner',)
 
 
 class SubscriptionViewSet(OwnedViewSet):
     model = Subscription
     serializer_class = SubscriptionSerializer
+    filterset_fields = OwnedViewSet.filterset_fields + ('role', 'status')
     action_permissions = {
-        'retrieve': (IsOwner | CanAccess,),
-        'create': (CanCreate, CanRequestSubscription),
-        'update': (IsOwner | CanUpdate,),
-        'delete': (IsOwner | CanDelete, CanDeleteSubscription),
+        'retrieve': (CanAccess,),
+        'invite': (CanInvite,),
+        'create': (CanSubscribe,),
+        'update': (CanUpdate,),
+        'delete': (CanUnsubscribe),
     }
-
-    # TODO: add actions: invite, request
 
 

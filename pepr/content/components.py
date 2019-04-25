@@ -13,8 +13,12 @@ class ContentComp(Component):
         ActionWidgets(
             'menu',
             tag_attrs={'right': True, 'toggle-class': 'btn-light'},
-            items=[EditActionWidget(),
-                   DeleteActionWidget()],
+            items=[
+                EditActionWidget(tag_attrs={'class': 'dropdown-item'}),
+                DeleteActionWidget(tag_attrs={
+                    'class': 'dropdown-item bg-danger text-light'
+                }),
+            ],
         )
     ])
 

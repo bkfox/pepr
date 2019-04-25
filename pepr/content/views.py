@@ -8,21 +8,71 @@ from django_filters import rest_framework as filters_drf, \
 from rest_framework import viewsets
 from rest_framework.decorators import action
 
-from ..perms.forms import SubscriptionFormSet
 from ..perms.mixins import PermissionMixin, ContextViewMixin, \
         AccessibleViewMixin
-from ..perms.views import AccessibleViewSet
+from ..perms.models import Subscription
+from ..perms.views import ContextViewSet, AccessibleViewSet, \
+        SubscriptionViewSet
 from ..ui.views import SiteView
 from ..ui.components import Slots, Widgets
-from ..ui.widgets import DropdownLinkWidget, DropdownWidgets
+from ..ui.widgets import ActionWidget, ActionWidgets, \
+        DropdownLinkWidget, DropdownWidgets
 
 from .components import ContentFormComp
 from .filters import ContentFilter
 from .forms import ContainerForm
 from .models import Container, Content, Service
-from .serializers import ContentSerializer
-from .widgets import ContainerServicesWidget
+from .serializers import ContentSerializer, ContainerSerializer
+from .widgets import ContainerServicesWidget, DeleteActionWidget
 
+
+# __all__ = [
+#    'ContentViewSet', 'ContainerViewSet',
+#]
+
+
+#
+# API
+#
+class ContentViewSet(AccessibleViewSet):
+    """
+    Model ViewSet for Content elements.
+    """
+    model = Content
+    serializer_class = ContentSerializer
+    form_comp = ContentFormComp()
+    filter_backends = (filters_drf.DjangoFilterBackend,)
+    filterset_fields = (
+        'modified', 'created', 'context', 'modifier', 'owner', 'text'
+    )
+
+    @classmethod
+    def register_to(cls, router):
+        """
+        Register this viewset to the given router; it should be used in
+        order to provide consistent interfaces and urls using model's
+        informations (``Content.url_basename`` and ``Content.url_prefix```)
+        """
+        return router.register(cls.model.url_prefix, cls,
+                               cls.model.url_basename)
+
+    @action(detail=True)
+    def form(self, request, pk=None):
+        """ Render an edit form for the given object """
+        instance = self.get_object()
+        role = instance.get_context().get_role(request.user)
+        content = self.form_comp.render(role, instance)
+        return HttpResponse(content=content)
+
+
+class ContainerViewSet(ContextViewSet):
+    model = Container
+    serializer_class = ContainerSerializer
+
+
+#
+# Client views
+#
 
 class ServiceView(PermissionMixin, SiteView):
     """
@@ -39,13 +89,15 @@ class ServiceView(PermissionMixin, SiteView):
                 DropdownLinkWidget(
                     text=_("Subscriptions"), icon="fa-user-friends fas",
                     url_name='pepr.container.subscriptions',
-                    url_kwargs=lambda s, object, **kwargs: {'pk': str(object.pk)},
+                    url_kwargs=lambda s, object, **kw: {'pk': str(object.pk)},
+                    pred=lambda s, object=None, **kw: object is not None
                     # required_perm='manage',
                 ),
                 DropdownLinkWidget(
                     text=_("Settings"), icon="fa-cog fas",
                     url_name='pepr.container.settings',
                     url_kwargs=lambda s, object, **kwargs: {'pk': str(object.pk)},
+                    pred=lambda s, object=None, **kw: object is not None
                     # required_perm='manage',
                 )
             ]
@@ -67,7 +119,7 @@ class ServiceView(PermissionMixin, SiteView):
         return super().dispatch(request, *args, service=service, **kwargs)
 
 
-class ContainerServiceView(SingleObjectMixin, View):
+class ServiceDetailView(SingleObjectMixin, View):
     """
     Fetch service by ``slug`` or ``pk`` and call corresponding
     ServiceView. Theses are given with ``service_pk`` and
@@ -91,12 +143,11 @@ class ContainerServiceView(SingleObjectMixin, View):
             kwargs = {'slug': self.kwargs['service_slug']}
         else:
             kwargs = {}
-
         return self.service_model.objects \
-                   .select_subclasses() \
-                   .filter(context=self.object, **kwargs) \
                    .user(self.request.user) \
-                   .order_by('-is_default')
+                   .order_by('-is_default') \
+                   .filter(context=self.object, **kwargs) \
+                   .select_subclasses()
 
     def get_service(self):
         """ Return service for current request. """
@@ -106,7 +157,7 @@ class ContainerServiceView(SingleObjectMixin, View):
         self.object = self.get_object()
         service = self.get_service()
         if not service:
-            raise Http404('not found')
+            raise Http404()
         view = service.as_view()
         return view(request, *args, context=self.object,
                     service=service, **kwargs)
@@ -138,37 +189,30 @@ class ContainerUpdateView(ServiceView, ContextViewMixin, UpdateView):
 class SubscriptionsUpdateView(ServiceView, ContextViewMixin, DetailView):
     # TODO: permission_classes = tuple()
     model = Container
-    formset_class = SubscriptionFormSet
     template_name = 'pepr/content/subscriptions_form.html'
+    slots = Slots(ServiceView.slots, [
+        ActionWidgets(
+            'item_actions',
+            items=[
+                ActionWidget(
+                    text=_('Accept'),
+                    tag_attrs={'action': 'resource:api',
+                               'api_action': 'accept',
+                               'path': 'accept/',
+                               'method': 'PUT',
+                               ':item': 'item',
+                               'class': 'btn btn-sm btn-success'}
+                ),
+                DeleteActionWidget(),
+            ]
+        )
+    ])
 
-    def get_formset_queryset(self):
-        return self.formset_class.model.objects \
-                   .context(self.context) \
-                   .user(self.request.user) \
-                   .select_related('owner')
-
-    def get_formset(self, **initkwargs):
-        initkwargs.setdefault('form_kwargs', {'role': self.role})
-        if 'queryset' not in initkwargs:
-            initkwargs['queryset'] = self.get_formset_queryset()
-        return self.formset_class(**initkwargs)
-
-    def get_context_data(self, **kwargs):
-        if not 'formset' in kwargs:
-            kwargs['formset'] = self.get_formset()
-        return super().get_context_data(**kwargs)
-
-    def post(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        formset = self.get_formset(data=request.POST)
-        if not formset.is_valid():
-            raise ValueError('invalid form data')
-
-        formset.save()
-        for obj in formset.deleted_objects:
-            obj.delete(by=self.role)
-
-        return HttpResponseRedirect(request.path)
+    def get_context_data(self, roles=None, statuses=None, **kwargs):
+        roles = roles or Subscription._meta.get_field('role').choices
+        statuses = statuses or Subscription._meta.get_field('status').choices
+        return super().get_context_data(roles=roles, statuses=statuses,
+                                        **kwargs)
 
 
 class ContentListView(AccessibleViewMixin, ServiceView,
@@ -180,6 +224,7 @@ class ContentListView(AccessibleViewMixin, ServiceView,
     filterset_class = ContentFilter
     filterset_fields = ('modified', 'created')
     strict = False
+    viewset = ContentViewSet
 
     def get_filterset_kwargs(self, filterset_class):
         kwargs = super().get_filterset_kwargs(filterset_class)
@@ -199,43 +244,12 @@ class ContentListView(AccessibleViewMixin, ServiceView,
     def get_content_slots(self):
         return self.model.get_component_class().slots
 
-    def get_context_data(self, content_slots=None, **kwargs):
+    def get_context_data(self, content_slots=None, viewset=None,
+                         **kwargs):
         return super().get_context_data(
             content_slots=content_slots or self.get_content_slots(),
+            viewset=viewset or self.viewset,
             **kwargs
         )
 
-
-#
-# API
-#
-class ContentViewSet(AccessibleViewSet):
-    """
-    Model ViewSet for Content elements.
-    """
-    model = Content
-    serializer_class = ContentSerializer
-    form_comp = ContentFormComp()
-    filter_backends = (filters_drf.DjangoFilterBackend,)
-    filterset_fields = ContentListView.filterset_fields + (
-        'context', 'modifier', 'owner', 'text'
-    )
-
-    @classmethod
-    def register_to(cls, router):
-        """
-        Register this viewset to the given router; it should be used in
-        order to provide consistent interfaces and urls using model's
-        informations (``Content.url_basename`` and ``Content.url_prefix```)
-        """
-        return router.register(cls.model.url_prefix, cls,
-                               cls.model.url_basename)
-
-    @action(detail=True)
-    def form(self, request, pk=None):
-        """ Render an edit form for the given object """
-        instance = self.get_object()
-        role = instance.get_context().get_role(request.user)
-        content = self.form_comp.render(role, instance)
-        return HttpResponse(content=content)
 

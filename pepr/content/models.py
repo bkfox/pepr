@@ -176,9 +176,7 @@ class Service(UserWidget):
     icon='fa-align-justify fa'
 
     def as_view(self):
-        """
-        Return view instance for this request.
-        """
+        """ Return view function for this request.  """
         import inspect
         if inspect.isclass(self.view):
             return self.view.as_view()

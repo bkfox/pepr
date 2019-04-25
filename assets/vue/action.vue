@@ -1,6 +1,14 @@
 <template>
-    <button @click="onClick" v-if="visible">
-        <slot></slot>
+    <button @click="onClick" v-if="visible"
+        :aria-label="title" :aria-description="description"
+        :title="description">
+        <slot v-if="$slots.default">
+        </slot>
+        <span v-else>
+            <span :class="['fas', icon]">
+            </span>
+            {{ title }}
+        </span>
     </button>
 </template>
 
@@ -8,42 +16,45 @@
 export default {
     props: {
         // informations
-        name: { type: String },
         icon: { type: String },
         title: { type: String },
         description: { type: String },
 
         // 'action' event
         action: { type: String },
-        path: { type: String },
+        api_action: { type: String },
         ask: { type: String, default: null },
+
+        // common action arguments
+        kwargs: { type: Object, default: () => {} },
+        path: { type: String },
         item: { type: Object, default: null },
         handler: { type: [Object,String] },
-        payload: { type: Object, default: () => {} },
+        payload: { type: Object, default: null },
         method: { type: String },
-        kwargs: { type: Object, default: () => {} },
     },
 
     computed: {
         visible() {
-            var data = this.item.data;
-            var r = !data || data.actions && data.actions.includes(this.name);
-            console.log(this.item, r, this.name);
+            var data = this.item && this.item.data;
+            var r = !data || (data.api_actions && data.api_actions.includes(this.api_action));
             return r;
         }
     },
 
     methods: {
         onClick(event) {
+            console.log(this.path)
             const ev = Object.assign({
                 action: this.action,
+                ask: this.ask,
                 path: this.path,
                 item: this.item,
                 handler: this.handler,
                 payload: Object.assign(this.payload || {}, {method: this.method}),
-                ask: this.ask
             }, this.kwargs);
-            this.$root.action(ev);
+            ev.request = this.$root.action(ev);
+            this.$emit('action', ev)
         },
     },
 }

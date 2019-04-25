@@ -3,7 +3,6 @@ from ..content.forms import ContentForm
 from ..content.components import ContentFormComp
 from ..content.views import ContentListView
 # from ..ui.components import Slots, Widgets
-from ..ui.widgets import BoundCollectionWidget
 
 
 # FIXME: using ListView

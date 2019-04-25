@@ -9,8 +9,17 @@ import Requests from './requests';
 
 /**
  * Call `fetch` with various initialization in order to ease our lifes.
+ *
+ * Option extra arguments:
+ * - query: extra URLSearchParams
+ * 
  */
 export function fetch_api(url, options={}) {
+    if(options.query) {
+        var query = new URLSearchParams(options.query);
+        url += '?' + query.toString();
+    }
+
     const headers = options.headers || {};
     if(headers['X-CSRFToken'] === undefined)
         headers['X-CSRFToken'] = Cookies.get('csrftoken')
@@ -22,12 +31,15 @@ export function fetch_api(url, options={}) {
 
 /**
  *  Call `fetch` for sending JSON data.
+ *
+ *  Option values:
+ *  - ``body``: will be stringified if it is not a string
  */
 export function fetch_json(url, options) {
-    options.headers = options.headers || {}
+    options.headers = options.headers || {};
     options.headers['Content-Type'] = 'application/json';
     if(options.body && typeof options.body != 'string')
-        options.body = JSON.stringify(data)
+        options.body = JSON.stringify(options.body)
     return fetch_api(url, options)
 }
 

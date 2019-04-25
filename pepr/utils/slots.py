@@ -1,6 +1,6 @@
 """ This module provides basic mechanism for slots.  """
 from enum import IntEnum
-import itertools
+from itertools import chain
 
 from django.dispatch import Signal
 
@@ -36,10 +36,17 @@ class SlotItem:
     """
     Sort order in the rendered items
     """
+    predicate = None
+    """
+    If given, slot is fetched if `predicate(slot_item, **signal_kwargs)`
+    is True only.
+    """
 
-    def __init__(self, position=Position.Default, order=0, **kwargs):
+    def __init__(self, position=Position.Default, order=0, pred=None,
+                 **kwargs):
         self.position = position
         self.order = order
+        self.predicate = pred
         super().__init__(**kwargs)
 
     def __lt__(self, b):
@@ -120,29 +127,24 @@ class Slot:
 
         :param sender: signal sender (if None, use self)
         :param items: add thoses items to the returned ones
-        :param \**kwargs: 'kwargs' attribute to pass to receivers
+        :param \**signal_kwargs: arguments to pass to signal trigger
         """
         items = items or []
-        signal_kwargs = {
-            k: v for k, v in signal_kwargs.items()
-            if k in self.signal_args
-        }
-
         results = (
             v for r, v in self.trigger(
                 sender, items=items, **signal_kwargs)
             if isinstance(v, SlotItem)
         )
 
+        # TODO/FIXME: defaults for self.items?
+        items = (i for i in chain(self.items, items, results)
+                 if i.predicate is None or
+                 i.predicate(i, **signal_kwargs))
+
         # when there is only self.items, we return them immediately
         # since they are yet sorted.
-        try:
-            items.append(next(results))
-        except StopIteration:
-            if not items:
-                return self.items
-
-        items = itertools.chain(self.items, items, results)
+        if next(results, None) is not None and not items:
+            return items
         return sorted(items)
 
 
@@ -170,3 +172,12 @@ class Slots(Register):
         """ Disconnect a receiver from all slots """
         for slot in self.entries:
             slot.disconnect(receiver)
+
+    def fetch(self, *names, _pred=None, _strict=False, **kwargs):
+        """
+        Fetch and return slots filtered using given arguments.
+        ``**kwargs`` is passed down to ``fetch()``.
+        """
+        slots = self.filter(*names, pred=_pred, strict=_strict)
+        return {name: slot.fetch(**kwargs) for name, slot in slots}
+

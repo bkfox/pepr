@@ -1,30 +1,28 @@
 <template>
-    <div :class="listClass">
-        <slot name="before"></slot>
+    <div>
+        <slot name="header"></slot>
 
-        <div ref="list">
-            <p-list-item v-for="(item, index) in items"
-                ref="items" :key="item[itemKey]"
-                :index="index" :item="item"
-                :item-class="itemClass"
-                >
-                <template v-slot:before="scope">
-                    <slot name="beforeItem" v-bind="scope"></slot>
-                </template>
+        <p-list-item v-for="(item, index) in items"
+            ref="items" :key="item.key"
+            :index="index" :item="item"
+            :item-class="itemClass"
+            >
+            <template v-slot:before="scope">
+                <slot name="beforeItem" v-bind="scope"></slot>
+            </template>
 
-                <template v-slot="scope">
-                    <slot name="item" v-bind="scope"></slot>
-                </template>
+            <template v-slot="scope">
+                <slot name="item" v-bind="scope"></slot>
+            </template>
 
-                <template v-slot:after="scope">
-                    <slot name="afterItem" v-bind="scope"></slot>
-                </template>
-            </p-list-item>
-        </div>
+            <template v-slot:after="scope">
+                <slot name="afterItem" v-bind="scope"></slot>
+            </template>
+        </p-list-item>
 
         <slot></slot>
 
-        <slot name="after"></slot>
+        <slot name="footer"></slot>
     </div>
 </template>
 
@@ -40,20 +38,15 @@ import Resources from 'pepr/api/resources';
 export default {
     props: {
         /**
-         * connection [property] Connection used to send requests
-         * @type {Connection}
-         */
-        connection: { type: Object },
-        /**
          * url [property] Property
          * @type {String}
          */
         path: { type: String, default: null },
         /**
-         * query [property] Extra parameter to pass to GET items from the server.
-         * @type {Object}
+         * Form used for filtering the list results
          */
-        query: { type: Object, default: () => {} },
+        query: { type: Object, default: () => {}},
+
         /**
          * path [property] Path to use for pubsub endpoint. By default, component's `path + '/pubsub/'`
          * @type {String}
@@ -81,15 +74,10 @@ export default {
          */
         itemKey: { type: String, default: 'pk' },
         /**
-         * listClass [property] List class
-         * @type {String}
-         */
-        listClass: { type: String, default: 'list-group' },
-        /**
          * itemClass [property] Item class
          * @type {String}
          */
-        itemClass: { type: String, default: 'list-group' },
+        itemClass: { type: String },
     },
 
     // TODO: watch connection, path, items, pubsubFilter, path => pubsubPath, pubsubLookup
@@ -112,6 +100,12 @@ export default {
         };
     },
 
+    computed: {
+        connection() {
+            return this.$root && this.$root.connection
+        }
+    },
+
     methods: {
         /**
          * Reset resources
@@ -127,6 +121,16 @@ export default {
                 this.resetPubsub(true);
             }
             return this.resources;
+        },
+
+        /**
+         * Reload list using given form's data as query parameters.
+         */
+        formFilter(form) {
+            this.resources.load({
+                reset: true,
+                query: new FormData(form)
+            });
         },
 
         /**
@@ -178,15 +182,10 @@ export default {
 
     mounted() {
         this.resetResources(true);
-        console.log('init to list', this.$slots);
         this.toList(this.$slots.data);
-        var self = this;
-        console.log('resources', this.resources);
-        console.log(this.$slots, this.$scopedSlots);
-        /*if(this.resources)
-            window.setTimeout(
-                () => self.resources.load({ query: { limit: 2 }}), 5000
-            )*/
+
+        if(!this.items.length && this.resources)
+            this.resources.load()
     },
 };
 </script>

@@ -31,6 +31,8 @@ Todo now
 Todo-ToFix
 ----------
 - utils.strings => camel case to [...], handles cases such as XMLHttpRequest -> xml_http_request
+- perms/content/..., context.get_role called multiple times when retrieving multiple
+    objects for the same context
 
 Todo-Doc
 --------

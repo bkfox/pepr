@@ -1,10 +1,12 @@
-from django.views import View
+from django.views.generic.base import ContextMixin, View
 
 from ..utils.slots import Slots
 from .components import Widgets
 
+__all__ = ['SiteView']
 
-class SiteView(View):
+
+class SiteView(ContextMixin, View):
     """
     Base view for rendering the website. This can be inherited by other
     views in order to have common slots and other things.
@@ -22,5 +24,6 @@ class SiteView(View):
             'standalone',
             self.can_standalone and 'standalone' in self.request.GET
         )
+        kwargs.setdefault('view', self)
         return super().get_context_data(*args, **kwargs)
 

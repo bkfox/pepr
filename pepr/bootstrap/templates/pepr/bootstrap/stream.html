@@ -17,13 +17,9 @@
     pubsub-lookup="{{ context.pk }}"
     item-class="box position-relative"
     >
-    {% fetch_slot content_comp "menu" role=role as content_menu %}
-
     <template v-slot:data>
         {% for obj in object_list %}
-        {% serialize obj role=role render=False as data %}
-        {% actions content_comp "menu" object=obj items=content_menu as_data=True as actions %}
-        {% merge data actions=actions as data %}
+        {% serialize obj role=role render=False viewset=viewset as data %}
         {{ data|json_script:obj.pk }}
         {% endfor %}
     </template>
@@ -32,7 +28,7 @@
     <template slot="beforeItem" slot-scope="{list,item,index}">
         <b-dropdown right class="float-right" style="right: 0"
             toggle-class="btn-light">
-            {% slot content_comp "menu" items=content_menu toggle_class="btn btn-light" %}
+            {% slot content_comp "menu" toggle_class="btn btn-light" %}
         </b-dropdown>
     </template>
 

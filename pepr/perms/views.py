@@ -1,14 +1,29 @@
 from django.db import transaction
+from django.http import Http404
 
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .mixins import AccessibleViewMixin
-from .models import Subscription, \
-    SUBSCRIPTION_INVITATION
+from .mixins import ContextViewMixin, AccessibleViewMixin
+from .models import Subscription, STATUS_ACCEPTED
 from .permissions import *
 from .serializers import SubscriptionSerializer
+
+
+class ContextViewSet(ContextViewMixin, viewsets.ModelViewSet):
+    action_permissions = {
+        'retrieve': (CanAccess,),
+        'create': (CanCreate,),
+        'update': (CanUpdate,),
+        'delete': (CanDelete,),
+    #    'subscribe': (CanSubscribe,),
+    }
+
+    def get_serializer(self, *args, **kwargs):
+        kwargs.setdefault('user', self.request.user)
+        return super().get_serializer(*args, **kwargs)
 
 
 class AccessibleViewSet(AccessibleViewMixin, viewsets.ModelViewSet):
@@ -59,10 +74,23 @@ class SubscriptionViewSet(OwnedViewSet):
     filterset_fields = OwnedViewSet.filterset_fields + ('role', 'status')
     action_permissions = {
         'retrieve': (CanAccess,),
-        'invite': (CanInvite,),
         'create': (CanSubscribe,),
         'update': (CanUpdate,),
-        'delete': (CanUnsubscribe),
+        'accept': (CanAcceptSubscription,),
+        'delete': (CanUnsubscribe,),
     }
+
+
+    @action(detail=True, methods=['PUT'])
+    def accept(self, request, pk=None):
+        self.object = obj = self.get_object()
+        if not obj:
+            raise Http404
+
+        obj.status = STATUS_ACCEPTED
+        obj.save()
+
+        serializer = self.get_serializer(user=request.user, instance=obj)
+        return Response(data=serializer.data)
 
 

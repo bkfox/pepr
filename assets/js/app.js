@@ -12,6 +12,7 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
 
 import Connection from './api/connection';
+import Resource from './api/resource';
 import User from './pepr/user';
 import conf from './conf';
 import actions from './actions';
@@ -20,20 +21,67 @@ import '../css/pepr.css';
 import '../css/noscript.css';
 
 
+var AppComp = Vue.extend({
+/*    props: {
+        'contextEndpoint': { type: String },
+        'contextKey': { type: String },
+    },*/ // -> does not work for root app
+
+    data() {
+        return {
+            context: null,
+            contextEndpoint: null,
+            contextKey: null,
+        }
+    },
+
+    computed: {
+        role() { return this.context && this.context.data.role; },
+        subscription() { return this.role && this.role.subscription; },
+    },
+
+    methods: {
+        loadContext(endpoint, key) {
+            this.contextEndpoint = endpoint;
+            this.contextKey = key;
+
+            const self = this;
+            if(this.contextEndpoint && this.contextKey)
+                Resource.load(this.contextEndpoint, this.contextKey)
+                    .then(resource => { self.context = resource; });
+        },
+
+        subscribe(context=null) {
+        },
+
+        unsubscribe(context=null) {
+        },
+    },
+
+    mounted() {
+        var { contextEndpoint=null, contextKey=null } = this.$el.dataset;
+        if(contextEndpoint && contextKey)
+            this.loadContext(contextEndpoint, contextKey)
+    },
+})
+
 export var appConf = {
     el: '#app',
+    // TODO/FIXME: remove
+    delimiters: ['[[', ']]'],
+
     data: {
         connection: undefined,
         user: undefined,
         actions: actions,
     },
-    // TODO: remove
-    delimiters: ['[[', ']]'],
+
+    computed: {
+    },
 
     created() {
         this.connection = new Connection(conf.connection);
         this.connection.connect();
-
         this.user = new User(this.connection);
     },
 
@@ -85,7 +133,7 @@ export var appConf = {
 var app = null;
 
 window.addEventListener('load', function() {
-    app = new Vue(appConf);
+    app = new AppComp(appConf);
 }, true);
 
 

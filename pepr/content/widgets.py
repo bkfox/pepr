@@ -23,27 +23,26 @@ class ContainerServicesWidget(Widget):
 class DeleteActionWidget(ActionWidget):
     text = _('Delete')
     icon = 'fa-trash-alt fas'
-    permission_classes = (CanDelete,)
     tag_attrs = {
         'action': 'resource:delete',
+        'api_action': 'delete',
         'method': 'DELETE',
         ':item': 'item',
         'ask': _('Do you really want to delete this element?'),
     }
     tag_attrs.update(ActionWidget.tag_attrs)
+    tag_attrs['class'] = tag_attrs['class'] + ' btn-danger'
 
 
 class EditActionWidget(ActionWidget):
     text = _('Edit')
     icon = 'fa-edit fas'
-    permission_classes = (CanUpdate,)
-
     tag_attrs = {
         'action': 'resource:form',
+        'api_action': 'update',
         'method': 'GET',
         'handler': 'modal',
         ':item': 'item',
-
     }
     tag_attrs.update(ActionWidget.tag_attrs)
 

@@ -11,6 +11,15 @@ from ..perms.permissions import CanAccess
 from ..utils.slots import Position, SlotItem, Slot, Slots
 
 
+def render_slots(role, slots, *names, _pred=None,
+                 _strict=False, **kwargs):
+    slots = slots.filter(*names, pred=_pred, strict=_strict)
+    return list(itertools.chain(*(
+        slot.render(role, **kwargs) for name, slot in slots
+        if slot
+    )))
+
+
 class Component(TemplateResponseMixin, ContextMixin, PermissionMixin):
     """
     A Component is an element that aims to be rendered in other views.
@@ -33,7 +42,7 @@ class Component(TemplateResponseMixin, ContextMixin, PermissionMixin):
     object = None
     """ Object """
 
-    permission_classes = (CanAccess,)
+    permission_classes = tuple()
     action_permissions = None
 
     def __init__(self, **kwargs):
@@ -74,25 +83,6 @@ class Component(TemplateResponseMixin, ContextMixin, PermissionMixin):
         slots = self.slots.filter(*names, pred=filter_pred,
                                   strict=filter_strict)
         return {name: slot.fetch(**kwargs) for name, slot in slots}
-
-    def render_slots(self, role, *names, filter_pred=None,
-                     filter_strict=False, **kwargs):
-        """
-        Render slots of the given names or all them and return
-
-        :param Role role: user role
-        :param \*names: filter slots by name
-        :param Class filter_pred: filter slots by predicate
-        :param bool filter_strict: use strict filtering (see \
-            :meth:`pepr.utils.register.Register.filter`)
-        :param \**kwargs: render kwargs to pass to render
-        """
-        slots = self.slots.filter(*names, pred=filter_pred,
-                                  strict=filter_strict)
-        # return flatten results
-        return list(itertools.chain(*(
-            slot.render(role, **kwargs) for name, slot in slots
-        )))
 
     def get_template(self, template_name=None):
         """

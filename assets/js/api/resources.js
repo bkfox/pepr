@@ -3,14 +3,22 @@ import Vue from 'vue';
 
 import Pubsub from './pubsub';
 import Resource from './resource';
+import {fetch_json} from './connection';
 
 
-export default class Resources {
-    constructor(connection, path, key, items=[], query={})
-    {
+export class ResourcesInfo {
+    constructor(connection, path, keyAttr) {
         this.connection = connection;
         this.path = path;
-        this.key = key;
+        this.keyAttr = keyAttr;
+    }
+}
+
+
+class Resources extends ResourcesInfo {
+    constructor(connection, path, keyAttr, items=[], query={})
+    {
+        super(connection, path, keyAttr)
         this.items = items;
         this.query = query;
         this.nextUrl = null;
@@ -25,7 +33,8 @@ export default class Resources {
     }
 
     asResource(item) {
-        return item instanceof Resource ? item : new Resource(this, item);
+        return item instanceof Resource ? item
+            : new Resource(this.path, item[this.keyAttr], item, this);
     }
 
     /**
@@ -34,6 +43,14 @@ export default class Resources {
     indexOf(item) {
         var value = this.asResource(item).key;
         return this.items.findIndex(obj => obj.key == value);
+    }
+
+    /**
+     * Return current item corresponding to the given one
+     */
+    find(item) {
+        var value = this.asResource(item).key;
+        return this.items.find(obj => obj.key == value);
     }
 
     /**
@@ -68,13 +85,11 @@ export default class Resources {
      */
     update(item) {
         item = this.asResource(item);
-        var currentIndex = this.indexOf(item);
-        if(currentIndex == -1) {
-            this.items.push(item);
-            return item;
-        }
-        Vue.set(this.items[currentIndex], 'data', item.data);
-        return item;
+        const resource = this.find(item);
+        if(!resource)
+            return this.items.push(item);
+        Vue.set(resource, 'data', item.data)
+        return resource;
     }
 
     /**
@@ -104,32 +119,40 @@ export default class Resources {
 
     /**
      *  Get items from the given address and add them to resources.
+     *  Options is passed down to `fetch_json` method.
+     *
+     *  Extra `options` values:
+     *  - reset: reset items and list before loading.
      */
-    get(path, payload=null, reset=false) {
-        payload = payload || {};
-        payload.query = payload.query || {};
+    get(path, options={}, reset=false) {
+        options = options || {};
+        options.query = options.query || {};
+
+        if(options.reset)
+            this.reset();
 
         // TODO: payload setdefault || \E lodash setdefault ???
         //       -> requests.set(Payload|Query)Default
-        var req = this.connection.request(path, payload);
+        var req = fetch_json(path, options);
 
         var self = this;
-        req.then(function(message) {
-            var data = message.data;
+        req.then(function(response) {
+            return response.json()
+        }).then(function(data) {
             self.nextUrl = data.next;
             self.previousUrl = data.previous;
-            // TODO: as Resource
-            self.items.push(...data.results);
+            for(var resource of data.results)
+                self.update(resource);
         })
         return req;
     }
 
     /**
-     *  Load items from server
+     *  Load items from the server.
      */
-    load(payload=null, ...args) {
-        payload = _.merge({ query: this.query }, payload || {});
-        return this.get(this.path, payload, ...args)
+    load(options={}, ...args) {
+        options = _.merge({ query: this.query }, options);
+        return this.get(this.path, options, ...args)
     }
 
     /**
@@ -137,7 +160,7 @@ export default class Resources {
      */
     next(...args) {
         if(this.nextUrl)
-            return this.get(this.nextUrl, payload, ...args);
+            return this.get(this.nextUrl, ...args);
     }
 
     /**
@@ -171,4 +194,7 @@ export default class Resources {
             this.pubsub.unsubscribe();
     }
 }
+
+
+export default Resources;
 

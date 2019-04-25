@@ -19,7 +19,11 @@
         </noscript>
     </head>
     <body>
-        <div id="app" @submit="onSubmit" v-on:action="action">
+        <div id="app" @submit="onSubmit" v-on:action="action"
+             {% if context %}
+             data-context-endpoint="{% url "container-list" %}"
+             data-context-key="{{ context.pk }}"
+             {% endif %}>
             <p-modal id="modal" ref="modal" class="remote"></p-modal>
 
             <nav class="navbar dark mb-3">

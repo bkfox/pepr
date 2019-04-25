@@ -1,5 +1,8 @@
 
-// TODO: filter & lookup => setter in order to update subscribeing if observing
+// TODO:
+// - filter & lookup => setter in order to update subscribeing if observing
+// - filter: on notification, check against filters (in Resources class)
+
 /**
  *  Handles publish-subscribe to the server. Only one subscription per
  *  class instance is allowed. It uses PubSub API of Pepr and dispatches

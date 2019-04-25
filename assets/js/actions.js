@@ -18,7 +18,8 @@ export function handle(app, handler, request) {
  */
 export default {
     /**
-     * Send a request. `item` will be set to payload if given.
+     * Send a request over WebSockets using application's `Connection`.
+     * Return the 
      */
     request(app, { path, data=null, payload={}, handler=null }) {
         payload.method = payload.method || 'GET';
@@ -29,7 +30,7 @@ export default {
     },
 
     /**
-     * Send a request.
+     * Send an XmlHttpRequest request using `fetch_api`.
      */
     fetch(app, { path, method='GET', data=null, options={}, handler=null}) {
         options.method = options.method || method;
@@ -42,6 +43,7 @@ export default {
      * Call `resource.api()`
      */
     'resource:api'(app, {item, path='', payload={}, handler=null}) {
+        console.log(item, path, payload)
         const req = item.api(path, payload);
         return handle(app, handler, req);
     },

@@ -5,10 +5,15 @@ from django import template
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
-from ..components import Component
+from pepr.utils.slots import Slots
+from ..components import Component, render_slots
 from ..widgets import ActionWidgets
 
 register = template.Library()
+
+
+def as_slots(obj):
+    return obj if isinstance(obj, Slots) else getattr(obj, 'slots', None)
 
 
 #
@@ -47,7 +52,7 @@ def do_slot(context, component, name, slots=None, **kwargs):
     :param \**kwargs: pass thoses values to ``render()``.
     """
     kwargs.setdefault('sender', context['view'])
-    slot = component.slots.get(name)
+    slot = as_slots(component).get(name)
     return do_component(context, slot, **kwargs) \
         if slot else ''
 
@@ -64,7 +69,7 @@ def do_fetch_slot(context, component, name, slots=None, **kwargs):
     :param \**kwargs: pass thoses values to ``render()``.
     """
     kwargs.setdefault('sender', context['view'])
-    slot = component.slots.get(name)
+    slot = as_slots(component).get(name)
     return slot and slot.fetch(**kwargs)
 
 
@@ -76,7 +81,8 @@ def do_slots(context, component, *names, **kwargs):
     """
     kwargs.setdefault('sender', context['view'])
     role = kwargs.pop('role', context['role'])
-    return component.render_slots(role, *names, **kwargs)
+    slots = as_slots(component)
+    return render_slots(role, slots, *names, **kwargs)
 
 
 @register.simple_tag(name='fetch_slots', takes_context=True)
@@ -169,11 +175,17 @@ def do_meta(obj, attr=None):
     if not isclass(obj):
         obj = type(obj)
     meta = getattr(obj, '_meta', None)
-    return getattr(meta, attr) if attr is not None else meta
+    return getattr(meta, attr, None) if attr is not None else meta
+
+
+@register.filter(name="model_field")
+def do_model_field(obj, name):
+    """ Return model field for the given object and field name.  """
+    return obj._meta.get_field(name)
 
 
 @register.simple_tag(name='merge')
-def do_merge(_dest, *args, **kwargs):
+def do_merge(_dest=None, *args, **kwargs):
     r"""
     Update `_dest` using given arguments and return it.
 
@@ -194,4 +206,10 @@ def do_merge(_dest, *args, **kwargs):
         if kwargs:
             _dest.update(kwargs)
     return _dest
+
+
+@register.simple_tag(name='dict')
+def dict(**kwargs):
+    return kwargs
+
 

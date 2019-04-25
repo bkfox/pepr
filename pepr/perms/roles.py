@@ -6,6 +6,12 @@ from django.utils.translation import ugettext_lazy as _
 
 from ..utils.metaclass import RegisterMeta
 
+from .permissions import *
+
+__all__ = ['Roles', 'Role',
+           'AnonymousRole', 'DefaultRole', 'SubscriberRole',
+           'MemberRole', 'ModeratorRole', 'AdminRole']
+
 
 logger = logging.getLogger('pepr')
 
@@ -23,6 +29,10 @@ class Roles(RegisterMeta):
 
     @classmethod
     def add(cls, role, *args, **kwargs):
+        # ensure defaults is a copy
+        defaults, role.defaults = role.defaults, {}
+        role.defaults.update(defaults)
+
         if role.access in cls.register:
             logger.debug(
                 '[pepr/perms] register {}: another class is yet '
@@ -64,23 +74,25 @@ class Role(metaclass=Roles):
 
     @property
     def is_anonymous(self):
+        """ True if role is for a unauthenticated user """
         return self.user is None or self.user.is_anonymous
 
     @property
     def is_subscribed(self):
-        return not self.is_anonymous and \
-                self.subscription is not None and \
-                self.subscription.is_subscribed
+        """ True if user is subscribed to related context """
+        return not self.is_anonymous and self.subscription is not None \
+            and self.subscription.is_subscribed
 
     @property
     def is_admin(self):
+        """ True if user is an admin """
         return False
 
     @cached_property
     def permissions(self):
         """
-        Permissions for this role instance (and its context), as
-        a dict of { perm_key: RolePermission }
+        Permissions for this role taking including context
+        authorizations, as dict of ``{ perm_key: granted }``.
         """
         from ..perms.models import Authorization
 
@@ -93,9 +105,9 @@ class Role(metaclass=Roles):
         ).select_related('model')
         for p in qs:
             key = self.perm_key(p)
-            # Rule: user can only change permission assigned to the role.
+            # Rule: only permissions statically defined on Role can be
+            # changed by users through authorizations.
             if key not in perms:
-                # TODO: raise exception: this should never happen
                 continue
             perms[key] = p.granted
         return perms
@@ -136,7 +148,7 @@ class Role(metaclass=Roles):
     def __init__(self, context, user, subscription=None):
         self.context = context
         self.user = user
-        self.subcription = subscription
+        self.subscription = subscription
 
 
 # Define a set of default roles. They can still be removed using
@@ -184,6 +196,6 @@ class AdminRole(Role):
 
     @cached_property
     def permissions(self):
-        # permissions never change
+        # permissions never change => default permissions
         return self.defaults
 

@@ -45,8 +45,7 @@ class PermissionMixin:
 
     def get_role(self, request, obj=None):
         """
-        Return context for the given request and object. By default
-        implements getting role from a given context.
+        Return role for the given context and request.
         """
         return obj.get_role(request.user)
 
@@ -109,24 +108,22 @@ class PermissionViewMixin(PermissionMixin):
         kwargs.setdefault('context', self.context)
         return super().get_context_data(**kwargs)
 
-    def get_role(self, request=None, obj=None):
-        """
-        Get role for the given context and obj.
-        """
-        if not obj:
+    def get_role(self, request=None, context=None):
+        if not context:
             return self.role
 
         request = request or getattr(self, 'request', None)
-        obj = obj or getattr(self, 'object', None)
         role = self.role
-        return role if role and role.context.pk == obj.pk else \
-            obj.get_role(request.user)
+        return role if role and role.context.pk == context.pk else \
+            context.get_role(request.user)
 
 
 class ContextViewMixin(PermissionViewMixin):
     """
     View mixin for views that work with a single Context.
     """
+    def get_queryset(self):
+        return self.model.objects.all()
 
 
 class AccessibleViewMixin(PermissionViewMixin):

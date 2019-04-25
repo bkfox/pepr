@@ -25,27 +25,18 @@ class ActionWidget(Widget):
     A unique identifier for the action instance.
     """
     tag_name = "p-action"
-    tag_attrs = {'class': 'btn-xs btn-light dropdown-item'}
+    tag_attrs = {'class': 'btn btn-sm'}
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if not self.name:
-            self.name = '{}-{}'.format(self.text or type(self).__name__,
-                                       str(random.random())[2:])
-
-    def get_tag_attrs(self, *args, **kwargs):
-        tag_attrs = super().get_tag_attrs(*args, **kwargs)
-        tag_attrs.setdefault('name', self.name)
-        return tag_attrs
-
-    def render(self, role, *args, as_data=False, **kwargs):
-        if as_data:
-            obj = kwargs.get('object', self.object)
-            return self.can_obj(role, obj) if obj else self.can(role)
-        return super().render(role, *args, **kwargs)
+    # when action is rendered without an object, it means it is used as
+    # vuejs slot's template. => always return True
+    def can(self, role):
+        return True
 
 
 class ActionWidgets(Widgets):
+    def can(self, role):
+        return True
+
     def render(self, role, *args, as_data=False, **kwargs):
         if not as_data:
             return super().render(role, *args, **kwargs)
@@ -143,29 +134,5 @@ class DropdownWidgets(Widgets):
 class DropdownLinkWidget(LinkWidget):
     """ Link as a ``<b-dropdown-item>`` """
     tag_name = 'b-dropdown-item'
-
-
-class CollectionWidget(ListWidget):
-    """
-    Render the ``<pepr-collection>`` javascript component, used to
-    dynamically and manage render collection of items.
-    """
-    tag_name = 'pepr-collection'
-    id_attr = None
-    sort_attr = None
-
-    def get_tag_attr(self, tag_attrs, id_attr=None, sort_attr=None,
-                     **kwargs):
-        tag_attrs.setdefault('id_attr', id_attr or self.id_attr)
-        tag_attrs.setdefault('sort_attr', sort_attr or self.sort_attr)
-        return super().get_tag_attrs(tag_attrs, **kwargs)
-
-
-class BoundCollectionWidget(Widget):
-    """
-    Collection that can be dynamically updated from server and observe
-    items updates.
-    """
-    tag_name = 'pepr-bound-collection'
 
 

@@ -1,85 +1,74 @@
 {% extends "pepr/content/service.html" %}
-{% load i18n widget_tweaks pepr_ui %}
+{% load i18n widget_tweaks pepr_api pepr_ui %}
 
 {% block app %}
 <h3>{% icon "fa-user-friends fas" %} {% trans "Subscriptions" %}</h3>
 <div class="box">
     <p class="lead mb-3">
-    {% with title=object.title context_type=object|meta:"verbose_name" %}
+    {% with title=context.title context_type=context|meta:"verbose_name" %}
     {% blocktrans %}
     Here you can change users subscriptions for the {{ context_type }}
     <b>{{ title }}</b>.
     {% endblocktrans %}
     {% endwith %}
-
     </p>
-    <form method="POST">
-        {% csrf_token %}
-        {{ formset.management_form }}
 
-        <table class="table table-bordered table-striped">
-            <thead>
-                <th scope="col" class="col-5">User</th>
-                <th scope="col" class="col-5">Role</th>
-                <th scope="col" class="col-1">Delete</th>
-            </thead>
-            <tbody>
-            {% for form in formset %}
-            {% if form.owner.value %}
-            <tr>
-                <input type="hidden" name="{{ form.owner.html_name }}" value="{{ form.owner.value }}">
-                {% for field in form.hidden_fields %}
-                <input type="hidden" name="{{ field.html_name }}" value="{{ field.value }}">
+    {% fetch_slot view.slots "item_actions" role=role as item_actions %}
+
+    <nav class="navbar justify-content-end" ref="sub-filters"
+        aria-label="{% trans "Subscription Filters" %}"
+        aria-description="{% trans "Filters for the list of subscriptions" %}"
+        >
+
+        <form class="form-inline"
+            @submit.prevent="$refs.subscriptions.formFilter($event.target)">
+            <input type="hidden" name="context" value="{{ context.id }}" />
+            <select id="sub-filter-status" class="form-control form-control-sm mr-2"
+                name="status">
+                <option value="" aria-label="No status">-- {% trans "Status" %} --</option>
+                {% for status,label in statuses %}
+                <option value="{{status}}">{{ label }}</option>
                 {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+        </form>
+    </nav>
 
-                <td class="wide">
-                    {{ form.instance.owner.username }}
-                </td>
-                <td>
-                    {{ form.access|add_class:"form-control" }}
-                </td>
-                <td class="table-danger">
-                    <input type="checkbox" class="form-control"
-                        name="{{ form.prefix }}-DELETE" id="id_{{ form.prefix }}-DELETE"
-                        title="{% trans "Delete subscription" %}"
-                        aria-label="{% trans "Delete subscription" %}"
-                        aria-description="{% trans "Subscription is deleted when this is checked" %}"
-                        >
-                </td>
-            </tr>
-            {% endif %}
+    <p-table path="{% url "subscription-list" %}"
+            ref="subscriptions"
+            class="table table-sm table-bordered table-striped"
+            {% if context %}:query="{context:'{{ context.id }}'}"{% endif %}>
+        <template v-slot:header>
+            <thead>
+                <th scope="col" class="col-3">User</th>
+                <th scope="col" class="col-1">Role</th>
+                <th scope="col" class="col-1">Status</th>
+                <th scope="col" class="col-2"></th>
+            </thead>
+        </template>
+
+        <template v-slot:item="{list,item,index}">
+            <td>[[ item.data.owner.username ]]</td>
+            <td>
+                <select class="form-control form-control-sm"
+                    v-model="item.data.role">
+                    {% for value,label in roles %}
+                    <option value={{ value }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td>
+            {% for status,label in statuses %}
+                <span v-if="item.data.status == {{ status }}">
+                {{ label }}
+                </span>
             {% endfor %}
-
-            <tr>
-                <td>
-                    <pepr-typeahead
-                        items-url='/user/'
-                        lookup-param='username__icontains'
-                        input-name='some-name'
-                        list-class="w-auto bg-white" list-float
-                        item-value-attr='pk'
-                        item-label-attr='username'
-                    >
-                        <template slot="item" slot-scope="{item,collection}">
-                            [[ item.username ]]
-                        </template>
-
-                        <template slot="selected" slot-scope="{view,value,label}">
-                            {{ label }}
-                        </template>
-                    </pepr-typeahead>
-                </td>
-                <td>
-
-                </td>
-            </tr>
-            </tbody>
-        </table>
-
-        <div class="text-right">
-            <button class="btn btn-primary">Save</button>
-        </div>
-    </form>
+            </td>
+            <td class="align-right">
+                {% slot view.slots "item_actions" items=item_actions %}
+            </td>
+        </template>
+    </p-table>
 </div>
 {% endblock %}
 

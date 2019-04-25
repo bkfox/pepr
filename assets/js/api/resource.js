@@ -1,19 +1,24 @@
+import Vue from 'vue';
+
 import { fetch_api, fetch_json } from './connection';
 
 
 export default class Resource {
-    constructor(resources, data) {
+    constructor(endpoint, key, data={}, resources=null) {
+        this.endpoint = endpoint;
+        this.key= key;
         this.resources = resources;
-        this.data = data;
+        Vue.set(this, 'data', data);
     }
 
-    get key() {
-        return this.data[this.resources.key];
+    static load(endpoint, key, options={}) {
+        const resource = new Resource(endpoint, key);
+        return resource.fetch(options);
     }
 
     get path() {
-        if(this.key)
-            return this.resources.path + this.key + '/';
+        if(this.endpoint && this.key)
+            return this.endpoint + this.key + '/';
         return '';
     }
 
@@ -26,12 +31,22 @@ export default class Resource {
             this.data.drop();
     }
 
+    fetch(options={}) {
+        const self = this;
+        return fetch_json(this.path, options)
+            .then((response) => response.json())
+            .then(function(data) {
+                Vue.set(self, 'data', data)
+                return self;
+            })
+    }
+
     /**
      *  Run an action for this resource. Resource's path is concatenated with
      *  given `path`.
      */
     api(path='', ...initArgs) {
-        return this.connection.request(this.path + path, ...initArgs);
+        return fetch_json(this.path + path, ...initArgs);
     }
 
     /**
@@ -46,7 +61,9 @@ export default class Resource {
                           { method: this.path ? 'PUT' : 'POST',
                             body: Object.assign({}, this.data, data) })
             .then(function(response) {
-                return self.resources.update(response.json());
+                Vue.set(self, 'data', item.data)
+                if(self.resources)
+                    self.resources.update(response.json());
             });
     }
 
@@ -59,10 +76,12 @@ export default class Resource {
             const self = this;
             return fetch_json(this.path, { method: 'DELETE' }, false)
                 .then(function(response) {
-                    return self.resources.remove(self);
+                    if(self.resources)
+                        return self.resources.remove(self);
+                    return self
                 });
         }
-        else
+        else if(self.resources)
             self.resources.remove(self)
     }
 

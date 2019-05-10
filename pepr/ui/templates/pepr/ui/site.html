@@ -23,6 +23,7 @@
              {% if context %}
              data-context-endpoint="{% url "container-list" %}"
              data-context-key="{{ context.pk }}"
+             data-subscription-endpoint="{% url "subscription-list" %}"
              {% endif %}>
             <p-modal id="modal" ref="modal" class="remote"></p-modal>
 

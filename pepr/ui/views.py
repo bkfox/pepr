@@ -27,3 +27,4 @@ class SiteView(ContextMixin, View):
         kwargs.setdefault('view', self)
         return super().get_context_data(*args, **kwargs)
 
+

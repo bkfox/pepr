@@ -3,13 +3,18 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path
 
-import pepr.urls
+from pepr.api.loader import Loader
+from pepr.api.views import ApiConstsView
 
-urlpatterns = [
+from .routing import PeprMultiplex
+
+loader = Loader(True, multiplex_class=PeprMultiplex, api_url_prefix='/api')
+
+urlpatterns = loader.urls + [
     path('admin/', admin.site.urls),
-    # path('api/', include(pepr.urls.router.urls), name='api')
+    path('api/consts', ApiConstsView.as_view(loader=loader), name='api-consts')
 ]
 
 
@@ -27,5 +32,4 @@ if settings.DEBUG:
     except ImportError:
         pass
 
-urlpatterns += pepr.urls.get_urlpatterns()
 

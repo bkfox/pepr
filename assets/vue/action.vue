@@ -29,6 +29,7 @@ export default {
         kwargs: { type: Object, default: () => {} },
         path: { type: String },
         item: { type: Object, default: null },
+        data: { type: Object, default: null },
         handler: { type: [Object,String] },
         payload: { type: Object, default: null },
         method: { type: String },
@@ -43,13 +44,20 @@ export default {
     },
 
     methods: {
+        closeParent() {
+            if(this.$parent.hide)
+                this.$parent.hide(true)
+        },
+
         onClick(event) {
-            console.log(this.path)
+            this.closeParent();
+
             const ev = Object.assign({
                 action: this.action,
                 ask: this.ask,
                 path: this.path,
                 item: this.item,
+                data: this.data,
                 handler: this.handler,
                 payload: Object.assign(this.payload || {}, {method: this.method}),
             }, this.kwargs);

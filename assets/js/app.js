@@ -13,6 +13,7 @@ import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
 
 import Connection from './api/connection';
 import Resource from './api/resource';
+import { Role } from './api/perms';
 import User from './pepr/user';
 import conf from './conf';
 import actions from './actions';
@@ -32,12 +33,20 @@ var AppComp = Vue.extend({
             context: null,
             contextEndpoint: null,
             contextKey: null,
+            subscriptionEndpoint: null,
         }
     },
 
     computed: {
-        role() { return this.context && this.context.data.role; },
-        subscription() { return this.role && this.role.subscription; },
+        role() {
+            return this.context && new Role(this.context, this.subscriptionEndpoint);
+        },
+
+        subscription() {
+            if(!this.role || !this.role.subscription)
+                return null;
+            return this.role && this.role.subscription;
+        },
     },
 
     methods: {
@@ -50,16 +59,11 @@ var AppComp = Vue.extend({
                 Resource.load(this.contextEndpoint, this.contextKey)
                     .then(resource => { self.context = resource; });
         },
-
-        subscribe(context=null) {
-        },
-
-        unsubscribe(context=null) {
-        },
     },
 
     mounted() {
-        var { contextEndpoint=null, contextKey=null } = this.$el.dataset;
+        var { contextEndpoint, contextKey, subscriptionEndpoint } = this.$el.dataset;
+        this.subscriptionEndpoint = subscriptionEndpoint;
         if(contextEndpoint && contextKey)
             this.loadContext(contextEndpoint, contextKey)
     },

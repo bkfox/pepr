@@ -15,17 +15,10 @@ class AccessibleForm(forms.ModelForm):
     def role(self, role):
         self._role = role
 
-        # limit access choices based on role; get choices from
-        # self.model's access field (from self's access fields may
-        # lead to erronous values).
-        if role:
-            access = self.fields['access']
-            choices = self._meta.model._meta.get_field('access').choices
-            access.choices = [access for access in choices
-                              if role.has_access(access[0])]
-
     @property
     def context(self):
+        if self.initial:
+            return self.initial.context
         return self.role and self.role.context
 
     @context.setter
@@ -45,28 +38,37 @@ class AccessibleForm(forms.ModelForm):
             #    context.disabled = True
             context.widget = forms.HiddenInput()
 
-        # custom access help_text
         if 'access' in self.fields:
-            access = self.fields['access']
-            access.help_text = self.get_access_help_text()
+            self.fields['access'].help_text = self.get_access_help_text()
+            self.limit_access_field()
 
     def get_access_help_text(self):
-        return 'Defines which users of the {} have access to this {} ' \
-                '(only people with given role or higher will get ' \
-                'access)' \
-                .format(self.context._meta.verbose_name,
-                        self._meta.model._meta.verbose_name)
+        return 'Specify who can access this {model}. Only people with the ' \
+               'given access or higher will see it.' \
+                .format(model=self._meta.model._meta.verbose_name)
 
-    def save(self, commit=True):
-        self.instance.save_by(self.role)
-        super().save(commit)
+    def limit_access_field(self):
+        """ Limit access field's choices. """
+        role = self.role
+        access = self.fields['access']
+
+        choices = self._meta.model._meta.get_field('access').choices
+        access.choices = [access for access in choices
+                          if role.has_access(access[0])]
+
+    def save(self):
+        raise NotImplemented('save() is not implemented')
 
 
 OwnedForm = AccessibleForm
-SubscriptionForm = OwnedForm
 
-SubscriptionFormSet = forms.modelformset_factory(
-    Subscription, SubscriptionForm, fields=['owner', 'access'],
-    extra=0
-)
+
+class SubscriptionForm(OwnedForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def limit_access_field(self):
+        pass
+
+
 

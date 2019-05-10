@@ -11,8 +11,14 @@ from ..perms.permissions import CanAccess
 from ..utils.slots import Position, SlotItem, Slot, Slots
 
 
+__all__ = ['render_slots', 'Component', 'Widget', 'Widgets', 'FormComp']
+
+
 def render_slots(role, slots, *names, _pred=None,
                  _strict=False, **kwargs):
+    """
+    Render slots filtered using given arguments and return it as a list.
+    """
     slots = slots.filter(*names, pred=_pred, strict=_strict)
     return list(itertools.chain(*(
         slot.render(role, **kwargs) for name, slot in slots
@@ -220,5 +226,53 @@ class Widgets(Slot, Widget):
         kwargs['items'] = self.render_items(role, **kwargs)
         return super().get_context_data(role=role, **kwargs) \
             if items else None
+
+
+class FormComp(Component):
+    """ Component rendering a form """
+    form_class = None
+    """ form class to use """
+    form_kwargs = None
+    """ form kwargs to use """
+
+    template_name = 'pepr/ui/form.html'
+
+    def get_form_class(self, **kwargs):
+        """ Return form class """
+        return self.form_class
+
+    def get_form_kwargs(self, role, obj=None, **kwargs):
+        """ Return form init kwargs. """
+        kwargs = self.form_kwargs or {}
+        kwargs.setdefault('role', role)
+
+        if obj:
+            kwargs.setdefault('instance', obj)
+        else:
+            initial = kwargs.setdefault('initial', {})
+            initial.setdefault('context', role.context.uuid)
+            initial.setdefault('access', role.context.access)
+        return kwargs
+
+    def get_form(self, **kwargs):
+        """ Return form instance """
+        form_class = self.get_form_class(**kwargs)
+        form_kwargs = self.get_form_kwargs(**kwargs)
+        form = form_class(**form_kwargs)
+        return form
+
+    def get_context_data(self, **kwargs):
+        if 'form' not in kwargs:
+            kwargs['form'] = self.get_form(**kwargs)
+        kwargs.setdefault('model', kwargs['form']._meta.model)
+        return super().get_context_data(**kwargs)
+
+    def __init__(self, form_class=None, form_kwargs=None, **kwargs):
+        if form_class is not None:
+            self.form_class = form_class
+        if form_kwargs is not None:
+            self.form_kwargs = form_kwargs
+        super().__init__(**kwargs)
+
 
 

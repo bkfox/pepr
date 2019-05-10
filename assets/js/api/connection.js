@@ -38,6 +38,9 @@ export function fetch_api(url, options={}) {
 export function fetch_json(url, options) {
     options.headers = options.headers || {};
     options.headers['Content-Type'] = 'application/json';
+    // TODO: support for sending files => binary, blobs etc.
+    //       in a different function? => might be a problem for actions
+    //       or we have to create different actions.
     if(options.body && typeof options.body != 'string')
         options.body = JSON.stringify(options.body)
     return fetch_api(url, options)

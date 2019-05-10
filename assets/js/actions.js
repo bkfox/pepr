@@ -1,4 +1,7 @@
+// FIXME: what is the promise result => may be a resource
+// TODO: - subscribe, unsubscribe from context
 import { fetch_api } from './api/connection';
+import Resource from './api/resource';
 
 /**
  * Handle request with handler if given and found.
@@ -42,17 +45,16 @@ export default {
     /**
      * Call `resource.api()`
      */
-    'resource:api'(app, {item, path='', payload={}, handler=null}) {
-        console.log(item, path, payload)
-        const req = item.api(path, payload);
+    'resource:api'(app, {item, path='', options={}, handler=null}) {
+        const req = item.api(path, options);
         return handle(app, handler, req);
     },
 
     /**
      * Save a resource
      */
-    'resource:save'(app, {item, data={}, handler=null}) {
-        const req = item.save(data);
+    'resource:save'(app, {item=null, path=null, data={}, handler=null}) {
+        const req = item ? item.save(data) : Resource.create(path, data);
         return handle(app, handler, req);
     },
 
@@ -67,7 +69,7 @@ export default {
     /**
      * Get a resource form from server for the given item.
      */
-    // TODO: handle when item is null
+    // TODO: remove and use api instead
     'resource:form'(app, {item=null, handler=null}) {
         const req = item.get_form();
         return handle(app, handler, req);

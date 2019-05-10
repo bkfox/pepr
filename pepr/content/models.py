@@ -18,32 +18,19 @@ from ..utils.fields import ReferenceField
 from .widgets import DeleteActionWidget
 
 
-class Container(Accessible, Context):
+class Container(Context):
     # POLICY_EVERYONE = 0x00
     # POLICY_ON_REQUEST = 0x01
     # POLICY_ON_INVITE = 0x02
     # POLICY_CHOICES = (
     #    (POLICY_EVERYONE, _('everyone')),
     #    (POLICY_ON_REQUEST, _('on request')),
-    #    (POLICY_ON_INVITE, _('on invitation')),
+    #    (POLICY_ON_INVITE, _('on Invite')),
     # )
     # subscription_policy = models.SmallIntegerField(
     #    _('subscription policy'),
     #    choices = POLICY_CHOICES,
     # )
-    context = models.ForeignKey(
-        Context, on_delete=models.CASCADE,
-        blank=True, null=True,
-        related_name='children',
-    )
-    uuid = models.UUIDField(
-        db_index=True, unique=True,
-        primary_key=True,
-        default=uuid.uuid4
-    )
-    title = models.CharField(
-        _('title'), max_length=128
-    )
     slug = models.SlugField(
         _('slug'),
         null=True, blank=True,
@@ -85,11 +72,6 @@ class Content(Owned, TimeStampedModel):
 
     Content is a component rendered inside a Container or Service view.
     """
-    uuid = models.UUIDField(
-        db_index=True, unique=True,
-        primary_key=True,
-        default=uuid.uuid4
-    )
     # modifier read-only field
     modifier = models.ForeignKey(
         auth.User,

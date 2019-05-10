@@ -2,14 +2,20 @@ from django.db import transaction
 from django.http import Http404
 
 from rest_framework import viewsets
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .mixins import ContextViewMixin, AccessibleViewMixin
-from .models import Subscription, STATUS_ACCEPTED
+from .models import Subscription, STATUS_REQUEST, STATUS_INVITE, \
+    STATUS_ACCEPTED
 from .permissions import *
 from .serializers import SubscriptionSerializer
+
+
+__all__ = ['ContextViewSet', 'AccessibleViewSet', 'OwnedViewSet',
+           'SubscriptionViewSet']
 
 
 class ContextViewSet(ContextViewMixin, viewsets.ModelViewSet):
@@ -18,8 +24,17 @@ class ContextViewSet(ContextViewMixin, viewsets.ModelViewSet):
         'create': (CanCreate,),
         'update': (CanUpdate,),
         'delete': (CanDelete,),
-    #    'subscribe': (CanSubscribe,),
     }
+
+    @classmethod
+    def get_api_actions(cls, role, obj):
+        actions = super(ContextViewSet, cls).get_api_actions(role, obj)
+
+        # role permissions for subscriptions edition
+        extra = SubscriptionViewSet().get_api_actions(role)
+        actions += ['subscription.' + a for a in extra]
+
+        return actions
 
     def get_serializer(self, *args, **kwargs):
         kwargs.setdefault('user', self.request.user)
@@ -74,7 +89,7 @@ class SubscriptionViewSet(OwnedViewSet):
     filterset_fields = OwnedViewSet.filterset_fields + ('role', 'status')
     action_permissions = {
         'retrieve': (CanAccess,),
-        'create': (CanSubscribe,),
+        'create': (CanSubscribe|CanInvite,),
         'update': (CanUpdate,),
         'accept': (CanAcceptSubscription,),
         'delete': (CanUnsubscribe,),

@@ -24,18 +24,24 @@
 
     </div>
     <div class="col text-right p-2">
+        <p-subscription-info id="container-subscription-info" :subscription="subscription"
+            v-if="subscription"></p-subscription-info>
+
         <template v-if="role && !role.is_anonymous">
             <p-action title="{% trans "Subscribe" %}" icon="fa-users"
                 class="btn btn-sm btn-primary"
-                v-if="!role.subscription"></p-action>
-            <p-action title="{% trans "Unsubscribe" %}" icon="fa-users"
-                ask="{% trans "Please confirm unsubscription" %}"
+                action="resource:save"
+                :path="subscriptionEndpoint"
+                :data="{context: '{{ context.pk }}', access: {{ context.subscription_default_access }}, role: {{ context.subscription_default_role }} }"
+                v-if="!role.subscription">
+            </p-action>
+            <b-button id="container-subscribed-button"
                 class="btn btn-sm btn-secondary"
-                v-else-if="role.is_subscribed"></p-action>
-            <p-action title="{% trans "Cancel request" %}" icon="fa-users"
-                ask="{% trans "Please confirm unsubscription" %}"
-                class="btn btn-sm btn-secondary"
+                v-b-modal.container-subscription-info
                 v-else>
+                <span class="fa fa-users"></span>
+                {% trans "Subscription" %}
+            </b-button>
         </template>
 
 

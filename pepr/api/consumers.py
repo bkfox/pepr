@@ -1,5 +1,6 @@
 import asyncio
 import json
+from uuid import UUID
 
 from django.conf import settings
 
@@ -11,6 +12,10 @@ from rest_framework.decorators import MethodMapper
 from . import serializers
 from ..utils.debug import report_error
 from .message import ApiResponse
+
+
+__all__ = ['is_action', 'action', 'ApiConsumerMeta', 'ApiConsumerBase', 
+           'ApiConsumer']
 
 
 def is_action(func):
@@ -49,6 +54,12 @@ class ApiConsumerMeta(type):
             cl.actions = actions
         return cl
 
+class JSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, UUID):
+            return str(obj)
+        return json.JSONEncoder.default(self, obj)
+
 
 class ApiConsumerBase:
     """ Base class for ApiConsumer, handling data de-serialization. """
@@ -63,7 +74,7 @@ class ApiConsumerBase:
     def render_data(self, data):
         """ Serialize/render data to send """
         try:
-            return json.dumps(data)
+            return json.dumps(data, cls=JSONEncoder)
         except json.decoder.JSONDecodeError:
             return None
 

@@ -1,5 +1,7 @@
 from copy import copy
 
+__all__ = ['Register', 'RegisterClassMeta', 'RegisterClass']
+
 
 class Register:
     entries = None
@@ -34,9 +36,9 @@ class Register:
         entry at the given position. Return previous value.
         """
         previous = self.entries.get(key)
-        if entry:
+        if entry is not None:
             self.entries[key] = entry
-        else:
+        elif key in self.entries:
             del self.entries[key]
         return previous
 
@@ -168,3 +170,48 @@ class Register:
 
     def __len__(self):
         return len(self.entries)
+
+
+class RegisterClassMeta(type):
+    """
+    Metaclass for RegisterClass.
+    """
+    @staticmethod
+    def _init_shorthand(key):
+        @classmethod
+        def shorthand(cls, *args, **kwargs):
+            return getattr(cls.register, key)(*args, **kwargs)
+        return shorthand
+
+    @classmethod
+    def _init_shorthands(cls, attrs):
+        # we only do this once
+        try: RegisterClass
+        except NameError: pass
+        else: return
+
+        for key, value in Register.__dict__.items():
+            if callable(value):
+                attrs[key] = cls._init_shorthand(key)
+
+    def __new__(cls, name, bases, attrs):
+        key_attr = attrs.get('entry_key_attr')
+        register_cls = attrs.get('register_class', Register)
+        attrs['register'] = register_cls(entry_key_attr=key_attr)
+        cls._init_shorthands(attrs)
+        return super().__new__(cls, name, bases, attrs)
+
+
+class RegisterClass(metaclass=RegisterClassMeta):
+    """
+    Provide a register working at a class level rather than instances'
+    one.
+    """
+    register_class = Register
+    """ Class to use as register. """
+    register = None
+    """ Register instance once created. """
+    entry_key_attr = None
+    """ Register's `entry_key_attr`. """
+
+

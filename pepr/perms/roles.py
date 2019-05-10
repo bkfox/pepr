@@ -4,9 +4,10 @@ from collections import namedtuple
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
+from ..utils.register import Register
 from ..utils.metaclass import RegisterMeta
 
-from .permissions import *
+from .permissions import CanAccess, CanCreate, CanUpdate, CanDelete
 
 __all__ = ['Roles', 'Role',
            'AnonymousRole', 'DefaultRole', 'SubscriberRole',
@@ -16,11 +17,24 @@ __all__ = ['Roles', 'Role',
 logger = logging.getLogger('pepr')
 
 
+class RolesRegister(Register):
+    by_name = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.by_name = {}
+
+    def reset(self, *args, **kwargs):
+        r = super().reset(*args, **kwargs)
+        self.by_name = {r.__name__: r for r in self.values()}
+        return r
+
 class Roles(RegisterMeta):
     """
     Register class that list all defined Role for the project. It also
     keeps track of which role is related to a specific role.
     """
+    register_class = RolesRegister
     entry_key_attr = 'access'
 
     @classmethod
@@ -121,12 +135,17 @@ class Role(metaclass=Roles):
     def is_granted(self, perm, model):
         """ Return RolePermission for the given perm and model.  """
         permissions = self.permissions
-        return permissions.get(self.perm_key(perm, model))
+        for m in (model, None):
+            test = permissions.get(self.perm_key(perm, m), None)
+            if test is not None:
+                return test
+        return False
 
     @classmethod
-    def register(cls, perm, model, granted=False):
+    def register(cls, model, granted, *perms):
         """ Register a permission for the given model and role.  """
-        cls.defaults[cls.perm_key(perm, model)] = granted
+        for perm in perms:
+            cls.defaults[cls.perm_key(perm, model)] = granted
 
     @classmethod
     def unregister(cls, perm, model):
@@ -159,15 +178,29 @@ class AnonymousRole(Role):
     name = _('Anonymous')
     description = _('Unregistered and unknown user (can be anyone).')
 
+
+AnonymousRole.register(None, False, CanAccess, CanCreate)
+
+
 class DefaultRole(Role):
     access = 0x10
     name = _('User')
     description = _('Registered user who is not subscribed.')
 
+
+DefaultRole.register(None, True, CanAccess)
+DefaultRole.register(None, False, CanAccess, CanCreate, CanUpdate, CanDelete)
+
+
 class SubscriberRole(Role):
     access = 0x20
     name = _('Subscriber')
     description = _('They only follow what happens.')
+
+
+SubscriberRole.register(None, True, CanAccess, CanCreate)
+SubscriberRole.register(None, False, CanCreate, CanUpdate, CanDelete)
+
 
 class MemberRole(Role):
     access = 0x40
@@ -176,12 +209,21 @@ class MemberRole(Role):
         'Subscribed people that can participate.'
     )
 
+
+MemberRole.register(None, True, CanAccess, CanCreate)
+MemberRole.register(None, False, CanUpdate, CanDelete)
+
+
 class ModeratorRole(Role):
     access = 0x80
     name = _('Moderator')
     description = _(
         'People that must moderate the place.'
     )
+
+
+ModeratorRole.register(None, True, CanAccess, CanCreate, CanUpdate, CanDelete)
+
 
 class AdminRole(Role):
     access = 0x100
@@ -198,4 +240,8 @@ class AdminRole(Role):
     def permissions(self):
         # permissions never change => default permissions
         return self.defaults
+
+
+AdminRole.register(None, True, CanAccess, CanCreate, CanUpdate, CanDelete)
+
 

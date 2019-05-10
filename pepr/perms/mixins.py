@@ -4,6 +4,7 @@ from rest_framework import exceptions
 from rest_framework.views import APIView
 
 from ..api.mixins import SingleObjectMixin
+from .roles import Roles
 from .permissions import CanAccess, CanCreate, CanUpdate, CanDelete
 
 
@@ -49,6 +50,14 @@ class PermissionMixin:
         """
         return obj.get_role(request.user)
 
+    def get_api_actions(self, role, obj=None):
+        """
+        Return a list of api actions key allowed for this role.
+        """
+        actions = getattr(self, 'action_permissions', {}).keys()
+        return [a for a in actions if self.can(role, a)] if obj is None else \
+            [a for a in actions if self.can_obj(role, obj, a)]
+
     def can(self, role, action=None, throws=False):
         """
         Return True when user has permissions for the given action.
@@ -66,13 +75,13 @@ class PermissionMixin:
         Return True when user has permissions for the given action and
         object.
         """
-        failed = next(
-            (permission for permission in self.get_permissions(action)
-             if not permission.can_obj(role, obj)), None
+        success = next(
+            (False for permission in self.get_permissions(action)
+             if not permission.can_obj(role, obj)), True
         )
-        if throws and failed is not None:
+        if throws and not success:
             raise exceptions.PermissionDenied('permission denied')
-        return failed is None
+        return success
 
 
 class PermissionViewMixin(PermissionMixin):
@@ -104,6 +113,7 @@ class PermissionViewMixin(PermissionMixin):
 
     def get_context_data(self, **kwargs):
         """ Ensure 'role' and 'context' are in resulting context """
+        kwargs.setdefault('roles', Roles.register)
         kwargs.setdefault('role', self.get_role(self.request, self.object))
         kwargs.setdefault('context', self.context)
         return super().get_context_data(**kwargs)

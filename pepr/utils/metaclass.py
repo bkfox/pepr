@@ -6,6 +6,9 @@ from django.db.models.base import ModelBase
 
 from ..utils import register
 
+__all__ = ['GenericMeta', 'RegisterMeta']
+
+
 
 class GenericMeta(ModelBase):
     """
@@ -29,29 +32,11 @@ class GenericMeta(ModelBase):
         return cls.default_meta.__new__(name, bases, attrs)
 
 
-class RegisterMetaMeta(type):
-    """ Metaclass of metaclass! """
-    def __new__(cls, name, bases, attrs):
-        cl = super().__new__(cls, name, bases, attrs)
-        cl.register = cl.register_class(entry_key_attr=cl.entry_key_attr)
-        return cl
-
-    # __getattr__ and class level will not be called when using super()
-    # proxy objects (cf. SO#12047847)
-
-
-class RegisterMeta(type,metaclass=RegisterMetaMeta):
+class RegisterMeta(type,register.RegisterClass):
     """
-    Metaclass that register classes by a given key. It can exclude a class
-    from the registry if some is returned from `get_base_class()`
+    Metaclass class registering its created classes. The ``should_add``
+    is used to determine wether or not a class should be registered.
     """
-    register_class = register.Register
-    """ Class to use as register. """
-    entry_key_attr = None
-    """ Register's `key` attribute. """
-    register = None
-    """ Register instance once created. """
-
     def __new__(cls, name, base, attrs):
         cl = super().__new__(cls, name, base, attrs)
         try:
@@ -72,24 +57,4 @@ class RegisterMeta(type,metaclass=RegisterMetaMeta):
         Return a class that is excluded from registry or None.
         """
         return None
-
-    @classmethod
-    def add(cls, cl, key=None, force=None):
-        return cls.register.add(cl, key, force)
-
-    @classmethod
-    def remove(cls, cl):
-        return cls.register.remove(cl)
-
-    @classmethod
-    def get(cls, key, default=None):
-        return cls.register.get(key, default)
-
-    @classmethod
-    def clear(cls):
-        return cls.register.clear()
-
-    @classmethod
-    def values(cls):
-        return cls.register.values()
 

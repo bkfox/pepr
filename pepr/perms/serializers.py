@@ -6,11 +6,10 @@ from django.contrib.auth import models as auth
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 
-from . import models
 from .mixins import PermissionMixin
-from .models import Context, Subscription, \
-        STATUS_INVITATION, STATUS_REQUEST, \
-        STATUS_ACCEPTED
+from .models import Subscription, \
+        STATUS_INVITE, STATUS_REQUEST, STATUS_ACCEPTED
+from .roles import ModeratorRole
 
 
 __all__ = [
@@ -21,12 +20,13 @@ __all__ = [
 ]
 
 
-
 class BaseSerializer(serializers.ModelSerializer):
     api_actions = serializers.SerializerMethodField()
+    object_type = serializers.SerializerMethodField()
 
     class Meta:
-        fields = ('pk', 'api_actions')
+        fields = ('pk', 'api_actions', 'object_type')
+        read_only_fields = ('pk',)
 
     def __init__(self, *args, user=None, role=None, viewset=None,
                  **kwargs):
@@ -60,11 +60,13 @@ class BaseSerializer(serializers.ModelSerializer):
         if not isinstance(view, PermissionMixin):
             return None
 
-        actions = view and getattr(view, 'action_permissions', tuple())
-        return [a for a in actions.keys() if view.can_obj(role, obj, a)]
+        return view.get_api_actions(role, obj)
 
     def get_api_actions(self, obj):
         raise NotImplementedError('this method must be implemented')
+
+    def get_object_type(self, obj):
+        return obj._meta.verbose_name
 
 
 class AccessibleSerializer(BaseSerializer):
@@ -110,8 +112,6 @@ class OwnerSerializer(serializers.ModelSerializer):
 
 
 class OwnedSerializer(AccessibleSerializer):
-    owner = OwnerSerializer(required=False)
-
     class Meta:
         fields = AccessibleSerializer.Meta.fields + ('owner',)
         read_only_fields = AccessibleSerializer.Meta.read_only_fields + \
@@ -145,58 +145,44 @@ class OwnedSerializer(AccessibleSerializer):
         return super().update(instance, validated)
 
 
-# We check object's state transitions inside serializer because it is
-# responsible for data validation. This means that rules that impplies
-# the Subscription object are implemented here.
-# TODO: make 'status' read-only
 class SubscriptionSerializer(OwnedSerializer):
     """ Serializer class for Subscription instances. """
     class Meta:
         model = Subscription
         fields = OwnedSerializer.Meta.fields + ('status', 'access', 'role')
         read_only_fields = OwnedSerializer.Meta.read_only_fields
-        extra_kwargs = {
-            'owner': {'required': False, 'allow_null': True}
-        }
 
     def __init__(self, *args, **kwargs):
-        """
-        :param STATUS_CHOICES status: set status at creation
-        """
         super().__init__(*args, **kwargs)
+        self.fields['status'].read_only = self.instance is None
+        # self.fields['owner'].read_only = self.instance is not None
 
-        # Rule: invitations require owner to be set
-        self.fields['owner'].read_only = self.instance is not None
+    def validate_request(self, data):
+        if data.get('owner') and data['owner'] != self.role.user:
+            raise ValidationError({'owner': ['not allowed']})
 
-    def validate_create(self, data):
-        role, is_subscribed = self.role, self.role.is_subscribed
+        if data['role'] >= ModeratorRole.access:
+            raise ValidationError({'role': ["must be < than Moderator role"]})
 
-        # status validation
-        status = data.setdefault('status', STATUS_REQUEST)
-        is_invite = status is STATUS_INVITATION
-        if status is STATUS_ACCEPTED or \
-                (not is_subscribed and is_invite) or \
-                (is_subscribed and not is_invite):
-            raise ValidationError('invalid status')
+        context = self.role.context
+        data.setdefault('access', context.subscription_default_access)
 
+        accept_role = context.subscription_accept_role
+        data['status'] = STATUS_ACCEPTED \
+            if accept_role is not None and data['role'] <= accept_role else \
+            STATUS_REQUEST
+        return data
+
+    def validate_invite(self, data):
         owner = data.get('owner')
+        if owner is None or owner == self.role.user:
+            raise ValidationError({'owner': [
+                "This field is required and can't be current user"
+            ]})
 
-        # Rule: Owner are set only for invitations and must be for other
-        #       users.
-        if (is_invite and owner in (None, role.user)) or \
-                not is_invite and owner is not None:
-            raise ValidationError("'owner' is required for invitations "
-                                  "only and must not be request user")
-
-        # TODO/FIXME: set default access etc. based on context_policy
-
-        # role validation
-        # Rule: maximum role access for a subscription depends of the
-        #       context policies for request, otherwise of the current
-        #       user's role.
-        role_max = role.access if is_invite else \
-            role.context.subscription_default_role
-        data['role'] = min(role_max, data.get('role'))
+        data['status'] = STATUS_INVITE
+        data['role'] = min(data['role'], self.role.access)
+        return data
 
     def validate_update(self, data):
         role, instance = self.role, self.instance
@@ -204,13 +190,15 @@ class SubscriptionSerializer(OwnedSerializer):
         # status validation
         # Rule: a subscription status can update only to the same
         #       value or accepted.
-        # Rule: invitation can't be accepted by others, while
+        # Rule: Invite can't be accepted by others, while
         #       request can't be accepted by owner.
         status = data.get('status')
         if status is STATUS_ACCEPTED:
-            test = instance.status is STATUS_INVITATION \
-                if instance.is_owner(role) else \
+            test = instance.status is STATUS_ACCEPTED or (
+                instance.status is STATUS_INVITE
+                if instance.is_owner(role) else
                 instance.status is STATUS_REQUEST
+            )
         else:
             test = status in (instance.status, None)
 
@@ -222,20 +210,21 @@ class SubscriptionSerializer(OwnedSerializer):
         # Rule: can't set role higher than the one attributed to user.
         #
         # If obj owner is user, use `obj.role` because role can be
-        # DefaultRole (e.g. when an invitation is accepted).
+        # DefaultRole (e.g. when an Invite is accepted).
         role_max = instance.role if instance.is_owner(role) else \
             role.access
         data['role'] = min(role_max, data.get('role', instance.role))
+        return data
 
     def validate(self, data):
-        if self.role.is_anonymous:
+        role = self.role
+        if role.is_anonymous:
             raise ValidationError('role must not be anonymous')
 
-        if self.instance is None:
-            self.validate_create(data)
-        else:
-            self.validate_update(data)
-        return super().validate(data)
+        data = super().validate(data)
+        return self.validate_update(data) if self.instance is not None else \
+            self.validate_invite(data) if role.is_subscribed else \
+            self.validate_request(data)
 
 
 class RoleSerializer(serializers.Serializer):
@@ -260,8 +249,10 @@ class ContextSerializer(BaseSerializer):
 
     class Meta:
         fields = BaseSerializer.Meta.fields + (
-            'subscription_policy', 'subscription_default_access',
+            'allow_subscription_request',
             'subscription_default_role',
+            'subscription_accept_role',
+            'subscription_default_access',
 
             'role',
         )

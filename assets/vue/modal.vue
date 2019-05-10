@@ -1,9 +1,10 @@
 <template>
-    <div ref="modal" role="dialog" :tabindex="-1"
+    <div role="dialog" :tabindex="-1"
         aria-modal="true" :aria-hidden="!visible"
         class="modal fade" :class="{show: visible}"
         :style="modalStyle"
         @click.self="hide()" @keydown.esc="hide()"
+        tabindex="1312"
         >
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
             <div class="modal-content shadow p-2" ref="content"
@@ -80,18 +81,19 @@ export default {
             if(reset) this.html = ''
             this.visible = true;
 
-            const modal = this.$refs.modal;
+            const modal = this.$el;
             if(!modal)
                 return
 
             modal.focus({ preventScroll: top });
-            this.$refs.content.click();
             modal.scrollTop = 0;
         },
 
         toggle(reset=false) {
-            if(reset) this.html = ''
-            this.visible = !this.visible;
+            if(this.visible)
+                this.hide(reset)
+            else
+                this.show(reset)
         },
 
         /**

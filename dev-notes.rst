@@ -3,21 +3,28 @@ TODO
 
 Todo now
 --------
+- **next (client)**:
+  - subscribe buttons:
+    - as a component: access selection in a menu
+    - default access to context policy
+  - context:
+    - subscription as a resource (hyperlink when fetched???)
+
 
 - modal:
    - close when no html content => response is json || or just hide() by rendered component,
      on demand??? how to when request result from a submit event and we need request
      result before closing
    - error handling
-- subscriptions:
+x subscriptions:
    x add subscription access policy on context
    x adapt queryset for subscriptions -> no need since access and role are different
    x viewset filters => context, access
    x Subscription permissions & serializer & endpoint
 - client
    - resources:
-      - load from url: reset options
-      - pagination & load next
+      x load from url: reset options
+      x pagination & load next
       - items selection (multiple, single) + @select event on collection
    - user pick:
       - template

@@ -52,8 +52,6 @@ class ContentSerializer(AccessibleSerializer): # , serializers.HyperlinkedModelS
 class ContainerSerializer(ContextSerializer):
     class Meta:
         model = Container
-        fields = ContextSerializer.Meta.fields + (
-            'pk', 'title', 'description'
-        )
+        fields = ContextSerializer.Meta.fields + ('title', 'description')
 
 

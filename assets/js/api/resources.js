@@ -88,7 +88,8 @@ class Resources extends ResourcesInfo {
         const resource = this.find(item);
         if(!resource)
             return this.items.push(item);
-        Vue.set(resource, 'data', item.data)
+        if(resource.data !== item.data)
+            Vue.set(resource, 'data', item.data)
         return resource;
     }
 

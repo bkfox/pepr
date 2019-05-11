@@ -239,11 +239,13 @@ class PubsubConsumer(ApiConsumer):
         self.subscriptions.clear()
 
     @classmethod
-    def connect_signals(cls):
+    def connect_signals(cls, model=None, event_type='instance.changed'):
         """
         Connect Pubsub class to observed model's change signals in
         order to notify subscriptions from changes.
         """
+        model = cls.model if model is None else model
+
         # FIXME: put it into external class/whatever and use @partial shit
         #        to bind to correct subscription class?
         #        also, when can we connect signals? is there a django signal
@@ -254,7 +256,7 @@ class PubsubConsumer(ApiConsumer):
 
             for key in keys:
                 async_to_sync(channel_layer.group_send)(key, {
-                    'type': 'instance.changed',
+                    'type': event_type,
                     'instance': instance,
                     'method': method,
                     'key': key,
@@ -269,4 +271,5 @@ class PubsubConsumer(ApiConsumer):
         post_save.connect(instance_post_save, cls.model, False)
         post_delete.connect(instance_post_delete, cls.model, False)
 
+# TODO: class ContextPubsub => watch subscription
 

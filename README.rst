@@ -56,6 +56,7 @@ If you need to create a super-user, now it is the time:
 
 
 .. code-block:: bash
+
     ./manage.py createsuperuser
 
 

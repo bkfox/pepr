@@ -54,11 +54,15 @@ Since we are in early stages of development, migrations are not yet present in r
 
 If you need to create a super-user, now it is the time:
 
+
 .. code-block:: bash
     ./manage.py createsuperuser
 
+
+
 Architecture
 ------------
+
 Pepr is provided as a full-featured platform, at provides server-side framework and client.
 
 Code is organized under the following modules:

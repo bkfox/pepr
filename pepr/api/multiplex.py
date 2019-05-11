@@ -92,7 +92,10 @@ class MultiplexConsumer(ApiConsumer, metaclass=MultiplexConsumerMeta):
             raise NotFound()
 
         slot, request.path = match
-        ci, created = self.switch.get_or_create(slot, self.consumer_classes)
+        consumer_class = self.consumer_classes.get(slot)
+        ci, created = self.switch.get_or_create(slot, consumer_class) \
+            if consumer_class else None, None
+
         if not ci:
             return await self.send_api_exception(NotFound())
         if created:

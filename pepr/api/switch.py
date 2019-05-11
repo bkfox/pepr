@@ -140,9 +140,9 @@ class Switch(Register):
         return [self.create(consumer_class, slot, init_kwargs)
                 for slot, consumer_class in consumer_classes.items()]
 
-    def get_or_create(self, slot, consumer_classes, **init_kwargs):
+    def get_or_create(self, slot, consumer_class, **init_kwargs):
         if slot not in self:
-            consumer_info = self.create(slot, consumer_classes[slot])
+            consumer_info = self.create(slot, consumer_class)
             return consumer_info, True
         return self.get(slot).instance, False
 

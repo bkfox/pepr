@@ -1,0 +1,5 @@
+
+SWAGGER_SETTINGS = {
+    'JSON_EDITOR': True,
+}
+

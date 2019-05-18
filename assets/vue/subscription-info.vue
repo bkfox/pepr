@@ -26,7 +26,7 @@
                     <select class="form-control " id="subscription-role" name="role"
                         v-model="item.role">
                         <option v-for="role in roles" :key="role.access"
-                                v-if="0x10 < role.access < 0x80"
+                            v-if="roles.DEFAULT.access < role.access < roles.MODERATOR.access"
                             :value="role.access">
                         {{ role.name }}
                         </option>
@@ -43,7 +43,7 @@
                     <select class="form-control" id="subscription-role" name="role"
                         v-model="item.access">
                         <option v-for="role in roles" :key="role.access"
-                                v-if="role.access <= 0x80"
+                                v-if="role.access <= roles.MODERATOR.access"
                             :value="role.access">
                         {{ role.name }}
                         </option>
@@ -58,12 +58,12 @@
 
         <template slot="modal-footer">
             <button class="btn btn-danger float-left"
-                :item="subscription" action="resource:delete"
+                :item="subscription" action="destroy"
                 @click="unsubscribe">
                 Unsubscribe
             </button>
             <button class="btn btn-primary"
-                :item="subscription" action="resource:save"
+                :item="subscription" action="save"
                 @click="save">
                 Save
             </button>
@@ -92,7 +92,7 @@ export default {
         item() {
             if(!this.subscription)
                 return;
-            return Object.assign({}, this.subscription.data)
+            return Object.assign(this.subscription.data || {})
         },
     },
 

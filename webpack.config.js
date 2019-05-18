@@ -68,9 +68,9 @@ module.exports = {
         alias: _.extend(createLodashAliases(), {
             pepr: '../js',
             vue: 'vue/dist/vue.esm.browser.js',
+            vuex: 'vuex/dist/vuex.esm.browser.js',
             // we have a modified version with v-runtime-template/pull/33
             'v-runtime-template': '../vue/v-runtime-template.js',
-            // vuex: 'vuex/dist/vuex.esm.js',
             'vuetify-css': 'vuetify/dist/vuetify.css',
         }),
         modules: [

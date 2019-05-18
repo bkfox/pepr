@@ -1,72 +1,88 @@
 import Vue from 'vue';
 
+import Shared from '../utils/shared';
 import { fetch_api, fetch_json } from './connection';
 
 
 /**
- * Handles CRUD operations over data and api.
+ * A Resource is wrapper that is used to load and edit data on the server.
+ * It uses HyperLinked identifiers in order to interact with the distant
+ * server: Resource's id is an url to the loaded data.
  */
-export default class Resource {
-    constructor(endpoint, key, data={}, resources=null) {
-        /**
-         * @member {String} endpoint
-         * Resource's endpoint (without key)
-         */
-        this.endpoint = endpoint;
-        /**
-         * @member {String} key
-         * Resource key
-         */
-        this.key= key;
-        /**
-         * @member {Resources} resources
-         * (Optional) parent Resource manager
-         */
-        this.resources = resources;
-        Vue.set(this, 'data', data);
+export default class Resource extends Shared {
+    constructor(data=null, {path=null, ...options}={}) {
+        console.log('new resource', data, path, options)
+        super(data, options);
+        if(path) {
+            if(this.data === null)
+                this.data = {};
+            this.data.id = path;
+        }
     }
 
     /**
-     *  @property {String} resource's url. When resource is not saved on
-     *  the server (has no key), set to endpoint
+     *  @property {String} id - resource's unique id (based on object key and type).
      */
-    get path() {
-        if(this.key)
-            return this.endpoint + this.key + '/';
-        return this.endpoint;
-    }
+    get id() { return this.attr("id"); }
 
     /**
-     *  @property {String} human readable object type.
+     *  @property {String} path - resource's url.
      */
-    get type() {
-        return this.data && this.data.object_type;
-    }
+    get path() { return this.id; }
 
     /**
-     * Drop me
+     *  @property {String|...} key - resource's actual key
      */
-    drop() {
-        if(this.data.drop)
-            this.data.drop();
-    }
+    get key() { return this.attr("pk"); }
 
     /**
-     *  Fetch a resource from the server and return a Promise resolving to the
-     *  new Resource instance.
+     *  @property {String} type - human readable object type.
      */
-    static load(endpoint, key, options={}) {
-        const resource = new Resource(endpoint, key);
+    get type() { return this.attr("_type"); }
+
+    /**
+     *  @property {[String]} actions - array of available api action for this
+     *  resource.
+     */
+    get actions() { return this.attr("_actions"); }
+
+    /**
+     * Get data attribute if any, or undefined.
+     */
+    attr(name) {
+        return this.data ? this.data[name] || undefined : undefined;
+    }
+
+
+    /**
+     * Fetch a resource from the server and return a Promise resolving to it.
+     */
+    static load(path, options={}, initArgs={}) {
+        const resource = new this(null, {...initArgs, path});
         return resource.fetch(options);
+    }
+
+    /**
+     * Fetch multiple resources and return a Promise resolving to them.
+     */
+    static loadList(path, options={}, initArgs={}) {
+        const self = this;
+        return fetch_json(path, options).then(
+            data => {
+                const items = data.results.map(item => new self(item, initArgs))
+                data.results = items;
+                return data;
+            }
+        );
     }
 
     /**
      *  Save a resource to the server and return a Promise resolving to the new
      *  Resource instance.
      */
-    static create(endpoint, data, options={}) {
-        const resource = new Resource(endpoint, null, data)
-        return resource.save();
+    static create(endpoint, data, initArgs={}) {
+        const resource = new this(null, initArgs);
+        return resource.save(data, endpoint);
     }
 
     /**
@@ -76,19 +92,16 @@ export default class Resource {
     fetch(options={}) {
         const self = this;
         return fetch_json(this.path, options)
-            .then(response => response.json())
-            .then(function(data) {
-                Vue.set(self, 'data', data)
-                return self;
-            });
+            .then(data => { self.data = data; return self },
+                  data => { self.data = null; return Promise.reject(data) })
     }
 
     /**
      *  Run an action for this resource. Resource's path is concatenated with
      *  given `path`.
      */
-    api(path='', ...initArgs) {
-        return fetch_json(this.path + path, ...initArgs);
+    api(path='', ...fetchArgs) {
+        return fetch_json(this.path + path, ...fetchArgs);
     }
 
     /**
@@ -97,20 +110,15 @@ export default class Resource {
      *
      *  Return promise resolving to the updated Resource instance.
      */
-    save(data={}) {
+    save(data={}, endpoint=null) {
+        const [path, method] = this.key ? [this.path, 'PUT'] : [endpoint, 'POST'];
+        if(!path)
+            throw "No endpoint found for this resource";
+
         const self = this;
-        return fetch_json(this.path,
-                          { method: this.key ? 'PUT' : 'POST',
-                            body: Object.assign({}, this.data, data) })
-            .then(response => response.json())
-            .then(function(data) {
-                // TODO: test success
-                Vue.set(self, 'key', data.pk)
-                Vue.set(self, 'data', data)
-                if(self.resources)
-                    self.resources.update(data);
-                return self;
-            });
+        const body = Object.assign(this.data, data);
+        return fetch_json(path, { method: method, body: body })
+            .then(data => { self.data = data; return self; });
     }
 
     /**
@@ -121,16 +129,9 @@ export default class Resource {
         if(this.key) {
             const self = this;
             return fetch_json(this.path, { method: 'DELETE' }, false)
-                .then(function(response) {
-                    // TODO: test success
-                    if(self.resources)
-                        return self.resources.remove(self);
-                    self.data = null;
-                    return self
-                });
+                .then(response => { self.drop(); return self; });
         }
-        else if(self.resources)
-            self.resources.remove(self)
+        else self.drop();
     }
 
     /**

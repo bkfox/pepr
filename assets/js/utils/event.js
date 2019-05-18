@@ -5,17 +5,17 @@ import _ from 'lodash';
  *  Event passed by an Emitter to a listener.
  */
 export default class Event {
-    constructor(emitter, type, data, kwargs={}) {
+    constructor(emitter, type, data=null, {target=null, propagate=true, failure=true}={}) {
         /**
-         *  Emitter object from which event has been `emit`ed.
-         *  @type {Emitter}
+         * Event's emitter.
+         * @type {Emitter}
          */
         this.emitter = emitter;
         /**
-         *  Source of the event
+         *  Source of the event (by default, emitter).
          *  @type {Object}
          */
-        this.target = emitter;
+        this.target = target === null ? emitter : target;
         /**
          *  Event type
          *  @type {string}
@@ -25,7 +25,7 @@ export default class Event {
          *  Continue event propagation
          *  @type {Boolean}
          */
-        this.propagate = true;
+        this.propagate = propagate;
         /**
          *  Errors that occured thorough listeners' calls
          *  @type {EventError[]}
@@ -36,14 +36,11 @@ export default class Event {
          *  @type {Object}
          */
         this.data = data;
-
         /**
          *  Event indicates a failure.
          *  @type {Boolean}
          */
-        this.failure = true;
-
-        _.assign(this, kwargs);
+        this.failure = failure;
     }
 
     /**

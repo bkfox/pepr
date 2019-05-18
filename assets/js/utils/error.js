@@ -1,7 +1,5 @@
-import _ from 'lodash';
 
-
-export class Error {
+export default class Error {
     constructor(message, details, options={}) {
         this.message = message;
         this.details = details;

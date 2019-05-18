@@ -37,9 +37,9 @@ export default {
 
     computed: {
         visible() {
-            var data = this.item && this.item.data;
-            var r = !data || (data.api_actions && data.api_actions.includes(this.api_action));
-            return r;
+            const actions = this.item && this.item.actions;
+            return !(actions instanceof Array) ||
+                   actions.includes(this.api_action)
         }
     },
 

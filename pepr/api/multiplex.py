@@ -94,10 +94,12 @@ class MultiplexConsumer(ApiConsumer, metaclass=MultiplexConsumerMeta):
         slot, request.path = match
         consumer_class = self.consumer_classes.get(slot)
         ci, created = self.switch.get_or_create(slot, consumer_class) \
-            if consumer_class else None, None
+            if consumer_class else (None, None)
 
         if not ci:
+            print('resolve...', request.path, ci)
             return await self.send_api_exception(NotFound())
+
         if created:
             # force new consumer to be initialized (its "__call__" task
             # is scheduled in event loop)

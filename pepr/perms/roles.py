@@ -7,7 +7,7 @@ from django.utils.translation import ugettext_lazy as _
 from ..utils.register import Register
 from ..utils.metaclass import RegisterMeta
 
-from .permissions import CanAccess, CanCreate, CanUpdate, CanDelete
+from .permissions import CanAccess, CanCreate, CanUpdate, CanDestroy
 
 __all__ = ['Roles', 'Role',
            'AnonymousRole', 'DefaultRole', 'SubscriberRole',
@@ -189,7 +189,7 @@ class DefaultRole(Role):
 
 
 DefaultRole.register(None, True, CanAccess)
-DefaultRole.register(None, False, CanAccess, CanCreate, CanUpdate, CanDelete)
+DefaultRole.register(None, False, CanAccess, CanCreate, CanUpdate, CanDestroy)
 
 
 class SubscriberRole(Role):
@@ -199,7 +199,7 @@ class SubscriberRole(Role):
 
 
 SubscriberRole.register(None, True, CanAccess, CanCreate)
-SubscriberRole.register(None, False, CanCreate, CanUpdate, CanDelete)
+SubscriberRole.register(None, False, CanCreate, CanUpdate, CanDestroy)
 
 
 class MemberRole(Role):
@@ -211,7 +211,7 @@ class MemberRole(Role):
 
 
 MemberRole.register(None, True, CanAccess, CanCreate)
-MemberRole.register(None, False, CanUpdate, CanDelete)
+MemberRole.register(None, False, CanUpdate, CanDestroy)
 
 
 class ModeratorRole(Role):
@@ -222,7 +222,7 @@ class ModeratorRole(Role):
     )
 
 
-ModeratorRole.register(None, True, CanAccess, CanCreate, CanUpdate, CanDelete)
+ModeratorRole.register(None, True, CanAccess, CanCreate, CanUpdate, CanDestroy)
 
 
 class AdminRole(Role):
@@ -242,6 +242,6 @@ class AdminRole(Role):
         return self.defaults
 
 
-AdminRole.register(None, True, CanAccess, CanCreate, CanUpdate, CanDelete)
+AdminRole.register(None, True, CanAccess, CanCreate, CanUpdate, CanDestroy)
 
 

@@ -6,10 +6,10 @@
   "author": "bkfox",
   "license": "AGPL",
   "devDependencies": {
-    "@fortawesome/fontawesome-free": "^5.7.2",
-    "css-loader": "^2.1.0",
+    "@fortawesome/fontawesome-free": "^5.8.2",
+    "css-loader": "^2.1.1",
     "file-loader": "^3.0.1",
-    "jsdoc-vuejs": "^2.4.2",
+    "jsdoc-vuejs": "^2.4.3",
     "lodash-loader": "^2.0.0",
     "mini-css-extract-plugin": "^0.5.0",
     "style-loader": "^0.23.1",
@@ -18,20 +18,21 @@
     "ttf-loader": "^1.0.2",
     "vue-loader": "^15.7.0",
     "vue-style-loader": "^4.1.2",
-    "vue-template-compiler": "^2.6.8",
+    "vue-template-compiler": "^2.6.10",
     "vue-template-loader": "^1.0.0",
-    "vuetify-loader": "^1.2.1",
-    "webpack": "^4.29.5",
+    "vuetify-loader": "^1.2.2",
+    "webpack": "^4.31.0",
     "webpack-bundle-tracker": "^0.4.2-beta",
-    "webpack-cli": "^3.2.3"
+    "webpack-cli": "^3.3.2"
   },
   "dependencies": {
     "bootstrap": "^4.3.1",
-    "bootstrap-vue": "^2.0.0-rc.16",
+    "bootstrap-vue": "^2.0.0-rc.20",
     "js-cookie": "^2.2.0",
     "lodash": "^4.17.11",
     "v-runtime-template": "^1.6.2",
-    "vue": "^2.6.8",
-    "vuetify": "^1.5.9"
+    "vue": "^2.6.10",
+    "vuetify": "^1.5.14",
+    "vuex": "^3.1.1"
   }
 }

@@ -1,7 +1,7 @@
 
 from django.utils.translation import ugettext, ugettext_lazy as _
 
-from ..perms.permissions import CanDelete, CanUpdate
+from ..perms.permissions import CanDestroy, CanUpdate
 from ..ui.components import Widget, Position
 from ..ui.widgets import ActionWidget
 
@@ -24,8 +24,8 @@ class DeleteActionWidget(ActionWidget):
     text = _('Delete')
     icon = 'fa-trash-alt fas'
     tag_attrs = {
-        'action': 'resource:delete',
-        'api_action': 'delete',
+        'action': 'destroy',
+        'api_action': 'destroy',
         'method': 'DELETE',
         ':item': 'item',
         'ask': _('Do you really want to delete this element?'),
@@ -38,7 +38,7 @@ class EditActionWidget(ActionWidget):
     text = _('Edit')
     icon = 'fa-edit fas'
     tag_attrs = {
-        'action': 'resource:form',
+        'action': 'form',
         'api_action': 'update',
         'method': 'GET',
         'handler': 'modal',

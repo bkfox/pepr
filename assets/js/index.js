@@ -1,6 +1,6 @@
 import './api';
 import './app';
-import './actions';
+import './utils';
 
 import '../vue';
 

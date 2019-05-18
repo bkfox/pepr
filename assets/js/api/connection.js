@@ -3,16 +3,21 @@
 import _ from 'lodash';
 import Cookies from 'js-cookie';
 
+import Pubsub from './pubsub';
 import Request from './request';
 import Requests from './requests';
 
 
 /**
  * Call `fetch` with various initialization in order to ease our lifes.
+ * Return a promise resolving or rejecting wether request is a success or not.
  *
- * Option extra arguments:
+ * @param {String} url: url passed to `fetch()`
+ * @param {Object} options: options passed to `fetch()`
+ *
+ * Options extra arguments:
  * - query: extra URLSearchParams
- * 
+ *
  */
 export function fetch_api(url, options={}) {
     if(options.query) {
@@ -26,7 +31,10 @@ export function fetch_api(url, options={}) {
     if(headers['Accept'] === undefined)
         headers['Accept'] = 'application/json'
     options.headers = headers;
-    return fetch(url, options)
+
+    return fetch(url, options).then(
+        (response) => response.status < 400 ? response : Promise.reject(response)
+    )
 }
 
 /**
@@ -35,7 +43,7 @@ export function fetch_api(url, options={}) {
  *  Option values:
  *  - ``body``: will be stringified if it is not a string
  */
-export function fetch_json(url, options) {
+export function fetch_json(url, options, json=true) {
     options.headers = options.headers || {};
     options.headers['Content-Type'] = 'application/json';
     // TODO: support for sending files => binary, blobs etc.
@@ -43,7 +51,11 @@ export function fetch_json(url, options) {
     //       or we have to create different actions.
     if(options.body && typeof options.body != 'string')
         options.body = JSON.stringify(options.body)
-    return fetch_api(url, options)
+
+    const p = fetch_api(url, options);
+    return json ? p.then(response => response.json(),
+                         response => Promise.reject(response.json()))
+                : p;
 }
 
 
@@ -63,14 +75,12 @@ export default class Connection extends Requests {
     /**
      * Creates a new Connection.
      */
-    constructor(kwargs={})
+    constructor({reconnect=null, url=null, ...options})
     {
-        var { reconnect=false, url=null, requestTimeout=null } = kwargs;
-        super(kwargs);
+        super(options);
 
         this.url = url;
         this.reconnect = reconnect;
-        this.requestTimeout = requestTimeout;
     }
 
     drop(data={}) {
@@ -169,84 +179,84 @@ export default class Connection extends Requests {
     }
 
     /**
-     * Send `data` to the server and return it.
+     * Send `data` to the server and return it. It can either be a string,
+     * an object or request to serialize.
      *
-     * Passed `Request` instances will be sent when connection is established
-     * to the server if it is not yet available.
+     * When `data` is a `Request` instance, it will return the request to
+     * register events to. The request is registered only when a listener is
+     * added to the request.
      *
-     * @return `data` when it is sent (or will be). `null` if send fails.
+     * @return a request if `data` is a request, else the original data.
      */
     send(data) {
-        var odata = data;
+        let req = null;
         if(data instanceof Request) {
-            this.requests[data.id] = this.requests[data.id] || data;
-            this.requests[data.id].lastTime = Date.now();
-
+            req = this.requests[data.id] || data;
+            req.lastTime = Date.now();
+            // FIXME: data is not handled if req != data (req exists yet)
             if(!this.isOpen)
-                return odata;
-            data = data.serialize();
+                return data;
+            data = data.data;
         }
-        else if(!this.isOpen)
-                return null;
 
         this.ws.send(typeof data == 'string' ? data : JSON.stringify(data));
         console.debug('conn >>> ', data);
-        return odata;
+        return req || data;
     }
 
     /**
      * Create and send a Request, that is returned (if success). Given arguments
      * will be passed as is to the constructor of Request.
-     */
-    request(...initArgs) {
-        return this.send(new Request(this, ...initArgs));
-    }
-
-    /**
-     * Send a request only once for the given path and return it. It will
-     * only be sent if there is not yet another active request for the
-     * same `path` and `payload`.
      *
-     * @return [Request, Boolean] the request, and a boolean indicating if it
-     *      has been created in this call.
+     * Options:
+     * - classe: request constructor class
+     * - once: send request only once for `path` and `data`: if already sent, just
+     *   return the handling request.
      */
-    requestOnce(path, payload, ...initArgs) {
-        var req = _.find(this.requests, { path: path, payload: payload });
-        if(req)
-            return [req, false];
-        return [this.request(path, payload, ...initArgs), true]
+    request(path, data, {classe=Request, once=false, ...args}) {
+        const req = new classe(path, data, {...args, connection:this});
+        if(once && this.find(path, data))
+            return this.requests[req.id];
+        return this.send(req);
     }
 
     /**
      * Create a GET request
      */
-    GET(path, payload = {}) {
-        payload.method = 'GET';
-        return this.request(path, payload);
+    GET(path, data = {}) {
+        data.method = 'GET';
+        return this.request(path, data);
     }
 
     /**
      * Create a POST request
      */
-    POST(path, payload) {
-        payload.method = 'POST';
-        return this.request(path, payload);
+    POST(path, data) {
+        data.method = 'POST';
+        return this.request(path, data);
     }
 
     /**
      * Create a PATCH request
      */
-    PATCH(path, payload) {
-        payload.method = 'PATCH';
-        return this.request(path, payload);
+    PATCH(path, data) {
+        data.method = 'PATCH';
+        return this.request(path, data);
     }
 
     /**
      * Create a DELETE request
      */
-    DELETE(path, payload) {
-        payload.method = 'DELETE';
-        return this.request(path, payload);
+    DELETE(path, data) {
+        data.method = 'DELETE';
+        return this.request(path, data);
+    }
+
+    /**
+     * Pubsub subscribe to the server and return the subscription request.
+     */
+    subscribe(path, filter, lookup) {
+        return this.request(path, null, {filter, lookup, once: true, classe: Pubsub})
     }
 }
 

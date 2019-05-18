@@ -23,12 +23,12 @@ class ContentSerializer(AccessibleSerializer): # , serializers.HyperlinkedModelS
     class Meta:
         model = Content
         fields = (
-            'pk',
+            'pk', 'id',
             'created', 'owner',
             'modified', 'modifier',
             'context', 'text',
             'access',
-            'html', 'api_actions'
+            'html', '_actions', '_type'
         )
         read_only_fields = ('pk', 'created', 'owner',
                             'modified', 'modifier')

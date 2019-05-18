@@ -11,12 +11,14 @@ import 'bootstrap-vue/dist/bootstrap-vue.css'
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import '@fortawesome/fontawesome-free/css/fontawesome.min.css';
 
+import conf from './conf';
+import store from './store';
+
+import Action, * as actions from './api/action';
 import Connection from './api/connection';
 import Resource from './api/resource';
-import { Role } from './api/perms';
+import { Role, Context } from './api/perms';
 import User from './pepr/user';
-import conf from './conf';
-import actions from './actions';
 
 import '../css/pepr.css';
 import '../css/noscript.css';
@@ -31,8 +33,7 @@ var AppComp = Vue.extend({
     data() {
         return {
             context: null,
-            contextEndpoint: null,
-            contextKey: null,
+            contextId: null,
             subscriptionEndpoint: null,
         }
     },
@@ -43,41 +44,41 @@ var AppComp = Vue.extend({
         },
 
         subscription() {
-            if(!this.role || !this.role.subscription)
-                return null;
-            return this.role && this.role.subscription;
+            return this.context && this.context.subscription;
         },
     },
 
     methods: {
-        loadContext(endpoint, key) {
-            this.contextEndpoint = endpoint;
-            this.contextKey = key;
-
+        loadContext(id) {
             const self = this;
-            if(this.contextEndpoint && this.contextKey)
-                Resource.load(this.contextEndpoint, this.contextKey)
-                    .then(resource => { self.context = resource; });
+            Context.load(id).then(context => { self.context = context; });
         },
     },
 
     mounted() {
-        var { contextEndpoint, contextKey, subscriptionEndpoint } = this.$el.dataset;
+        var { contextId, subscriptionEndpoint } = this.$el.dataset;
         this.subscriptionEndpoint = subscriptionEndpoint;
-        if(contextEndpoint && contextKey)
-            this.loadContext(contextEndpoint, contextKey)
+        if(contextId)
+            this.loadContext(contextId)
     },
 })
 
-export var appConf = {
-    el: '#app',
-    // TODO/FIXME: remove
-    delimiters: ['[[', ']]'],
 
+export const appConf = {
+    el: '#app',
+    // TODO/FIXME: remove?
+    delimiters: ['[[', ']]'],
+    store,
     data: {
         connection: undefined,
         user: undefined,
-        actions: actions,
+        actions: {
+            fetch: Action,
+            request: actions.RequestAction,
+            resource: actions.ResourceAction,
+            save: actions.SaveAction,
+            destroy: actions.DeleteAction,
+        },
     },
 
     computed: {
@@ -91,12 +92,11 @@ export var appConf = {
 
     methods: {
         action(event) {
-            const action = actions[event.action];
+            let action = this.actions[event.action];
             if(!action)
-                throw `action ${event.action} not found`;
-            if(event.ask && !confirm(event.ask))
-                return;
-            return action(this, event);
+                throw `action "${event.action}" not found`;
+            action = new action(this);
+            return action.call(event.handler, event);
         },
 
         onSubmit(event) {

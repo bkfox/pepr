@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 
 from ..api.mixins import SingleObjectMixin
 from .roles import Roles
-from .permissions import CanAccess, CanCreate, CanUpdate, CanDelete
+from .permissions import CanAccess, CanCreate, CanUpdate, CanDestroy
 
 
 class PermissionMixin:
@@ -25,7 +25,7 @@ class PermissionMixin:
         'GET': permission_classes,
         'POST': (CanCreate,),
         'PUT': (CanUpdate,),
-        'DELETE': (CanDelete,),
+        'DELETE': (CanDestroy,),
     }
     """
     Permission to apply for a specific action instead of

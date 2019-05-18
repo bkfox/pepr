@@ -28,7 +28,7 @@
 
 
 <script>
-import Resources from 'pepr/api/resources';
+import Pubsub from '../js/api/pubsub';
 
 /**
  * Component rendering items of an array. Data can be retrieved and
@@ -38,7 +38,7 @@ import Resources from 'pepr/api/resources';
 export default {
     props: {
         /**
-         * url [property] Property
+         * url [property] List path
          * @type {String}
          */
         path: { type: String, default: null },
@@ -64,16 +64,6 @@ export default {
         pubsubLookup: { type: String, default: null },
 
         /**
-         * items [property] array of items
-         * @type {Array}
-         */
-        items: { type: Array, default: () => [] },
-        /**
-         * itemKey [property] Resources's idAttr.
-         * @type {String}
-         */
-        itemKey: { type: String, default: 'pk' },
-        /**
          * itemClass [property] Item class
          * @type {String}
          */
@@ -83,70 +73,88 @@ export default {
     // TODO: watch connection, path, items, pubsubFilter, path => pubsubPath, pubsubLookup
     // -> connection change: try unsubscribe
     data: function() {
+        const self = this;
         return {
             /**
-             * Resources instance used to link the list to the server.
-             * @type {Resources|null}
-             */
-            resources: null,
-
-            /**
-             * Pubsub instance used by Resources.
+             * Pubsub request instance.
              * @type {Pubsub|null}
              */
-            get pubsub() {
-                return this.resources && this.resources.pubsub;
-            }
+            pubsub: null,
+            /**
+             * Pubsub events listener
+             */
+            listener: {
+                on: {
+                    create: ({item}) => { console.log(item); self.$store.dispatch('api/acquire', {owner:self, resources: [item]}) },
+                    update: ({item}) => { console.log(item); self.$store.dispatch('api/acquire', {owner:self, resources: [item]}) },
+                    delete: ({item}) => { console.log(item); self.$store.commit('api/drop', item.id); },
+                }
+            },
         };
     },
 
     computed: {
         connection() {
             return this.$root && this.$root.connection
-        }
+        },
+
+        items() {
+            return this.$store.getters['api/getOf'](this);
+        },
     },
 
     methods: {
-        /**
-         * Reset resources
-         */
-        resetResources(init=false) {
-            if(this.resources)
-                this.resources.drop();
+        load({reset=true, query=null, ...args}={}) {
+            if(reset)
+                this.clear(false);
 
-            this.resources = null;
-            if(init && this.connection && this.path) {
-                this.resources = new Resources(this.connection, this.path, this.itemKey,
-                                               this.items, this.query);
-                this.resetPubsub(true);
-            }
-            return this.resources;
+            return this.$store.dispatch('api/loadList', {
+                owner: this, path: this.path,
+                ...args,
+                options: {query: query || this.query, ...args.options},
+            });
+        },
+
+        clear(pubsub=true) {
+            if(pubsub)
+                this.unsubscribe()
+            this.$store.dispatch('api/release', {owner:this});
+        },
+
+        /**
+         * Pubsub unsubscribe
+         */
+        unsubscribe() {
+            if(this.pubsub && this.listener)
+                this.pubsub.release(this.listener)
+        },
+
+        /**
+         * Pubsub subscribe
+         */
+        subscribe() {
+            let path = this.pubsubPath ? this.pubsubPath : this.path + 'pubsub/';
+            path = path + '/subscription';
+
+            const pubsub = this.connection.subscribe(path, this.pubsubFilter, this.pubsubLookup);
+            if(this.pubsub)
+                pubsub != this.pubsub && this.unsubscribe();
+            else
+                this.listener = pubsub.acquire(this.listener);
+            this.pubsub = pubsub;
+            return this.pubsub;
         },
 
         /**
          * Reload list using given form's data as query parameters.
          */
         formFilter(form) {
-            this.resources.load({
+            return this.load({
                 reset: true,
                 query: new FormData(form)
             });
         },
 
-        /**
-         * Reset Pubsub
-         */
-        resetPubsub(init=false) {
-            if(this.resources)
-                this.resources.unsubscribe();
-
-            if(init && this.pubsubFilter) {
-                var path = this.pubsubPath ? this.pubsubPath : this.path + 'pubsub/';
-                this.resources.subscribe(path, this.pubsubFilter, this.pubsubLookup);
-            }
-
-            return this.pubsub;
-        },
 
         /**
          * Return component at given the index
@@ -161,6 +169,9 @@ export default {
         toList(slot) {
             if(!slot || slot.length == 0)
                 return;
+
+            return;
+            // TODO
 
             for(var item of slot) {
                 item = item.children && item.children[0];
@@ -181,11 +192,14 @@ export default {
     },
 
     mounted() {
-        this.resetResources(true);
         this.toList(this.$slots.data);
+        this.load()
+        if(this.pubsubFilter)
+            this.subscribe();
+    },
 
-        if(!this.items.length && this.resources)
-            this.resources.load()
+    beforeDestroy() {
+        this.clear();
     },
 };
 </script>

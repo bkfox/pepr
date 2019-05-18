@@ -205,12 +205,8 @@ class PubsubConsumer(ApiConsumer):
         if not self.can_notify(event, subscription, instance):
             return
 
-        method = event['method']
-        if method == 'DELETE':
-            data = {'pk': str(instance.pk)}
-        else:
-            serializer = self.get_serializer(event, subscription, instance)
-            data = None if serializer is None else serializer.data
+        serializer = self.get_serializer(event, subscription, instance)
+        data = None if serializer is None else serializer.data
 
         if data:
             await self.send_request(ApiRequest(
@@ -219,7 +215,6 @@ class PubsubConsumer(ApiConsumer):
                 method=event['method'],
                 data=data
             ))
-
 
     def can_notify(self, event, subscription, obj):
         """ Return True if instance update is notified to client. """

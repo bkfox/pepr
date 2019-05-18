@@ -2,12 +2,14 @@ from itertools import groupby
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.contrib.auth import models as auth
+from django.urls import reverse
 
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
+from rest_framework.reverse import reverse
 
 from .mixins import PermissionMixin
-from .models import Subscription, \
+from .models import Context, Subscription, \
         STATUS_INVITE, STATUS_REQUEST, STATUS_ACCEPTED
 from .roles import ModeratorRole
 
@@ -21,46 +23,61 @@ __all__ = [
 
 
 class BaseSerializer(serializers.ModelSerializer):
-    api_actions = serializers.SerializerMethodField()
-    object_type = serializers.SerializerMethodField()
+    id = serializers.SerializerMethodField(read_only=True)
+    _type = serializers.SerializerMethodField(method_name='get_object_type')
+    _actions = serializers.SerializerMethodField(method_name='get_api_actions')
+
+    user = None
+    """ Current request user.  """
+    role = None
+    """
+    Current user role for self.instance's context. Set when
+    `self.instance` is set.
+    """
+    view_name = ''
 
     class Meta:
-        fields = ('pk', 'api_actions', 'object_type')
-        read_only_fields = ('pk',)
+        fields = ('pk', 'id', '_actions', '_type')
+        read_only_fields = ('pk', 'id')
 
     def __init__(self, *args, user=None, role=None, viewset=None,
                  **kwargs):
         super().__init__(*args, **kwargs)
 
-        if user == role == self._context.get('request') is None:
+        self.role = role
+        self.user = user
+        self.viewset = viewset
+
+        self.view_name = self.view_name or \
+            self.Meta.model.__name__.lower() + '-detail'
+
+    def get_role(self, context):
+        """ Get role for the given context """
+        if self.user == self.role == self._context.get('request') is None:
             raise RuntimeError(
                 'no way to determine user: you must provide at least '
                 'one of the followings: role, user, request '
                 '(as context)'
             )
 
-        self.role = role
-        self.user = user
-        self.viewset = viewset
-
-    def get_role(self, context):
-        """ Get role for the given context """
         if self.role and self.role.context.pk == context.pk:
             return self.role
         request = self._context.get('request')
         user = self.user or request and request.user
         return user and context.get_role(self.user)
 
+    def get_id(self, obj):
+        return reverse(self.view_name, kwargs={'pk': obj.pk})
+
     def _get_api_actions(self, role, obj):
         """
-        Return actions of the related viewset that are granted for the
+        Return actions of the related api_action that are granted for the
         given role on obj as a list of string.
         """
-        view = self.viewset or self._context.get('view')
-        if not isinstance(view, PermissionMixin):
-            return None
-
-        return view.get_api_actions(role, obj)
+        viewset = self.viewset or self._context.get('view')
+        if not isinstance(viewset, PermissionMixin):
+            return {}
+        return viewset.get_api_actions(role, obj)
 
     def get_api_actions(self, obj):
         raise NotImplementedError('this method must be implemented')
@@ -70,22 +87,20 @@ class BaseSerializer(serializers.ModelSerializer):
 
 
 class AccessibleSerializer(BaseSerializer):
-    user = None
-    role = None
-    """
-    Current user role for self.instance's context. Set when
-    `self.instance` is set.
-    """
-    api_actions = serializers.SerializerMethodField()
+    context_id = serializers.HyperlinkedRelatedField(
+        view_name='context-detail', read_only=True
+    )
 
     class Meta:
-        fields = ('pk', 'context', 'access', 'api_actions')
-        read_only_fields = ('pk',)
+        fields = BaseSerializer.Meta.fields + ('context', 'access')
+        read_only_fields = BaseSerializer.Meta.read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Rule: context can not be changed once assigned
-        self.fields['context'].read_only = self.instance is not None
+        if 'context' in self.fields:
+            field = self.fields['context']
+            field.read_only = self.instance is not None
 
     def get_api_actions(self, obj):
         role = self.get_role(obj.context)
@@ -112,6 +127,10 @@ class OwnerSerializer(serializers.ModelSerializer):
 
 
 class OwnedSerializer(AccessibleSerializer):
+    # owner = serializers.HyperlinkedRelatedField(view_name='')
+    # owner = serializers.PrimaryKeyRelatedField(read_only=True)
+    owner = OwnerSerializer()
+
     class Meta:
         fields = AccessibleSerializer.Meta.fields + ('owner',)
         read_only_fields = AccessibleSerializer.Meta.read_only_fields + \
@@ -233,34 +252,47 @@ class RoleSerializer(serializers.Serializer):
     is_anonymous = serializers.BooleanField()
     is_subscribed = serializers.BooleanField()
     is_admin = serializers.BooleanField()
-    subscription = serializers.SerializerMethodField(required=False)
-
-    def get_subscription(self, obj):
-        subscription = self.instance.subscription
-        return subscription and \
-            SubscriptionSerializer(instance=subscription, role=obj).data
 
 
 class ContextSerializer(BaseSerializer):
     """ Serializer for Context.  """
     role = serializers.SerializerMethodField(
-        method_name='get_user_role', required=False
+        method_name='get_user_role'
     )
+    subscription = serializers.SerializerMethodField()
 
     class Meta:
+        model = Context
         fields = BaseSerializer.Meta.fields + (
             'allow_subscription_request',
             'subscription_default_role',
             'subscription_accept_role',
             'subscription_default_access',
-
-            'role',
+            'role', 'subscription'
         )
+
+    subscription_view_name = 'subscription-detail'
+
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # field = self.fields['subscription']
+        # field.user, field.role = self.user, self.role
+
+    def get_subscription(self, obj):
+        role = self.get_role(obj)
+        if not role or not role.subscription:
+            return
+
+        serializer = SubscriptionSerializer(
+            role=role, instance=role.subscription, context=self.context)
+        return serializer.data
 
     def get_user_role(self, obj):
         request = self.context.get('request')
         role = request and obj.get_role(request.user)
-        return role and RoleSerializer(instance=role).data
+        return role and \
+            RoleSerializer(instance=role, context=self.context).data
 
     def get_api_actions(self, obj):
         role = self.get_role(obj)

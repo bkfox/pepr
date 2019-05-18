@@ -2,13 +2,14 @@ from django.core.exceptions import PermissionDenied
 from django.utils.translation import ugettext_lazy as _
 from rest_framework.permissions import BasePermission, BasePermissionMetaclass
 from rest_framework import permissions as drf_perms
+from rest_framework.exceptions import PermissionDenied
 
 from ..utils.register import Register
 from ..utils.metaclass import RegisterMeta
 from ..utils.string import camel_to_snake
 
 __all__ = ['AND', 'OR', 'Permissions',
-           'CanAccess', 'CanCreate', 'CanUpdate', 'CanDelete',
+           'CanAccess', 'CanCreate', 'CanUpdate', 'CanDestroy',
            'CanSubscribe', 'CanInvite', 'CanAcceptSubscription',
            'CanUnsubscribe']
 
@@ -231,7 +232,7 @@ class CanUpdate(CanObject):
     name = _('Update any {model_name}')
 
 
-class CanDelete(CanObject):
+class CanDestroy(CanObject):
     """ Permission to update any accessible object """
     name = _('Delete any {model_name}')
 
@@ -300,7 +301,7 @@ class CanAcceptSubscription(CanObject):
 
 # TODO: subscription update
 
-class CanUnsubscribe(CanDelete):
+class CanUnsubscribe(CanDestroy):
     """
     Checks that deletion does not leave the context without admin.
     """
@@ -319,8 +320,8 @@ class CanUnsubscribe(CanDelete):
         # the presence of minimum one admin here.
         qs = Subscription.objects.context(role.context) \
                                  .access(AdminRole.access)
-        return role.is_subscribed and role.access == AdminRole.access and \
-            qs.count() > 1
+
+        return role.is_subscribed and qs.count() > 1
 
     @classmethod
     def can_obj(cls, role, obj):

@@ -196,7 +196,7 @@ class SubscriptionsUpdateView(ServiceView, ContextViewMixin, DetailView):
             items=[
                 ActionWidget(
                     text=_('Accept'),
-                    tag_attrs={'action': 'resource:api',
+                    tag_attrs={'action': 'api',
                                'api_action': 'accept',
                                'path': 'accept/',
                                'method': 'PUT',

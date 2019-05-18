@@ -11,34 +11,11 @@ from .mixins import ContextViewMixin, AccessibleViewMixin
 from .models import Subscription, STATUS_REQUEST, STATUS_INVITE, \
     STATUS_ACCEPTED
 from .permissions import *
-from .serializers import SubscriptionSerializer
+from .serializers import ContextSerializer, SubscriptionSerializer
 
 
 __all__ = ['ContextViewSet', 'AccessibleViewSet', 'OwnedViewSet',
            'SubscriptionViewSet']
-
-
-class ContextViewSet(ContextViewMixin, viewsets.ModelViewSet):
-    action_permissions = {
-        'retrieve': (CanAccess,),
-        'create': (CanCreate,),
-        'update': (CanUpdate,),
-        'delete': (CanDelete,),
-    }
-
-    @classmethod
-    def get_api_actions(cls, role, obj):
-        actions = super(ContextViewSet, cls).get_api_actions(role, obj)
-
-        # role permissions for subscriptions edition
-        extra = SubscriptionViewSet().get_api_actions(role)
-        actions += ['subscription.' + a for a in extra]
-
-        return actions
-
-    def get_serializer(self, *args, **kwargs):
-        kwargs.setdefault('user', self.request.user)
-        return super().get_serializer(*args, **kwargs)
 
 
 class AccessibleViewSet(AccessibleViewMixin, viewsets.ModelViewSet):
@@ -50,7 +27,7 @@ class AccessibleViewSet(AccessibleViewMixin, viewsets.ModelViewSet):
         'retrieve': (CanAccess,),
         'create': (CanCreate,),
         'update': (CanUpdate,),
-        'delete': (CanDelete,),
+        'destroy': (CanDestroy,),
     }
     """
     Permission to apply for a specific action instead of
@@ -92,7 +69,7 @@ class SubscriptionViewSet(OwnedViewSet):
         'create': (CanSubscribe|CanInvite,),
         'update': (CanUpdate,),
         'accept': (CanAcceptSubscription,),
-        'delete': (CanUnsubscribe,),
+        'destroy': (CanUnsubscribe,),
     }
 
 
@@ -108,4 +85,31 @@ class SubscriptionViewSet(OwnedViewSet):
         serializer = self.get_serializer(user=request.user, instance=obj)
         return Response(data=serializer.data)
 
+
+class ContextViewSet(ContextViewMixin, viewsets.ModelViewSet):
+    action_permissions = {
+        'retrieve': (CanAccess,),
+        'create': (CanCreate,),
+        'update': (CanUpdate,),
+        'destroy': (CanDestroy,),
+    }
+    subscription_viewset = SubscriptionViewSet
+    """
+    [class] Viewset for subscriptions. This is used for to
+    `get_api_action` for subscriptions.
+    """
+    serializer_class = ContextSerializer
+
+    @classmethod
+    def get_api_actions(cls, role, obj):
+        actions = super(ContextViewSet, cls).get_api_actions(role, obj)
+
+        # role permissions for subscriptions edition
+        extra = cls.subscription_viewset().get_api_actions(role)
+        actions += ['subscription.' + a for a in extra]
+        return actions
+
+    def get_serializer(self, *args, **kwargs):
+        kwargs.setdefault('user', self.request.user)
+        return super().get_serializer(*args, **kwargs)
 

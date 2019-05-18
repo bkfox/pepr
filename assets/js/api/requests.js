@@ -1,13 +1,13 @@
 import _ from 'lodash';
-import Emitter from './emitter';
+import Emitter from '../utils/emitter';
 
 /**
  *  Container class for Request instances. It also includes various 
  *  feature regarding requests, such as timeout.
  */
 export default class Requests extends Emitter {
-    constructor({requests={}, timer=null, timeout=null}={}) {
-        super();
+    constructor({requests={}, timer=null, timeout=null, ...options}={}) {
+        super(null, options);
 
         this.requests = requests;
         this.timer = timer;
@@ -28,28 +28,52 @@ export default class Requests extends Emitter {
     }
 
     /**
-     * Find request with following informations. Match over `payload` if
+     * Return request by id
+     */
+    get(id) {
+        return this.requests[id];
+    }
+
+    /**
+     * Find request with following informations. Match over `data` if
      * defined.
      */
-    find(path, payload = undefined) {
-        predicate = { path: path };
-        if(payload !== undefined)
-            predicate.payload = payload;
+    find(path, data = undefined) {
+        const predicate = { path: path };
+        if(data !== undefined)
+            predicate.data = data;
         return _.find(this.requests, predicate);
     }
 
     /**
-     * Return true if given request is present in this requests
+     * Return true if request of given id is present in this requests
      */
-    has(request) {
+    has(id) {
         return request.id in this.requests;
     }
 
     /**
-     * Drop a specific request.
+     * Ensure a request is handled, and return a Request to listen to.
+     * The request's `lastTime` attribute will be update to now.
      */
-    remove(request) {
-        request.drop();
+    handle(request) {
+        if(!this.requests[request.id])
+            this.requests[request.id] = request
+        return this.requests[request.id];
+    }
+
+    /**
+     * Remove a request for the given id and drop it if required.
+     * @return the removed request.
+     */
+    remove(id, drop=true) {
+        if(!this.requests[id])
+            return;
+
+        const req = this.requests[id];
+        delete this.requests[id];
+        drop && req.drop();
+        return req;
     }
 
     /**

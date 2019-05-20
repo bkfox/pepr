@@ -2,11 +2,23 @@ from django.contrib.auth import models as auth
 
 from rest_framework import serializers
 
-from ..perms.serializers import AccessibleSerializer, ContextSerializer
-from ..ui.widgets import ActionWidgets
-from ..ui.components import render_slots
+from ..perms.serializers import ContextSerializer, OwnedSerializer
 
 from .models import Container, Content, Service
+
+__all__ = ['ContentAuthorSerializer', 'ContentSerializer',
+           'ContainerSerializer', ]
+
+
+# TODO: move to 'content' application
+class OwnerSerializer(serializers.ModelSerializer):
+    """
+    Serializer class for the owner of an Owned object.
+    """
+    class Meta:
+        model = auth.User
+        fields = ('id', 'username')
+
 
 
 class ContentAuthorSerializer(serializers.ModelSerializer):
@@ -15,7 +27,7 @@ class ContentAuthorSerializer(serializers.ModelSerializer):
         fields = ('id', 'username')
 
 
-class ContentSerializer(AccessibleSerializer): # , serializers.HyperlinkedModelSerializer):
+class ContentSerializer(OwnedSerializer):
     html = serializers.SerializerMethodField(required=False)
     # owner = serializers.HyperlinkedIdentityField(view_name = 'user')
     modifier = ContentAuthorSerializer(required=False)

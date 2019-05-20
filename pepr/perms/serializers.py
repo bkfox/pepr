@@ -35,18 +35,26 @@ class BaseSerializer(serializers.ModelSerializer):
     `self.instance` is set.
     """
     view_name = ''
+    """
+    Detail view name used for the id field.
+    """
+    api_actions = None
+    """
+    Viewset class or list of action names used to initialize the field
+    "_actions". If None, get viewset from context.
+    """
 
     class Meta:
         fields = ('pk', 'id', '_actions', '_type')
         read_only_fields = ('pk', 'id')
 
-    def __init__(self, *args, user=None, role=None, viewset=None,
+    def __init__(self, *args, user=None, role=None, api_actions=None,
                  **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.role = role
         self.user = user
-        self.viewset = viewset
+        self.role = role
+        self.api_actions = api_actions
 
         self.view_name = self.view_name or \
             self.Meta.model.__name__.lower() + '-detail'
@@ -74,10 +82,15 @@ class BaseSerializer(serializers.ModelSerializer):
         Return actions of the related api_action that are granted for the
         given role on obj as a list of string.
         """
-        viewset = self.viewset or self._context.get('view')
-        if not isinstance(viewset, PermissionMixin):
-            return {}
-        return viewset.get_api_actions(role, obj)
+        if self.api_actions:
+            if isinstance(self.api_actions, (list, tuple)):
+                return self.api_actions
+            viewset = self.api_actions
+        else:
+            viewset = self._context.get('view')
+
+        return {} if not isinstance(viewset, PermissionMixin) else \
+            viewset.get_api_actions(role, obj)
 
     def get_api_actions(self, obj):
         raise NotImplementedError('this method must be implemented')
@@ -116,21 +129,7 @@ class AccessibleSerializer(BaseSerializer):
         return value
 
 
-# TODO: move to 'content' application
-class OwnerSerializer(serializers.ModelSerializer):
-    """
-    Serializer class for the owner of an Owned object.
-    """
-    class Meta:
-        model = auth.User
-        fields = ('id', 'username')
-
-
 class OwnedSerializer(AccessibleSerializer):
-    # owner = serializers.HyperlinkedRelatedField(view_name='')
-    # owner = serializers.PrimaryKeyRelatedField(read_only=True)
-    owner = OwnerSerializer()
-
     class Meta:
         fields = AccessibleSerializer.Meta.fields + ('owner',)
         read_only_fields = AccessibleSerializer.Meta.read_only_fields + \
@@ -154,6 +153,7 @@ class OwnedSerializer(AccessibleSerializer):
         owner = validated.get('owner')
         if not self.role.is_anonymous and owner is None:
             # child class can have overwrite validated['owner']
+            # "owner" field can be read only in order to avoid
             validated['owner'] = self.role.user
         return super().create(validated)
 
@@ -252,12 +252,15 @@ class RoleSerializer(serializers.Serializer):
     is_anonymous = serializers.BooleanField()
     is_subscribed = serializers.BooleanField()
     is_admin = serializers.BooleanField()
+    user = serializers.PrimaryKeyRelatedField(
+        queryset=auth.User.objects.all(),
+    )
 
 
 class ContextSerializer(BaseSerializer):
     """ Serializer for Context.  """
     role = serializers.SerializerMethodField(
-        method_name='get_user_role'
+        method_name='get_user_role',
     )
     subscription = serializers.SerializerMethodField()
 
@@ -271,8 +274,7 @@ class ContextSerializer(BaseSerializer):
             'role', 'subscription'
         )
 
-    subscription_view_name = 'subscription-detail'
-
+    view_name = 'context-detail'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -284,15 +286,21 @@ class ContextSerializer(BaseSerializer):
         if not role or not role.subscription:
             return
 
-        serializer = SubscriptionSerializer(
-            role=role, instance=role.subscription, context=self.context)
-        return serializer.data
+        viewset = self.context.get('view')
+        viewset = viewset and viewset.subscription_viewset_class
+        actions = viewset and viewset.get_api_actions(role, role.subscription)
+        return SubscriptionSerializer(
+            role=role, instance=role.subscription, context=self.context,
+            api_actions=actions
+        ).data
 
     def get_user_role(self, obj):
         request = self.context.get('request')
-        role = request and obj.get_role(request.user)
-        return role and \
-            RoleSerializer(instance=role, context=self.context).data
+        if not request:
+            return None
+
+        role = obj.get_role(request.user)
+        return RoleSerializer(instance=role, context=self.context).data
 
     def get_api_actions(self, obj):
         role = self.get_role(obj)

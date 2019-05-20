@@ -1,5 +1,6 @@
 from django.db import transaction
 from django.http import Http404
+from django.utils.functional import cached_property
 
 from rest_framework import viewsets
 from rest_framework.exceptions import PermissionDenied
@@ -11,7 +12,8 @@ from .mixins import ContextViewMixin, AccessibleViewMixin
 from .models import Subscription, STATUS_REQUEST, STATUS_INVITE, \
     STATUS_ACCEPTED
 from .permissions import *
-from .serializers import ContextSerializer, SubscriptionSerializer
+from .serializers import AccessibleSerializer, OwnedSerializer, \
+        ContextSerializer, SubscriptionSerializer
 
 
 __all__ = ['ContextViewSet', 'AccessibleViewSet', 'OwnedViewSet',
@@ -35,6 +37,7 @@ class AccessibleViewSet(AccessibleViewMixin, viewsets.ModelViewSet):
     """
     filter_backends = (DjangoFilterBackend,)
     filterset_fields = ('context', 'access')
+    serializer_class = AccessibleSerializer
 
     def get_serializer(self, *args, **kwargs):
         kwargs.setdefault('user', self.request.user)
@@ -57,6 +60,7 @@ class AccessibleViewSet(AccessibleViewMixin, viewsets.ModelViewSet):
 
 
 class OwnedViewSet(AccessibleViewSet):
+    serializer_class = OwnedSerializer
     filterset_fields = AccessibleViewSet.filterset_fields + ('owner',)
 
 
@@ -89,11 +93,11 @@ class SubscriptionViewSet(OwnedViewSet):
 class ContextViewSet(ContextViewMixin, viewsets.ModelViewSet):
     action_permissions = {
         'retrieve': (CanAccess,),
-        'create': (CanCreate,),
+        # 'create': (CanCreate,),
         'update': (CanUpdate,),
         'destroy': (CanDestroy,),
     }
-    subscription_viewset = SubscriptionViewSet
+    subscription_viewset_class = SubscriptionViewSet
     """
     [class] Viewset for subscriptions. This is used for to
     `get_api_action` for subscriptions.
@@ -102,10 +106,10 @@ class ContextViewSet(ContextViewMixin, viewsets.ModelViewSet):
 
     @classmethod
     def get_api_actions(cls, role, obj):
-        actions = super(ContextViewSet, cls).get_api_actions(role, obj)
+        actions = super().get_api_actions(role, obj)
 
         # role permissions for subscriptions edition
-        extra = cls.subscription_viewset().get_api_actions(role)
+        extra = cls.subscription_viewset_class.get_api_actions(role)
         actions += ['subscription.' + a for a in extra]
         return actions
 

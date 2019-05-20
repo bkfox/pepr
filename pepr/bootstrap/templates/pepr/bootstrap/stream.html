@@ -19,7 +19,7 @@
     >
     <template v-slot:data>
         {% for obj in object_list %}
-        {% serialize obj role=role render=False viewset=viewset as data %}
+        {% serialize obj role=role render=False api_actions=viewset as data %}
         {{ data|json_script:obj.pk }}
         {% endfor %}
     </template>

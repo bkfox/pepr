@@ -28,7 +28,13 @@
 
 
 <script>
-import Pubsub from '../js/api/pubsub';
+import { mapActions } from 'vuex';
+
+import { acquireId } from 'pepr/utils/id';
+import Resource from 'pepr/api/resource';
+import Pubsub from 'pepr/api/pubsub';
+
+import storeCollectionMixin from './storeCollectionMixin';
 
 /**
  * Component rendering items of an array. Data can be retrieved and
@@ -36,29 +42,32 @@ import Pubsub from '../js/api/pubsub';
  * ...).
  */
 export default {
+    mixins: [storeCollectionMixin],
+
     props: {
         /**
-         * url [property] List path
+         * List path
          * @type {String}
          */
         path: { type: String, default: null },
         /**
          * Form used for filtering the list results
+         * @type {Object}
          */
         query: { type: Object, default: () => {}},
 
         /**
-         * path [property] Path to use for pubsub endpoint. By default, component's `path + '/pubsub/'`
+         * Path to use for pubsub endpoint. By default, component's `path + '/pubsub/'`
          * @type {String}
          */
         pubsubPath: { type: String, default: '' },
         /**
-         * filter [property] pubsub's filter
+         * [property] pubsub's filter
          * @type {String}
          */
         pubsubFilter: { type: String, default: null },
         /**
-         * filter [property] pubsub's lookup
+         * pubsubLookup [property] pubsub's lookup
          * @type {String}
          */
         pubsubLookup: { type: String, default: null },
@@ -74,7 +83,15 @@ export default {
     // -> connection change: try unsubscribe
     data: function() {
         const self = this;
+        const cid = acquireId();
         return {
+            /**
+             * Store's collection id for this list
+             */
+            get cid() {
+                return cid;
+            },
+
             /**
              * Pubsub request instance.
              * @type {Pubsub|null}
@@ -84,10 +101,11 @@ export default {
              * Pubsub events listener
              */
             listener: {
+                self: this,
                 on: {
-                    create: ({item}) => { console.log(item); self.$store.dispatch('api/acquire', {owner:self, resources: [item]}) },
-                    update: ({item}) => { console.log(item); self.$store.dispatch('api/acquire', {owner:self, resources: [item]}) },
-                    delete: ({item}) => { console.log(item); self.$store.commit('api/drop', item.id); },
+                    create: ({item}) => self.acquire(item),
+                    update: ({item}) => self.acquire(item),
+                    delete: ({item}) => self.drop(item.id),
                 }
             },
         };
@@ -98,27 +116,21 @@ export default {
             return this.$root && this.$root.connection
         },
 
-        items() {
-            return this.$store.getters['api/getOf'](this);
+        collection() {
+            return this.$store.getters[this.namespaced('collection')](this.cid);
         },
+
+        items() {
+            return this.$store.getters[this.namespaced('collectionItems')](this.cid);
+        },
+
     },
 
     methods: {
-        load({reset=true, query=null, ...args}={}) {
-            if(reset)
-                this.clear(false);
-
-            return this.$store.dispatch('api/loadList', {
-                owner: this, path: this.path,
-                ...args,
-                options: {query: query || this.query, ...args.options},
-            });
-        },
-
         clear(pubsub=true) {
             if(pubsub)
                 this.unsubscribe()
-            this.$store.dispatch('api/release', {owner:this});
+            this.release();
         },
 
         /**
@@ -155,23 +167,12 @@ export default {
             });
         },
 
-
-        /**
-         * Return component at given the index
-         */
-        getComponent(index) {
-            return index > -1 ? this.$refs.items[index] : null;
-        },
-
         /**
          * Extract items from the given slot's elements.
          */
-        toList(slot) {
+        loadData(slot) {
             if(!slot || slot.length == 0)
                 return;
-
-            return;
-            // TODO
 
             for(var item of slot) {
                 item = item.children && item.children[0];
@@ -180,8 +181,9 @@ export default {
 
                 try {
                     const data = JSON.parse(item.text);
+                    item = new Resource(data);
                     if(data)
-                        this.resources.update(data);
+                        this.acquire({item});
                 }
                 catch(e) {
                     console.error(e);
@@ -192,8 +194,10 @@ export default {
     },
 
     mounted() {
-        this.toList(this.$slots.data);
-        this.load()
+        this.loadData(this.$slots.data);
+        if(!this.items)
+            this.load({path: this.path})
+
         if(this.pubsubFilter)
             this.subscribe();
     },

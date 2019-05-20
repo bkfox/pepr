@@ -14,7 +14,7 @@ class SiteView(ContextMixin, View):
     slots = Slots([
         Widgets('head', ''),
         Widgets('top', 'nav'),
-        Widgets('foorter', 'footer'),
+        Widgets('footer', 'footer'),
     ])
     can_standalone = True
 

@@ -3,13 +3,17 @@ TODO
 
 Todo now
 --------
+
+
 - **next (client)**:
+  - list => toList
+  - actions & store
+  - load edit modal
   - subscribe buttons:
     - as a component: access selection in a menu
     - default access to context policy
   - context:
-    - subscription as a resource (hyperlink when fetched???)
-
+    x subscription as a resource (hyperlink when fetched???)
 
 - modal:
    - close when no html content => response is json || or just hide() by rendered component,

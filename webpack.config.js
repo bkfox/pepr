@@ -1,4 +1,3 @@
-const _ = require('lodash')._;
 const path = require('path');
 const webpack = require('webpack');
 
@@ -11,7 +10,7 @@ const { VueLoaderPlugin } = require('vue-loader');
 
 module.exports = {
     context: __dirname,
-    entry: './assets/js/index',
+    entry: './assets/index',
 
     output: {
         path: path.resolve('./assets/bundles/'),
@@ -51,10 +50,22 @@ module.exports = {
 
     module: {
         rules: [
-            { test: /\.css$/,
-              use: [ { loader: MiniCssExtractPlugin.loader },
-                     'css-loader' ] },
-            { test: /\.(ttf|woff2?|eot|svg)$/, use: 'file-loader' },
+            {
+                test: /\.css$/,
+                use: [ { loader: MiniCssExtractPlugin.loader },
+                       'css-loader' ]
+            },
+            {
+                // TODO: remove ttf eot svg
+                test: /\.(ttf|eot|svg|woff2?)$/,
+                use: [{
+                    loader: 'file-loader',
+                    options: {
+                        name: '[name].[ext]',
+                        outputPath: 'fonts/',
+                    }
+                }],
+            },
             { test: /\.vue$/, use: 'vue-loader' },
             /*{ test: /\.styl$/,
               use: [ { loader: "style-loader" },
@@ -65,17 +76,19 @@ module.exports = {
     },
 
     resolve: {
-        alias: _.extend(createLodashAliases(), {
-            pepr: '../js',
+        alias: {
+            ...createLodashAliases(),
+            pepr: path.resolve(__dirname, 'assets/js'),
             vue: 'vue/dist/vue.esm.browser.js',
             vuex: 'vuex/dist/vuex.esm.browser.js',
             // we have a modified version with v-runtime-template/pull/33
             'v-runtime-template': '../vue/v-runtime-template.js',
             'vuetify-css': 'vuetify/dist/vuetify.css',
-        }),
+        },
         modules: [
             './assets/css',
             './assets/js',
+            './assets/vue',
             './node_modules',
         ],
         extensions: ['.js', '.vue', '.css', '.styl', '.ttf']

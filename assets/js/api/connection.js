@@ -113,10 +113,10 @@ export default class Connection extends Requests {
 
         var self = this;
         var ws = new WebSocket(this.url);
-        ws.onopen = function(e) { return self.onOpen(e); };
-        ws.onclose = function(e) { return self.onClose(e); };
-        ws.onerror = function(e) { return self.onError(e); };
-        ws.onmessage = function(e) { return self.onMessage(e); };
+        ws.onopen = ev => self.onOpen(ev);
+        ws.onclose = ev => self.onClose(ev);
+        ws.onerror = ev => self.onError(ev);
+        ws.onmessage = ev => self.onMessage(ev);
         this.ws = ws;
     }
 
@@ -209,7 +209,7 @@ export default class Connection extends Requests {
      * will be passed as is to the constructor of Request.
      *
      * Options:
-     * - classe: request constructor class
+     * - classe: request classe class
      * - once: send request only once for `path` and `data`: if already sent, just
      *   return the handling request.
      */

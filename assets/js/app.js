@@ -29,38 +29,6 @@ var AppComp = Vue.extend({
         'contextEndpoint': { type: String },
         'contextKey': { type: String },
     },*/ // -> does not work for root app
-
-    data() {
-        return {
-            context: null,
-            contextId: null,
-            subscriptionEndpoint: null,
-        }
-    },
-
-    computed: {
-        role() {
-            return this.context && new Role(this.context, this.subscriptionEndpoint);
-        },
-
-        subscription() {
-            return this.context && this.context.subscription;
-        },
-    },
-
-    methods: {
-        loadContext(id) {
-            const self = this;
-            Context.load(id).then(context => { self.context = context; });
-        },
-    },
-
-    mounted() {
-        var { contextId, subscriptionEndpoint } = this.$el.dataset;
-        this.subscriptionEndpoint = subscriptionEndpoint;
-        if(contextId)
-            this.loadContext(contextId)
-    },
 })
 
 

@@ -1,6 +1,6 @@
 import Vue from 'vue';
 
-import Shared from '../utils/shared';
+import Drop from 'pepr/utils/drop';
 import { fetch_api, fetch_json } from './connection';
 
 
@@ -9,14 +9,15 @@ import { fetch_api, fetch_json } from './connection';
  * It uses HyperLinked identifiers in order to interact with the distant
  * server: Resource's id is an url to the loaded data.
  */
-export default class Resource extends Shared {
-    constructor(data=null, {path=null, ...options}={}) {
-        console.log('new resource', data, path, options)
-        super(data, options);
-        if(path) {
+export default class Resource extends Drop {
+    constructor(data=null, {id=null, ...options}={}) {
+        super();
+
+        this.data = data;
+        if(id) {
             if(this.data === null)
                 this.data = {};
-            this.data.id = path;
+            this.data.id = id;
         }
     }
 
@@ -57,17 +58,17 @@ export default class Resource extends Shared {
     /**
      * Fetch a resource from the server and return a Promise resolving to it.
      */
-    static load(path, options={}, initArgs={}) {
-        const resource = new this(null, {...initArgs, path});
-        return resource.fetch(options);
+    static load(id, options={}, initArgs={}) {
+        const resource = new this(null, {...initArgs});
+        return resource.fetch({id, ...options});
     }
 
     /**
      * Fetch multiple resources and return a Promise resolving to them.
      */
-    static loadList(path, options={}, initArgs={}) {
+    static loadList(endpoint, options={}, initArgs={}) {
         const self = this;
-        return fetch_json(path, options).then(
+        return fetch_json(endpoint, options).then(
             data => {
                 const items = data.results.map(item => new self(item, initArgs))
                 data.results = items;
@@ -81,43 +82,46 @@ export default class Resource extends Shared {
      *  Resource instance.
      */
     static create(endpoint, data, initArgs={}) {
-        const resource = new this(null, initArgs);
-        return resource.save(data, endpoint);
+        const resource = new this(data, initArgs);
+        return resource.save(null, endpoint);
     }
 
     /**
      *  Fetch resource from server and update itself.
+     *  @param {String} id - fetch using this resource id
+     *  @param {Boolean} list - take the first item of the expected result list
+     *  @param {Object} options - fetch options
      *  @return a Promise completing to self once updated.
      */
-    fetch(options={}) {
+    fetch({id=null, list=false, ...options}={}) {
         const self = this;
-        return fetch_json(this.path, options)
-            .then(data => { self.data = data; return self },
-                  data => { self.data = null; return Promise.reject(data) })
+        return fetch_json(id || this.id, options).then(
+            list ? data => { Vue.set(self, 'data', results[0] || null); return self }
+                 : data => { Vue.set(self, 'data', data); return self },
+            data => { Vue.set(self, 'data', null); return Promise.reject(data) })
     }
 
     /**
-     *  Run an action for this resource. Resource's path is concatenated with
+     *  Run an action for this resource. Resource's id is concatenated with
      *  given `path`.
      */
     api(path='', ...fetchArgs) {
-        return fetch_json(this.path + path, ...fetchArgs);
+        return fetch_json(this.id + path, ...fetchArgs);
     }
 
     /**
-     *  Save resource to the server. If `data` is given update
-     *  resource's data for the given fields.
+     *  Save resource to the server. If `data` is given use it instead of
+     *  resource's data.
      *
      *  Return promise resolving to the updated Resource instance.
      */
-    save(data={}, endpoint=null) {
-        const [path, method] = this.key ? [this.path, 'PUT'] : [endpoint, 'POST'];
-        if(!path)
+    save(data=null, endpoint=null) {
+        const [id, method] = this.key ? [this.id, 'PUT'] : [endpoint, 'POST'];
+        if(!id)
             throw "No endpoint found for this resource";
 
         const self = this;
-        const body = Object.assign(this.data, data);
-        return fetch_json(path, { method: method, body: body })
+        return fetch_json(id, { method: method, body: data || this.data })
             .then(data => { self.data = data; return self; });
     }
 
@@ -128,7 +132,7 @@ export default class Resource extends Shared {
     delete() {
         if(this.key) {
             const self = this;
-            return fetch_json(this.path, { method: 'DELETE' }, false)
+            return fetch_json(this.id, { method: 'DELETE' }, false)
                 .then(response => { self.drop(); return self; });
         }
         else self.drop();
@@ -139,7 +143,7 @@ export default class Resource extends Shared {
      */
     get_form() {
         const self = this;
-        return fetch_api(this.path + 'form');
+        return fetch_api(this.id + 'form');
     }
 }
 

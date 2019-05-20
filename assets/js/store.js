@@ -5,11 +5,27 @@ Vue.use(Vuex);
 
 import ApiStore from './api/store';
 
+import Resource from './api/resource';
+import {Subscription, Context} from './api/perms';
 
-export default new Vuex.Store({
+
+const store = new Vuex.Store({
+    // TODO: release from here?
     modules: {
-        api: ApiStore,
+        resources: ApiStore,
+        context: ApiStore,
+        subscription: ApiStore,
+        content: ApiStore,
     }
 });
+
+// TODO move into app and make it configurable
+store.commit('context/path', '/api/context/');
+store.commit('context/class', Context);
+store.commit('subscription/path', '/api/subscription/');
+store.commit('subscription/class', Subscription);
+store.commit('content/path', '/api/content/')
+
+export default store;
 
 

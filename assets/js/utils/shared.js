@@ -43,8 +43,8 @@ export default class Shared extends Drop {
     }
 
     /**
-     * Release and drop if required object from owner. Return True if the
-     * object is has been dropped.
+     * Release and drop if required object from owner. Return this if object
+     * has been dropped, null otherwise.
      */
     release(owner) {
         const index = this._owners.indexOf(owner);
@@ -54,7 +54,7 @@ export default class Shared extends Drop {
                           '\nOwner:', owner);
         if(!this._owners)
             this.drop();
-        return !Boolean(this._owners);
+        return this._owners ? null : this;
     }
 
     drop() {

@@ -33,13 +33,14 @@ class PermissionMixin:
     action (as given by ``viewset.action``)
     """
 
-    def get_permissions(self, action=None):
+    @classmethod
+    def get_action_permissions(cls, action=None):
         """
         Return permissions for the given action or defaults.
         """
-        permission_classes = self.permission_classes
-        if action is not None and self.action_permissions:
-            permission_classes = self.action_permissions.get(
+        permission_classes = cls.permission_classes
+        if action is not None and cls.action_permissions:
+            permission_classes = cls.action_permissions.get(
                 action, permission_classes
             )
         return [perm() for perm in permission_classes]
@@ -50,33 +51,37 @@ class PermissionMixin:
         """
         return obj.get_role(request.user)
 
-    def get_api_actions(self, role, obj=None):
+    @classmethod
+    def get_api_actions(cls, role, obj=None):
         """
         Return a list of api actions key allowed for this role.
         """
-        actions = getattr(self, 'action_permissions', {}).keys()
-        return [a for a in actions if self.can(role, a)] if obj is None else \
-            [a for a in actions if self.can_obj(role, obj, a)]
+        actions = getattr(cls, 'action_permissions', {}).keys()
+        return [a for a in actions if cls.can(role, a)] if obj is None else \
+            [a for a in actions if cls.can_obj(role, obj, a)]
 
-    def can(self, role, action=None, throws=False):
+    @classmethod
+    def can(cls, role, action=None, throws=False):
         """
         Return True when user has permissions for the given action.
         """
         failed = next(
-            (permission for permission in self.get_permissions(action)
+            (permission for permission in cls.get_action_permissions(action)
              if not permission.can(role)), None
         )
         if throws and failed is not None:
             raise exceptions.PermissionDenied('permission denied')
         return failed is None
 
-    def can_obj(self, role, obj, action=None, throws=False):
+    @classmethod
+    def can_obj(cls, role, obj, action=None, throws=False):
         """
         Return True when user has permissions for the given action and
         object.
         """
+        print('action', cls, action, cls.get_action_permissions(action))
         success = next(
-            (False for permission in self.get_permissions(action)
+            (False for permission in cls.get_action_permissions(action)
              if not permission.can_obj(role, obj)), True
         )
         if throws and not success:
@@ -107,17 +112,6 @@ class PermissionViewMixin(PermissionMixin):
         setattr(self, '_object', obj)
         self.role = self.get_role(self.request, obj)
 
-    def get_permissions(self, action=None):
-        action = self.action if action is None else action
-        return super().get_permissions(action)
-
-    def get_context_data(self, **kwargs):
-        """ Ensure 'role' and 'context' are in resulting context """
-        kwargs.setdefault('roles', Roles.register)
-        kwargs.setdefault('role', self.get_role(self.request, self.object))
-        kwargs.setdefault('context', self.context)
-        return super().get_context_data(**kwargs)
-
     def get_role(self, request=None, context=None):
         if not context:
             return self.role
@@ -127,13 +121,25 @@ class PermissionViewMixin(PermissionMixin):
         return role if role and role.context.pk == context.pk else \
             context.get_role(request.user)
 
+    def get_permissions(self):
+        return self.get_action_permissions(self.action)
+
+    def get_context_data(self, **kwargs):
+        """ Ensure 'role' and 'context' are in resulting context """
+        kwargs.setdefault('roles', Roles.register)
+        kwargs.setdefault('role', self.get_role(self.request, self.object))
+        kwargs.setdefault('context', self.context)
+        return super().get_context_data(**kwargs)
 
 class ContextViewMixin(PermissionViewMixin):
     """
     View mixin for views that work with a single Context.
     """
     def get_queryset(self):
-        return self.model.objects.all()
+        model = getattr(self, 'model', None)
+        if not model:
+            model = self.get_serializer_class().Meta.model
+        return model.objects.all()
 
 
 class AccessibleViewMixin(PermissionViewMixin):

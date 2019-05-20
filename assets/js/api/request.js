@@ -1,5 +1,5 @@
-// import _ from 'lodash';
-import Emitter from '../utils/emitter';
+import {acquireId} from 'pepr/utils/id';
+import Emitter from 'pepr/utils/emitter';
 import Resource from './resource';
 
 /**
@@ -14,7 +14,7 @@ import Resource from './resource';
 export default class Request extends Emitter {
     constructor(path, data=null, {connection, classe=Resource, ...args})
     {
-        data = {request_id: connection.acquireId(),
+        data = {request_id: acquireId(),
                 path: path,
                 ...data};
         super(data, args);
@@ -84,15 +84,17 @@ export default class Request extends Emitter {
 
         dropped = super.release(owner);
         if(dropped)
-            return true;
+            return this;
 
         // Ensures request is dropped when there are no more message listeners.
-        const index = this.listeners.findIndex(item => item.on.message);
-        if(index == -1) {
-            this.drop();
-            return true;
+        if(!dropped) {
+            const index = this.listeners.findIndex(item => item.on.message);
+            if(index == -1) {
+                this.drop();
+                return this;
+            }
         }
-        return false;
+        return dropped;
     }
 
     createEvent(type, data, options) {

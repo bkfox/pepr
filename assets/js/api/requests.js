@@ -1,5 +1,7 @@
-import _ from 'lodash';
-import Emitter from '../utils/emitter';
+import find from 'lodash/find';
+import throttle from 'lodash/throttle';
+
+import Emitter from 'pepr/utils/emitter';
 
 /**
  *  Container class for Request instances. It also includes various 
@@ -21,13 +23,6 @@ export default class Requests extends Emitter {
     }
 
     /**
-     * Acquire unique request id
-     */
-    acquireId() {
-        return this._lastId++;
-    }
-
-    /**
      * Return request by id
      */
     get(id) {
@@ -42,7 +37,7 @@ export default class Requests extends Emitter {
         const predicate = { path: path };
         if(data !== undefined)
             predicate.data = data;
-        return _.find(this.requests, predicate);
+        return find(this.requests, predicate);
     }
 
     /**
@@ -85,7 +80,7 @@ export default class Requests extends Emitter {
 
         var self = this;
         this.timeout = timeout || this.timeout;
-        this.timer = _.throttle(function() {
+        this.timer = throttle(function() {
             self.applyTimeout(timeout);
             window.setTimeout(() => self.timer && self.timer(), self.timeout);
         }, this.timeout);

@@ -2,6 +2,7 @@
 {% load i18n pepr_ui %}
 
 {% block header %}
+<p-context context-id="{% if context %}{% url "container-detail" pk=context.pk %}{% endif %}">
 <div class="row p-2">
     {% block header-title %}
     <div class="col">
@@ -45,6 +46,7 @@
     </div>
     {% endblock %}
 </div>
+</p-context>
 {% endblock %}
 
 {% block main %}

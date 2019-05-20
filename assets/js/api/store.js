@@ -1,167 +1,245 @@
+import filter from 'lodash/filter';
+import find from 'lodash/find';
+
 import Vue from 'vue';
 
+import Drop from 'pepr/utils/drop';
 import Resource from './resource';
 
 
+function acquire(state, id, collection) {
+    const set = (state.collections[collection] || new Set())
+    Vue.set(state.collections, collection, set.add(id))
+    return state.items[id];
+}
+
 /**
- * Commit and acquire owner for the given resource. Return the stored
- * resource.
+ * Commit and acquire owner for the given item. Return the stored
+ * item.
  */
-function handleResourceData(context, resource, owner=null) {
-    context.commit('set', resource)
-    resource = context.state.resources[resource.id];
-    owner && resource.acquire(owner);
-    return resource;
+function handleResource({commit, state}, item, collection=null) {
+    commit('item', item);
+    if(collection !== null)
+        acquire(state, item.id, collection);
+    return state.items[item.id];
 }
 
 
+/**
+ * Store managing items loading and CRUD.
+ *
+ * Collections have ownership of acquired items, which are dropped when no
+ * more collection use them.
+ */
 export default {
     namespaced: true,
 
-    state: {
-        resources: {},
+    state() {
+        return {
+            class: Resource,
+            path: '',
+            items: [],
+            collections: {}
+        };
     },
 
     getters: {
-        get(state) {
-            return id => state.resources[id];
-        },
+        /**
+         * Constructor function for loaded items.
+         */
+        class(state) { return state.class; },
 
-        resources(state) {
-            return state.resources;
-        },
+        /**
+         * The default path used for data loading.
+         */
+        path(state) { return state.path; },
 
-        getByIds(state) {
-            return ids => ids.map(id => state.resources[id])
-                             .filter(item => Boolean(item));
-        },
+        /**
+         * Return item for the given id.
+         */
+        get: state => id => state.items[id],
 
-        getOf(state) {
-            return owner => Object.values(state.resources)
-                                  .filter(item => item.hasOwner(owner))
+        /**
+         * Return item for the given predicate
+         */
+        find: state => pred => find(state.items, pred),
+
+        /**
+         * Filter items for the given predicate
+         */
+        filter: state => pred => filter(pred),
+
+        /**
+         * Return items for the given ids
+         */
+        items: state => ids => ids.map(id => state.items[id])
+                                      .filter(item => Boolean(item)),
+
+        /**
+         *  Get the collection (as an array of resource ids)
+         */
+        collection: state => id => state.collections[id],
+
+        /**
+         * Get items for the given collection id.
+         */
+        collectionItems: state => id => {
+            const collection = state.collections[id];
+            return collection ? [...collection].map(id => state.items[id])
+                                               .filter(item => Boolean(item))
+                              : [];
         },
     },
 
     mutations: {
-        /**
-         * Add or update resource data into store.
-         */
-        set(state, resource) {
-            console.log('resource set', resource)
-            if(!resource.key)
-                throw "resource must have been saved on the server";
+        class(state, classe) { state.class = classe; },
+        path(state, path) { state.path = path; },
 
-            const current = state.resources[resource.id];
+        /**
+         * Set item into the store.
+         */
+        item(state, item) {
+            if(!item.key)
+                throw "item must have been saved on the server";
+
+            const current = state.items[item.id];
             if(!current)
-                Vue.set(state.resources, resource.id, resource);
+                Vue.set(state.items, item.id, item);
             else
-                Vue.set(current, 'data', resource.data);
+                Vue.set(current, 'data', item.data);
         },
 
         /**
-         * Remove resource from store (without dropping)
-         */
-        remove(state, id) {
-            delete state.resources[id];
-        },
-
-        /**
-         * Drop resource from store
+         * Drop an item from state and clean-up.
          */
         drop(state, id) {
-            const resource = state.resources[id];
-            if(resource) {
-                resource.drop();
-                Vue.delete(state.resources, id);
+            const item = state.items[id];
+            if(item instanceof Drop)
+                item.drop();
+            Vue.delete(state.items, id);
+
+            // clean-up collections
+            for(const key in state.collections) {
+                const collection = state.collections[key];
+                if(collection.has(id)) {
+                    collection.delete(id);
+                    Vue.set(state.collections, key, collection);
+                }
             }
         },
     },
 
     actions: {
-        /**
-         * Acquire multiple resources at once and ensure provided resources
-         * are stored.
-         */
-        acquire({commit, state}, {owner, resources}) {
-            for(const item of resources) {
-                commit('set', item);
-                const resource = state.resources[item.id];
-                resource.acquire(owner);
+        acquire({commit, state, dispatch}, {collection, item=null, key=null, id=null, ...payload}) {
+            if(item) {
+                commit('item', item);
+                item = state.items[item.id]
+                id = item.id;
             }
+            else {
+                if(key)
+                    id = state.path + key + '/';
+
+                item = state.items[id];
+                console.log('before load', collection, id);
+                if(!item)
+                    return dispatch('load', {collection, id});
+            }
+            return acquire(state, id, collection);
+        },
+
+        acquireList({dispatch}, {collection, items}) {
+            for(const item of items)
+                dispatch('acquire', {collection, item});
+        },
+
+        release({state}, {collection, id=null}) {
+            const set = state.collections[collection];
+            if(!set)
+                return;
+
+            // TODO: remove from items if no more handled
+            if(id === null)
+                set.clear();
+            else
+                set.delete(id);
+
+            Vue.set(collections, collection, set);
+        },
+
+        releaseList({dispatch}, {collection, ids}) {
+            for(const id of ids)
+                dispatch('release', {collection, id});
         },
 
         /**
-         * Release all resources from the given owner. If `ids` is provided,
-         * release only thoses of the given ids.
+         * Load item and return a promise resolving to the stored item.
          */
-        release({state}, {owner, ids=null}) {
-            const resources = ids == null ? state.resources
-                                          : ids.map(id => state.resources[id])
-            for(var id in resources) {
-                const item = resources[id];
-                if(item && item.hasOwner(owner))
-                    item.release(owner);
-            }
+        load(context, {id=null, key=null, collection=null, classe=null, options={}}) {
+            if(key)
+                id = context.state.path + key + '/';
+
+            classe = classe || context.state.class;
+            console.log('load', classe, id, collection, key)
+            return classe.load(id, options).then(
+                item => handleResource(context, item, collection),
+                item => { context.commit('drop', item.id);
+                              return Promise.reject(item); },
+            )
         },
 
         /**
-         * Load resource and return a promise resolving to the stored resource.
+         * Load multiple items and return a promise resolving to the stored
+         * items.
          *
-         * @param {Boolean} once - if yet present, do not fetch.
+         * @param {String|null} path - load with this path instead of store's;
+         * @param {String} key       - load by key.
+         * @param {} collection      - acquire loaded items for this collection;
+         * @param {class} classe     - use this constructor instead of store's.
+         * @param {Boolean} reset    - release all collection's items before loading.
+         * @param {Object} options   - load options
          */
-        load(context, {path, owner=null, once=false, classe=Resource, options={}}={}) {
-            const resource = once && context.state.resources[path];
-            if(resource)
-                return Promise.resolve(resource);
-            return classe.load(path, options, {owner: owner}).then(
-                resource => handleResourceData(context, resource),
-                resource => { context.commit('drop', resource.id);
-                              return Promise.reject(resource); },
+        loadList(context, {path=null, collection=null, classe=null, reset=false, options={}}) {
+            if(reset && collection)
+                context.dispatch('release', {collection});
+
+            path = path || context.state.path;
+            classe = classe || context.state.class;
+            return classe.loadList(path, options).then(
+                data => ({
+                    ...data,
+                    results: data.results.map(item => handleResource(context, item, collection))
+                })
             )
         },
 
         /**
-         * Load multiple resources and return a promise resolving to the stored
-         * resources.
+         * Create a new item on server and store result. Return a promise
+         * resolving to the stored item.
          */
-        loadList(context, {path, owner=null, classe=Resource, options={}}) {
-            return classe.loadList(path, options, {owner: owner}).then(
-                data => {
-                    data.results = data.results.map(resource => {
-                        context.commit('set', resource);
-                        return context.state.resources[resource.id];
-                    })
-                    return data;
-                }
-            )
+        create(context, {path=null, data, collection=null, classe=null, ...initArgs}) {
+            path = path || context.state.path;
+            classe = classe || context.state.class;
+            return classe.create(path, data, initArgs)
+                .then(item => handleResource(context, item, collection))
         },
 
         /**
-         * Create a new resource on server and store result.
+         * Save the given item and update the store. Return a promise
+         * resolving to the stored item.
          */
-        create(context, {endpoint, data, classe=Resource, ...initArgs}) {
-            return classe.create(endpoint, data, initArgs)
-                .then(resource => handleResourceData(context, resource))
+        save(context, {item, collection=null, data=null}) {
+            return item.save(data)
+                .then(item => handleResource(context, item, collection))
         },
 
         /**
-         * Save the given resource and update the store. Return a promise resolving
-         * to the stored resource.
+         * Destroy the given item and update the store. Return a promise resolving
+         * to the removed item.
          */
-        save(context, {resource, owner=null, data=null}) {
-            return resource.save(data).then(
-                resource => handleResourceData(context, resource, owner)
-            )
-        },
-
-        /**
-         * Destroy the given resource and update the store. Return a promise resolving
-         * to the removed resource.
-         */
-        delete(context, {resource, data=null}) {
-            return resource.delete(data).then(
-                resource => context.commit('drop', resource.id)
-            )
+        delete({commit}, {item}) {
+            return item.delete()
+                .then(item => commit('drop', item.id))
         },
     },
 }

@@ -1,9 +1,10 @@
 {% load i18n pepr_ui humanize %}
 
 {% block content %}
+{% with object.owner|default_if_none:object.modifier as owner %}
 <div>
     <header class="box-header">
-        {{ object.owner|default_if_none:object.modifier }},
+        {{ owner.title }}
         {{ object.modified|naturaltime }}
 
         <div class="float-right badges">
@@ -27,5 +28,6 @@
     </section>
 
 </div>
+{% endwith %}
 {% endblock %}
 

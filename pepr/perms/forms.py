@@ -23,7 +23,7 @@ class AccessibleForm(forms.ModelForm):
 
     @context.setter
     def context(self, value):
-        self.role = value.get_role(self.role.user)
+        self.role = value.get_role(self.role.identity)
 
     def __init__(self, role, *args, **kwargs):
         super().__init__(*args, **kwargs)

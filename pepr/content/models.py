@@ -136,8 +136,8 @@ class Content(Owned, TimeStampedModel):
         super().save_by(role)
         # `modifier` must be updated to the given role's user. we do it
         # after cauz' there is no need to do it before.
-        if not role.user.is_anonymous:
-            self.modifier = role.user
+        if not role.is_anonymous:
+            self.modifier = role.identity
 
 
 class Service(UserWidget):

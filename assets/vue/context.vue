@@ -1,6 +1,6 @@
 <template>
     <div>
-        <slot :context="context" :subscription="subscription"></slot>
+        <slot :context="context" :role="role" :subscription="subscription"></slot>
     </div>
 </template>
 
@@ -26,12 +26,16 @@ export default {
     },
 
     computed: {
+        role() {
+            return this.context && this.context.role;
+        },
+
         subscription() {
             if(!this.context || !this.context.user)
                 return null;
 
             // note: resource = {data: {context, owner, ...}, ...}
-            const data = { context: this.context.key, owner: this.context.user };
+            const data = { context: this.context.key /*, owner: this.context.user*/ };
             return this.$store.getters['subscription/find']({data});
         },
     },
@@ -48,6 +52,15 @@ export default {
                     return context;
                 }
             )
+        },
+
+        subscribe(data={}) {
+            data = { context: this.context.key,
+                     access: this.context.data.subscription_default_access,
+                     role: this.context.data.subscription_default_role,
+                     owner: this.context.user,
+                     ...data };
+            return this.create({data}, 'subscription')
         },
     },
 

@@ -2,19 +2,19 @@
     <b-modal :id="id" size="lg">
         <template slot="modal-title" v-if="subscription">
             <span class="fa fa-users"></span>
-            {{ subscription.context.data.title }} &#8212; Edit Subscription
+            {{ context.attr('title') }} &#8212; Edit Subscription
         </template>
 
         <div v-if="!subscription" class="alert alert-warning">Not subscribed</div>
         <div v-else-if="subscription.is_request"
             class="alert alert-info">
-            Subscription request to <b>{{ subscription.context.data.title }}</b>
-            {{ subscription.context.type }} not yet accepted.
+            Subscription request to <b>{{ context.attr('title') }}</b>
+            {{ context.type }} not yet accepted.
         </div>
         <div v-else-if="subscription.is_invite"
             class="alert alert-info">
-            Invitation to <b>{{ subscription.context.data.title }}</b>
-            {{ subscription.context.type }} not yet accepted.
+            Invitation to <b>{{ context.attr('title') }}</b>
+            {{ context.type }} not yet accepted.
         </div>
 
         <form v-if="subscription">
@@ -26,7 +26,7 @@
                     <select class="form-control " id="subscription-role" name="role"
                         v-model="item.role">
                         <option v-for="role in roles" :key="role.access"
-                            v-if="roles.DEFAULT.access < role.access < roles.MODERATOR.access"
+                            v-if="roles.DEFAULT.access < role.access && role.access < roles.MODERATOR.access"
                             :value="role.access">
                         {{ role.name }}
                         </option>
@@ -50,7 +50,7 @@
                     </select>
                     <div class="form-text text-muted">
                     Define who will be able to see that you are subscribed to this
-                    {{ subscription.context.type }}.
+                    {{ context.type }}.
                     </div>
                 </div>
             </div>
@@ -78,13 +78,10 @@ export default {
     props: {
         id: { type: String, default: null },
         subscription: { type: Object, default: null},
+        context: { type: Object, default: null},
     },
 
     computed: {
-        context() {
-            return this.subscription && this.subscription.context;
-        },
-
         roles() {
             return ROLES;
         },
@@ -92,7 +89,7 @@ export default {
         item() {
             if(!this.subscription)
                 return;
-            return Object.assign(this.subscription.data || {})
+            return {...this.subscription.data};
         },
     },
 
@@ -100,13 +97,15 @@ export default {
         save() {
             // TODO: const original = this.subscription.data;
             this.subscription.data = this.item;
-            this.subscription.save();
+            this.$store.dispatch('subscription/save',
+                {item: this.subscription, data: this.item}
+            );
         },
 
         unsubscribe() {
             if(!confirm('Do you really want to unsubscribe?'))
                 return;
-            this.subscription.delete();
+            this.$store.dispatch('subscription/delete', {item: this.subscription});
         }
     },
 

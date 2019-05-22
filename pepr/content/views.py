@@ -60,7 +60,7 @@ class ContentViewSet(AccessibleViewSet):
     def form(self, request, pk=None):
         """ Render an edit form for the given object """
         instance = self.get_object()
-        role = instance.get_context().get_role(request.user)
+        role = instance.get_context().get_role(request.identity)
         content = self.form_comp.render(role, instance)
         return HttpResponse(content=content)
 
@@ -144,7 +144,7 @@ class ServiceDetailView(SingleObjectMixin, View):
         else:
             kwargs = {}
         return self.service_model.objects \
-                   .user(self.request.user) \
+                   .identity(self.request.identity) \
                    .order_by('-is_default') \
                    .filter(context=self.object, **kwargs) \
                    .select_subclasses()
@@ -174,7 +174,7 @@ class ContainerUpdateView(ServiceView, ContextViewMixin, UpdateView):
 
     def get_form_kwargs(self):
         kw = super().get_form_kwargs()
-        kw['role'] = self.object.get_role(self.request.user)
+        kw['role'] = self.object.get_role(self.request.identity)
         return kw
 
     def form_valid(self, form):
@@ -235,7 +235,7 @@ class ContentListView(AccessibleViewMixin, ServiceView,
 
     def get_queryset(self):
         qs = super().get_queryset().select_subclasses() \
-                    .user(self.request.user)
+                    .identity(self.request.identity)
         if self.context:
             qs = qs.context(self.context)
         return qs

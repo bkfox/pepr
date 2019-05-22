@@ -10,7 +10,7 @@ import { acquireId } from 'pepr/utils/id';
  */
 function actionsMap(names) {
     const actions = names.reduce((o, name) => {
-        o[name] = function(dispatch, args, namespace=null) {
+        o[name] = function(dispatch, args={}, namespace=null) {
             args = {...args, collection: this.cid };
             return dispatch(this.namespaced(name, namespace), args);
         }
@@ -41,8 +41,14 @@ export default {
     },
 
     methods: {
+        /**
+         * Return name namespaced to components' default namespace or the given
+         * one. If the namespace is an empty string, targets a root action.
+         */
         namespaced(name, namespace=null) {
-            namespace = namespace || this.storeNamespace;
+            namespace = namespace === null ? this.storeNamespace : namespace;
+            if(!namespace)
+                return name;
             return `${namespace}/${name}`;
         },
 
@@ -51,8 +57,12 @@ export default {
         },
 
         ...actionsMap(['acquire', 'acquireList', 'release', 'releaseList',
-                       'load', 'loadList']),
-    }
+                       'load', 'loadList', 'create']),
+    },
+
+    destroy() {
+        this.release({}, '');
+    },
 }
 
 

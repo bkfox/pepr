@@ -6,14 +6,23 @@ Todo now
 
 
 - **next (client)**:
-  - list => toList
-  - actions & store
   - load edit modal
-  - subscribe buttons:
-    - as a component: access selection in a menu
-    - default access to context policy
-  - context:
-    x subscription as a resource (hyperlink when fetched???)
+  - actions & content actions (menu & modal)
+  - subscriptions edit
+
+- Users:
+    - perms:
+        - context class attr: is_actor + qs actors()
+        - owned.owner => choice is_actor
+        - context.title => context.name ?
+    - actor api & integrations:
+        - user and actor
+        - API: base + user's actors selector
+          -
+        - 
+    - ui: adapt if required
+
+- perms:
 
 - modal:
    - close when no html content => response is json || or just hide() by rendered component,

@@ -40,7 +40,7 @@ class AccessibleViewSet(AccessibleViewMixin, viewsets.ModelViewSet):
     serializer_class = AccessibleSerializer
 
     def get_serializer(self, *args, **kwargs):
-        kwargs.setdefault('user', self.request.user)
+        kwargs.setdefault('identity', self.request.identity)
         return super().get_serializer(*args, **kwargs)
 
     # FIXME: with correct serializer this should not be necessary
@@ -49,14 +49,14 @@ class AccessibleViewSet(AccessibleViewMixin, viewsets.ModelViewSet):
         super().perform_create(serializer)
         # double check that ensure that the object is valid
         role = self.get_role(obj=serializer.instance)
-        self.can_obj(role, serializer.instance, throws=True)
+        self.can_obj(role, serializer.instance, 'create', throws=True)
 
     @transaction.atomic
     def perform_update(self, serializer):
         super().perform_update(serializer)
         # double check that ensures the updated object is still valid
         role = self.get_role(obj=serializer.instance)
-        self.can_obj(role, serializer.instance, throws=True)
+        self.can_obj(role, serializer.instance, 'update', throws=True)
 
 
 class OwnedViewSet(AccessibleViewSet):
@@ -86,7 +86,7 @@ class SubscriptionViewSet(OwnedViewSet):
         obj.status = STATUS_ACCEPTED
         obj.save()
 
-        serializer = self.get_serializer(user=request.user, instance=obj)
+        serializer = self.get_serializer(identity=request.identity, instance=obj)
         return Response(data=serializer.data)
 
 
@@ -114,6 +114,6 @@ class ContextViewSet(ContextViewMixin, viewsets.ModelViewSet):
         return actions
 
     def get_serializer(self, *args, **kwargs):
-        kwargs.setdefault('user', self.request.user)
+        kwargs.setdefault('identity', self.request.identity)
         return super().get_serializer(*args, **kwargs)
 

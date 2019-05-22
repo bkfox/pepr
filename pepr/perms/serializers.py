@@ -1,7 +1,5 @@
-from itertools import groupby
 
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.contrib.auth import models as auth
 from django.urls import reverse
 
 from rest_framework import serializers
@@ -27,11 +25,11 @@ class BaseSerializer(serializers.ModelSerializer):
     _type = serializers.SerializerMethodField(method_name='get_object_type')
     _actions = serializers.SerializerMethodField(method_name='get_api_actions')
 
-    user = None
+    identity = None
     """ Current request user.  """
     role = None
     """
-    Current user role for self.instance's context. Set when
+    Current identity role for self.instance's context. Set when
     `self.instance` is set.
     """
     view_name = ''
@@ -48,11 +46,11 @@ class BaseSerializer(serializers.ModelSerializer):
         fields = ('pk', 'id', '_actions', '_type')
         read_only_fields = ('pk', 'id')
 
-    def __init__(self, *args, user=None, role=None, api_actions=None,
+    def __init__(self, *args, identity=None, role=None, api_actions=None,
                  **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.user = user
+        self.identity = identity
         self.role = role
         self.api_actions = api_actions
 
@@ -61,18 +59,18 @@ class BaseSerializer(serializers.ModelSerializer):
 
     def get_role(self, context):
         """ Get role for the given context """
-        if self.user == self.role == self._context.get('request') is None:
+        if self.identity == self.role == self._context.get('request') is None:
             raise RuntimeError(
-                'no way to determine user: you must provide at least '
-                'one of the followings: role, user, request '
+                'no way to determine identity: you must provide at least '
+                'one of the followings: role, identity, request '
                 '(as context)'
             )
 
         if self.role and self.role.context.pk == context.pk:
             return self.role
         request = self._context.get('request')
-        user = self.user or request and request.user
-        return user and context.get_role(self.user)
+        identity = self.identity or request and request.identity
+        return identity and context.get_role(identity)
 
     def get_id(self, obj):
         return reverse(self.view_name, kwargs={'pk': obj.pk})
@@ -154,13 +152,13 @@ class OwnedSerializer(AccessibleSerializer):
         if not self.role.is_anonymous and owner is None:
             # child class can have overwrite validated['owner']
             # "owner" field can be read only in order to avoid
-            validated['owner'] = self.role.user
+            validated['owner'] = self.role.identity
         return super().create(validated)
 
     def update(self, instance, validated):
         owner = validated.get('owner')
         if not self.role.is_anonymous and owner is None:
-            validated['owner'] = self.role.user
+            validated['owner'] = self.role.identity
         return super().update(instance, validated)
 
 
@@ -177,7 +175,7 @@ class SubscriptionSerializer(OwnedSerializer):
         # self.fields['owner'].read_only = self.instance is not None
 
     def validate_request(self, data):
-        if data.get('owner') and data['owner'] != self.role.user:
+        if data.get('owner') and data['owner'] != self.role.identity:
             raise ValidationError({'owner': ['not allowed']})
 
         if data['role'] >= ModeratorRole.access:
@@ -194,9 +192,9 @@ class SubscriptionSerializer(OwnedSerializer):
 
     def validate_invite(self, data):
         owner = data.get('owner')
-        if owner is None or owner == self.role.user:
+        if owner is None or owner == self.role.identity:
             raise ValidationError({'owner': [
-                "This field is required and can't be current user"
+                "This field is required and can't be current identity"
             ]})
 
         data['status'] = STATUS_INVITE
@@ -226,9 +224,9 @@ class SubscriptionSerializer(OwnedSerializer):
                                   .format(instance.status, status))
 
         # role validation
-        # Rule: can't set role higher than the one attributed to user.
+        # Rule: can't set role higher than the one attributed to identity.
         #
-        # If obj owner is user, use `obj.role` because role can be
+        # If obj owner is identity, use `obj.role` because role can be
         # DefaultRole (e.g. when an Invite is accepted).
         role_max = instance.role if instance.is_owner(role) else \
             role.access
@@ -252,15 +250,15 @@ class RoleSerializer(serializers.Serializer):
     is_anonymous = serializers.BooleanField()
     is_subscribed = serializers.BooleanField()
     is_admin = serializers.BooleanField()
-    user = serializers.PrimaryKeyRelatedField(
-        queryset=auth.User.objects.all(),
+    identity = serializers.PrimaryKeyRelatedField(
+        queryset=Context.objects.identities(),
     )
 
 
 class ContextSerializer(BaseSerializer):
     """ Serializer for Context.  """
     role = serializers.SerializerMethodField(
-        method_name='get_user_role',
+        method_name='get_identity_role',
     )
     subscription = serializers.SerializerMethodField()
 
@@ -294,12 +292,12 @@ class ContextSerializer(BaseSerializer):
             api_actions=actions
         ).data
 
-    def get_user_role(self, obj):
+    def get_identity_role(self, obj):
         request = self.context.get('request')
         if not request:
             return None
 
-        role = obj.get_role(request.user)
+        role = obj.get_role(request.identity)
         return RoleSerializer(instance=role, context=self.context).data
 
     def get_api_actions(self, obj):

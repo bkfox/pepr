@@ -38,7 +38,7 @@ export default {
         return {
             class: Resource,
             path: '',
-            items: [],
+            items: {},
             collections: {}
         };
     },
@@ -61,6 +61,7 @@ export default {
 
         /**
          * Return item for the given predicate
+         * TODO: optionaly specify collection
          */
         find: state => pred => find(state.items, pred),
 
@@ -130,7 +131,7 @@ export default {
     },
 
     actions: {
-        acquire({commit, state, dispatch}, {collection, item=null, key=null, id=null, ...payload}) {
+        acquire({commit, state, dispatch}, {collection, item=null, key=null, id=null}) {
             if(item) {
                 commit('item', item);
                 item = state.items[item.id]
@@ -141,7 +142,6 @@ export default {
                     id = state.path + key + '/';
 
                 item = state.items[id];
-                console.log('before load', collection, id);
                 if(!item)
                     return dispatch('load', {collection, id});
             }
@@ -180,7 +180,6 @@ export default {
                 id = context.state.path + key + '/';
 
             classe = classe || context.state.class;
-            console.log('load', classe, id, collection, key)
             return classe.load(id, options).then(
                 item => handleResource(context, item, collection),
                 item => { context.commit('drop', item.id);

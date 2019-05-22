@@ -124,7 +124,7 @@ class CanObject(drf_perms.BasePermission, metaclass=Permissions):
         # Rule: Role can only act upon others' object when they have a
         #       lower privilege level; EXCEPT when both are admin.
         if obj.is_saved and not role.is_anonymous and \
-                obj.owner is not None and obj.owner != role.user:
+                obj.owner is not None and obj.owner != role.identity:
             owner_role = obj.get_context().get_role(obj.owner)
             strict = role.is_admin and owner_role.is_admin
             test = role.has_access(owner_role.access, strict)
@@ -168,7 +168,7 @@ class CanObject(drf_perms.BasePermission, metaclass=Permissions):
     def has_permission(self, request, view):
         """
         Return True when no :py:attr:`.model` is provided, otherwise
-        fetch request's user role from view and return result of
+        fetch request's identity role from view and return result of
         :py:meth:`.can`.
 
         The later case implies that view provide the method

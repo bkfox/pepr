@@ -81,25 +81,25 @@ class Role(metaclass=Roles):
 
     context = None
     """[instance] context in which this role applies."""
-    user = None
-    """[instance] user this role applies to."""
+    identity = None
+    """[instance] identity this role applies to."""
     subscription = None
     """[instance] if given, Subscription model."""
 
     @property
     def is_anonymous(self):
-        """ True if role is for a unauthenticated user """
-        return self.user is None or self.user.is_anonymous
+        """ True if role is for a unauthenticated identity """
+        return self.identity is None
 
     @property
     def is_subscribed(self):
-        """ True if user is subscribed to related context """
+        """ True if identity is subscribed to related context """
         return not self.is_anonymous and self.subscription is not None \
             and self.subscription.is_subscribed
 
     @property
     def is_admin(self):
-        """ True if user is an admin """
+        """ True if identity is an admin """
         return False
 
     @cached_property
@@ -164,9 +164,9 @@ class Role(metaclass=Roles):
         perm = Permissions.get(perm) if isinstance(perm, str) else perm
         return perm, model
 
-    def __init__(self, context, user, subscription=None):
+    def __init__(self, context, identity, subscription=None):
         self.context = context
-        self.user = user
+        self.identity = identity
         self.subscription = subscription
 
 
@@ -176,7 +176,7 @@ class Role(metaclass=Roles):
 class AnonymousRole(Role):
     access = -0x10
     name = _('Anonymous')
-    description = _('Unregistered and unknown user (can be anyone).')
+    description = _('Unregistered user.')
 
 
 AnonymousRole.register(None, False, CanAccess, CanCreate)
@@ -184,8 +184,8 @@ AnonymousRole.register(None, False, CanAccess, CanCreate)
 
 class DefaultRole(Role):
     access = 0x10
-    name = _('User')
-    description = _('Registered user who is not subscribed.')
+    name = _('Registered')
+    description = _('Registered but not subscribed people.')
 
 
 DefaultRole.register(None, True, CanAccess)

@@ -1,56 +1,61 @@
 {% extends "pepr/ui/site.html" %}
 {% load i18n pepr_ui %}
 
-{% block header %}
-<p-context context-id="{% if context %}{% url "container-detail" pk=context.pk %}{% endif %}">
-<div class="row p-2">
-    {% block header-title %}
-    <div class="col">
-        <h2>
-            {{ context.title }}
-        </h2>
-        <div class="description lead">
-            {{ context.description }}
-        </div>
-    </div>
-    {% endblock %}
-</div>
-<div class="row">
-    {% block header-bottom %}
-    <div class="col">
-
-    </div>
-    <div class="col text-right p-2">
-        <p-subscription-info id="container-subscription-info" :subscription="subscription"
-            v-if="subscription && subscription.key"></p-subscription-info>
-
-        <template v-if="role && !role.is_anonymous">
-            <b-button id="container-subscribed-button"
-                class="btn btn-sm btn-secondary"
-                v-b-modal.container-subscription-info
-                v-if="subscription && subscription.key"
-                >
-                <span class="fa fa-users"></span>
-                {% trans "Subscription" %}
-            </b-button>
-            <b-button class="btn btn-sm" variant="primary"
-                @click="context.subscribe('{% url "subscription-list" %}');"
-                v-else>
-                <span class="fa fa-users"></span>
-                {% trans "Subscribe" %}
-            </b-button>
-        </template>
-
-
-        {% slot view "container-settings-menu" object=context icon="fa-cog fas" right=True toggle_class="btn btn-secondary" %}
-    </div>
-    {% endblock %}
-</div>
-</p-context>
-{% endblock %}
-
 {% block main %}
+<p-context ref="context"
+    context-id="{% if context %}{% url "container-detail" pk=context.pk %}{% endif %}"
+    >
+<template v-slot:default="{context, subscription, role}">
+
+<header class="container-fluide mb-4">
+{% block header %}
+    <div class="row p-2">
+        {% block header-title %}
+        <div class="col">
+            <h2>
+                {{ context.title }}
+            </h2>
+            <div class="description lead">
+                {{ context.description }}
+            </div>
+        </div>
+        {% endblock %}
+    </div>
+    <div class="row">
+        {% block header-nav %}
+        <div class="col">
+
+        </div>
+        <div class="col text-right">
+            <p-subscription-info id="container-subscription-info" :context="context" :subscription="subscription"
+                v-if="subscription && subscription.key"></p-subscription-info>
+
+            <template v-if="role && !role.is_anonymous">
+                <b-button id="container-subscribed-button"
+                    class="btn btn-sm btn-secondary"
+                    v-b-modal.container-subscription-info
+                    v-if="subscription && subscription.key"
+                    >
+                    <span class="fa fa-users"></span>
+                    [[ subscription.roleName ]]
+                </b-button>
+                <b-button class="btn btn-sm" variant="primary"
+                    @click="$refs.context.subscribe();"
+                    v-else>
+                    <span class="fa fa-users"></span>
+                    {% trans "Subscribe" %}
+                </b-button>
+            </template>
+
+            {% slot view "container-settings-menu" object=context icon="fa-cog fas" right=True toggle_class="btn btn-secondary" %}
+        </div>
+        {% endblock %}
+    </div>
+{% endblock %}
+</header>
+
 <div class="row">
+{% block page %}
     {% if context %}
     {% slot view "container-sidebar" object=context service=service %}
     {% endif %}
@@ -66,5 +71,10 @@
         {% endif %}
     {% endblock app %}
     </div>
+{% endblock %}
+</div>
+
+</template>
+</p-context>
 {% endblock %}
 

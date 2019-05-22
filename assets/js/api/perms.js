@@ -1,8 +1,20 @@
 import Vue from 'vue';
+import find from 'lodash/find';
 
 import Resource from './resource';
 
-export const STATUS = { INVITE: 1, REQUEST: 2, ACCEPTED: 3, }
+export const STATUS = {
+    INVITE: 1,
+    REQUEST: 2,
+    ACCEPTED: 3,
+}
+
+export const Status = {
+    get(value) {
+        return find(STATUS, value);
+    }
+}
+
 export const ROLES = {
     ANONYMOUS: { access: -0x10, name: 'Anonymous' },
     DEFAULT: { access: 0x10, name: 'Registered user' },
@@ -12,46 +24,52 @@ export const ROLES = {
     ADMIN: { access: 0x100, name: 'Admin' },
 }
 
-export const STATUS_INVITE = 1;
-export const STATUS_REQUEST = 2;
-export const STATUS_ACCEPTED = 3;
+export const Roles = {
+    get(access) {
+        return find(ROLES, {access});
+    },
+
+    name(access) {
+        const role = this.get(access);
+        return role && role.name;
+    }
+}
+
 
 
 export class Context extends Resource {
+    /**
+     * User role for this context
+     */
     get role() { return this.attr('role'); }
 
-    get user() {
-        const subscription = this.subscription;
-        return subscription.owner;
-    }
+    /**
+     * User info for this context
+     */
+    get user() { return this.role && this.role.user; }
 
     /**
      *  User's subscription for this context.
      *  @property {Subscription|null} subscription
      */
     get subscription() { return this.attr('subscription') }
-
-    subscribe(endpoint, data={}) {
-        var data = {
-            context: this.key,
-            access: this.data.subscription_default_access,
-            role: this.data.subscription_default_role,
-            ...data
-        };
-
-        const self = this;
-        const req = Subscription.create(endpoint, data, {context:this});
-        req.then(data => self.setSubscription(data),
-                 data => {})
-        return req;
-    }
 }
 
 
 export class Subscription extends Resource {
-    get is_invite() { return this.attr('status') == STATUS_INVITE }
-    get is_request() { return this.attr('status') == STATUS_REQUEST }
-    get is_subscribed() { return this.attr('status') == STATUS_ACCEPTED }
+    get is_invite() { return this.attr('status') == STATUS.INVITE }
+    get is_request() { return this.attr('status') == STATUS.REQUEST }
+    get is_subscribed() { return this.attr('status') == STATUS.ACCEPTED }
+
+    get accessName() {
+        let access = this.attr('access');
+        return access && Roles.name(access);
+    }
+
+    get roleName() {
+        let role = this.attr('role');
+        return role && Roles.name(role);
+    }
 }
 
 

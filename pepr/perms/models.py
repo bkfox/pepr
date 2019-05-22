@@ -73,37 +73,38 @@ class AccessibleQuerySet(InheritanceQuerySetMixin, models.QuerySet):
         return self.filter(context=context)
 
     # We use a distinct function to get Q objet in order to allow
-    # extensibility of the user() method.
-    def _get_user_q(self, user):
+    # extensibility of the identity() method.
+    @classmethod
+    def get_identity_q(cls, identity):
         """
         Return Q object used to filter Accessible instances for the
-        given user by :func:`AccessibleQuerySet.user`.
+        given identity by :func:`AccessibleQuerySet.identity`.
         """
-        # special user case
+        # special identity case
         # FIXME: this is not extensible
-        role = Context.get_special_role(user)
+        role = Context.get_special_role(identity)
         if role:
             return Q(access__lte=role.access)
 
-        # registered user
+        # registered identity
         return (
-            # user with registered access
+            # identity with registered access
             Q(context__subscription__role__gte=F('access'),
               context__subscription__status=STATUS_ACCEPTED,
-              context__subscription__owner=user) |
-            # user with no access, but who is platform member
+              context__subscription__owner=identity) |
+            # identity with no access, but who is platform member
             (
                 ~Q(context__subscription__status=STATUS_ACCEPTED,
-                   context__subscription__owner=user) &
+                   context__subscription__owner=identity) &
                 Q(access__lte=DefaultRole.access)
             )
         )
 
-    def user(self, user):
+    def identity(self, identity):
         """
-        Filter Accessible objects based on user's role.
+        Filter Accessible objects based on identity's role.
         """
-        return self.filter(self._get_user_q(user)).distinct()
+        return self.filter(self.get_identity_q(identity)).distinct()
 
 
 class Accessible(models.Model):
@@ -146,17 +147,44 @@ class Accessible(models.Model):
 
 
 class ContextQuerySet(AccessibleQuerySet):
-    def subscription(self, user, access=None):
+    @classmethod
+    def get_identities_q(cls):
+        return (Q(identity_policy__isnull=False) |
+                Q(identity_owner__isnull=False))
+
+    def identities(self):
+        """ Filter identities only contexts. """
+        return self.filter(self.get_identities_q())
+
+    def user_identities(self, user, strict=False):
         """
-        Get contexts that user has a subscription to (filtered by
+        Filter contexts that user can personify. If ``strict``, only user's
+        identities will be provided.
+
+        Resulting queryset is order with User's context first.
+        """
+        if strict:
+            return self.filter(identity_owner=user)
+
+        # FIXME/TODO: default user's context
+        return self.identities().filter(
+            Q(identity_owner=user) |
+            Q(subscription__status=STATUS_ACCEPTED,
+              subscription__role__gte=F('identity_policy'),
+              subscription__owner__identity_owner=user)
+        ).order_by('-identity_owner')
+
+    def subscription(self, identity, access=None):
+        """
+        Get contexts that identity has a subscription to (filtered by
         ``role`` if given).
         """
-        if user.is_anonymous:
-            raise RuntimeError('user can not be anonymous')
+        if identity is None:
+            return self.none()
         if access is not None:
-            return self.filter(subscription_set__owner=user,
+            return self.filter(subscription_set__owner=identity,
                                subscription_set__access=access)
-        return self.filter(subscription_set__owner=user)
+        return self.filter(subscription_set__owner=identity)
 
 
 class ContextBase(Accessible):
@@ -190,48 +218,67 @@ class ContextBase(Accessible):
         default=MemberRole.access,
         help_text=_('Role set by default to new subscribers'),
     )
+    identity_policy = models.SmallIntegerField(
+        _('Identity Policy'), choices=subscription_role_choices,
+        blank=True, null=True,
+        help_text=_(
+            'Define which members can personnify this context to edit, '
+            'publish, and do other things.'
+        )
+    )
+    identity_owner = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        verbose_name=_('real person behind the identity'),
+        blank=True, null=True, db_index=True,
+        help_text=_('if user page, set to the actual user.')
+    )
     title = models.CharField(
         _('title'), max_length=128,
         blank=True, null=True
     )
 
+    identity_user = None
+    """ User impersonating current identity instance (request's user). """
 
     role = None
+    """
+    Current identity role (which is the last one get using `get_role`.
+    """
     objects = ContextQuerySet.as_manager()
 
     class Meta:
         db_table = 'pepr_perms_context'
 
     @staticmethod
-    def get_special_role(user):
+    def get_special_role(identity):
         """
-        Return user's role class based on User's object (not subscription)
+        Return identity's role class based on identity (not subscription)
         or None if nothing special.
 
         This is used to get special roles as for anonymous users.
         """
-        if user is None or user.is_anonymous:
+        if identity is None:
             return AnonymousRole
         return None
 
-    def get_role(self, user, force=False):
+    def get_role(self, identity, force=False):
         """
-        Return role for user with related user subscription if present.
+        Return role for identity with related identity subscription if present.
         If ``is_current``, resulting role will be set as ``self.role``.
 
-        :param User user: user whose access is being fetched;
-        :param bool is_current: this role is of the current request's user;
+        :param (Context|None) identity: identity whose access is being fetched;
+        :param bool is_current: this role is of the current request's identity;
         """
-        if not force and self.role and self.role.user == user:
+        if not force and self.role and self.role.identity == identity:
             return self.role
 
         # check for special roles (overwrites the subscription)
-        role = self.get_special_role(user)
+        role = self.get_special_role(identity)
         subscription = None
 
-        if user is not None and not user.is_anonymous:
+        if identity is not None:
             subscription = Subscription.objects.filter(
-                context=self, owner=user, status=STATUS_ACCEPTED,
+                context=self, owner=identity, status=STATUS_ACCEPTED,
             ).first()
 
             # get role from subscription or from default only if role is
@@ -244,7 +291,7 @@ class ContextBase(Accessible):
         if role is None:
             role = AnonymousRole
 
-        self.role = role(self, user, subscription)
+        self.role = role(self, identity, subscription)
         return self.role
 
     def save(self, *args, **kwargs):
@@ -263,39 +310,34 @@ Context._meta.get_field('context').null = True
 
 
 class OwnedQuerySet(AccessibleQuerySet):
-    def owner(self, user):
+    def owner(self, identity):
         """
         Filter based on accessible's owner.
         """
-        return self.filter(owner=user)
+        return self.filter(owner=identity)
 
-    def _get_owner_q(self, user):
-        """
-        Return Q object used to filter Accessible based on the
-        ownership of the Accessible objects.
-        """
-        return Q(owner=user)
-
-    def user(self, user):
-        q = self._get_user_q(user)
-        if not user.is_anonymous:
-            q |= Q(owner=user)
+    def identity(self, identity):
+        q = self.get_identity_q(identity)
+        if identity is not None:
+            q |= Q(owner=identity)
         return self.filter(q).distinct()
 
 
 class Owned(Accessible):
     """
-    Accessible owned by an end-user.
+    Accessible owned by an end-identity.
 
-    The principle underlied by this class is that *end-user always has
+    The principle underlied by this class is that *end-identity always has
     access to objects that he owns and the right to edit it*. The use
-    case of object ownership is up to the class user (e.g. ownership by
+    case of object ownership is up to the class identity (e.g. ownership by
     the creator of content).
     """
     owner = models.ForeignKey(
-        User, on_delete=models.CASCADE,
+        Context, on_delete=models.CASCADE,
         null=True, blank=True,
-        help_text=_('user owning this object'),
+        limit_choices_to=ContextQuerySet.get_identities_q(),
+        help_text=_('identity that owns this object'),
+        related_name='owned_%(class)s'
     )
 
     objects = OwnedQuerySet.as_manager()
@@ -308,19 +350,19 @@ class Owned(Accessible):
         Return True if given role is considered the owner of the object.
         """
         return self.is_saved and not role.is_anonymous and \
-                self.owner_id == role.user.id
+                self.owner_id == role.identity.id
 
 
 class Subscription(Owned):
     """
-    Subscription of a User to a Context used in order to determine its
+    Subscription of a identity to a Context used in order to determine its
     role (for access and permission management) for this Context.
 
-    Subscription is an Owned where the owner is the user
+    Subscription is an Owned where the owner is the identity
     concerned by the subscription. **The ``access`` here determines
     owner's role for the given ``context``, and should not be used
     to grant access to subsciptions without a prior privilege check**:
-    the access here determines which subscriptions a user with the
+    the access here determines which subscriptions a identity with the
     related privileges granted has access to (for reading or writing).
 
     There can be only one Subscription for a pair of owner and context.
@@ -333,7 +375,7 @@ class Subscription(Owned):
     role = models.SmallIntegerField(
         _('role'), default=0,
         choices=subscription_role_choices,
-        help_text=_('Defines the role of the user and his access level '
+        help_text=_('Defines the role of the identity and his access level '
                     'to content.')
     )
 
@@ -355,7 +397,7 @@ class Subscription(Owned):
         return cls(self.context, self.owner, self)
 
 
-# User must at least been subscribed in order to have a access to
+# identity must at least been subscribed in order to have a access to
 # subscriptions.
 Subscription._meta.get_field('access').choices=subscription_role_choices
 

@@ -16,7 +16,20 @@ const store = new Vuex.Store({
         context: ApiStore,
         subscription: ApiStore,
         content: ApiStore,
-    }
+    },
+
+    actions: {
+        /**
+         * Release all acquired items for a given collection
+         */
+        release({state, dispatch}, collection) {
+            for(var name in state)
+                try {
+                    dispatch(name + '/release', { collection: collection })
+                }
+                catch(e) {}
+        },
+    },
 });
 
 // TODO move into app and make it configurable

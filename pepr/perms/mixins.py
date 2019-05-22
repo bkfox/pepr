@@ -49,7 +49,7 @@ class PermissionMixin:
         """
         Return role for the given context and request.
         """
-        return obj.get_role(request.user)
+        return obj.get_role(request.identity)
 
     @classmethod
     def get_api_actions(cls, role, obj=None):
@@ -60,10 +60,13 @@ class PermissionMixin:
         return [a for a in actions if cls.can(role, a)] if obj is None else \
             [a for a in actions if cls.can_obj(role, obj, a)]
 
+    # TODO: action mandatory, but can be None (as first argument?)
+    #       => ensure identity does not have it to 'None' by mistake
+    #       (which test on cls.permission_classes)
     @classmethod
     def can(cls, role, action=None, throws=False):
         """
-        Return True when user has permissions for the given action.
+        Return True when identity has permissions for the given action.
         """
         failed = next(
             (permission for permission in cls.get_action_permissions(action)
@@ -76,10 +79,9 @@ class PermissionMixin:
     @classmethod
     def can_obj(cls, role, obj, action=None, throws=False):
         """
-        Return True when user has permissions for the given action and
+        Return True when identity has permissions for the given action and
         object.
         """
-        print('action', cls, action, cls.get_action_permissions(action))
         success = next(
             (False for permission in cls.get_action_permissions(action)
              if not permission.can_obj(role, obj)), True
@@ -101,7 +103,7 @@ class PermissionViewMixin(PermissionMixin):
 
     @context.setter
     def context(self, obj):
-        self.role = obj.get_role(self.request.user)
+        self.role = obj.get_role(self.request.identity)
 
     @property
     def object(self):
@@ -119,7 +121,7 @@ class PermissionViewMixin(PermissionMixin):
         request = request or getattr(self, 'request', None)
         role = self.role
         return role if role and role.context.pk == context.pk else \
-            context.get_role(request.user)
+            context.get_role(request.identity)
 
     def get_permissions(self):
         return self.get_action_permissions(self.action)
@@ -151,7 +153,7 @@ class AccessibleViewMixin(PermissionViewMixin):
         return super().get_role(request, obj and obj.get_context())
 
     def get_queryset(self):
-        return self.model.objects.user(self.request.user)
+        return self.model.objects.identity(self.request.identity)
 
 
 class AccessibleConsumerMixin(SingleObjectMixin, PermissionMixin):
@@ -159,7 +161,7 @@ class AccessibleConsumerMixin(SingleObjectMixin, PermissionMixin):
     Consumer mixin handling Accessible objects permission check
     """
     def get_queryset(self, request):
-        return super().get_queryset(request).user(request.user)
+        return super().get_queryset(request).identity(request.identity)
 
     def get_object(self, request):
         obj = super().get_object(request)

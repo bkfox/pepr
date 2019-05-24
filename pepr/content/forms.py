@@ -1,3 +1,5 @@
+from django import forms
+
 from ..perms.forms import OwnedForm
 from .models import Content, Container
 
@@ -17,6 +19,6 @@ class ContainerForm(OwnedForm):
     """
     class Meta:
         model = Container
-        fields = ['title', 'description', 'access']
+        fields = ['name', 'description', 'access']
 
 

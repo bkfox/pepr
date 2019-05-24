@@ -174,6 +174,23 @@ class ContextQuerySet(AccessibleQuerySet):
               subscription__owner__identity_owner=user)
         ).order_by('-identity_owner')
 
+    def get_identities(self, user, pk):
+        """
+        Return current user's identity and available identities as
+        ``(identity, identities_qs)``. Raise 404 if an invalid identity
+        pk has been provided through.
+        """
+        if user.is_anonymous:
+            return None, None
+
+        identities = self.user_identities(user)
+        if pk:
+            return (identities.get_or_404(pk), identities)
+
+        identity = self.user_identities(user, True) \
+            .first()
+        return (identity, identities)
+
     def subscription(self, identity, access=None):
         """
         Get contexts that identity has a subscription to (filtered by
@@ -232,8 +249,8 @@ class ContextBase(Accessible):
         blank=True, null=True, db_index=True,
         help_text=_('if user page, set to the actual user.')
     )
-    title = models.CharField(
-        _('title'), max_length=128,
+    name = models.CharField(
+        _('name'), max_length=128,
         blank=True, null=True
     )
 
@@ -350,7 +367,7 @@ class Owned(Accessible):
         Return True if given role is considered the owner of the object.
         """
         return self.is_saved and not role.is_anonymous and \
-                self.owner_id == role.identity.id
+               self.owner_id == role.identity.pk
 
 
 class Subscription(Owned):

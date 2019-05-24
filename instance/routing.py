@@ -1,8 +1,8 @@
-from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter
 from channels.security.websocket import OriginValidator
 
 from pepr.api.multiplex import MultiplexConsumer
+from pepr.perms.consumers import IdentityMiddlewareStack
 
 
 class PeprMultiplex(MultiplexConsumer):
@@ -11,6 +11,6 @@ class PeprMultiplex(MultiplexConsumer):
 
 
 application = ProtocolTypeRouter({
-    'websocket': AuthMiddlewareStack(PeprMultiplex),
+    'websocket': IdentityMiddlewareStack(PeprMultiplex),
 })
 

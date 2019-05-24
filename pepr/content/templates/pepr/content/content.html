@@ -4,7 +4,7 @@
 {% with object.owner|default_if_none:object.modifier as owner %}
 <div>
     <header class="box-header">
-        {{ owner.title }}
+        {{ owner.name }}
         {{ object.modified|naturaltime }}
 
         <div class="float-right badges">
@@ -26,7 +26,6 @@
     <section>
     {{ object.text }}
     </section>
-
 </div>
 {% endwith %}
 {% endblock %}

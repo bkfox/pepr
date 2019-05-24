@@ -1,12 +1,51 @@
 from asgiref.sync import async_to_sync
+from channels.auth import AuthMiddlewareStack
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.layers import get_channel_layer
-# from restframework.consumers import Consumer
+from channels.middleware import BaseMiddleware
 
 from ..api.pubsub import PubsubConsumer
-from ..perms.models import Context
 from .mixins import PermissionMixin
+from .models import Context
 from .permissions import CanAccess
+
+
+__all__ = ['IdentityMiddleware', 'IdentityMiddleware', 'AccessiblePubsub']
+
+
+# TODO: setter on scope.user in order to keep track of user change?
+# TODO: keep track of user's identities & subscriptions changes?
+# TODO: request.identity
+
+
+class IdentityMiddleware(BaseMiddleware):
+    """
+    Fetch user's identity and set it into the scope's request.
+    """
+    def __init__(self, inner, context_class=Context):
+        super().__init__(inner)
+        self.context_class = context_class
+
+    def populate_scope(self, scope):
+        scope['identity'], scope['identities'] = None, None
+
+    async def resolve_scope(self, scope):
+        if 'user' not in scope:
+            raise ValueError(
+                'Scope misses "user", you must wrap this middleware into '
+                '`channels.auth.AuthMiddlewareStack` or other middleware '
+                'providing user authentication and cookies.'
+            )
+        pk = scope['cookies'] and scope['cookies'].get('pepr.perms.identity')
+        identity, identities = self.context_class.objects.get_identities(
+            scope['user'], pk
+        )
+        scope['identity'] = identity
+        scope['identities'] = identities
+
+
+def IdentityMiddlewareStack(inner, **kwargs):
+    return AuthMiddlewareStack(IdentityMiddleware(inner, **kwargs))
 
 
 class AccessiblePubsub(PermissionMixin, PubsubConsumer):
@@ -30,7 +69,7 @@ class AccessiblePubsub(PermissionMixin, PubsubConsumer):
             return None
 
         if 'role' not in kwargs:
-            kwargs['role'] = context.get_role(request.user)
+            kwargs['role'] = context.get_role(self.scope['identity'])
         return await super().get_subscription_data(request, match, **kwargs)
 
     def get_serializer(self, event, subscription, instance, **initkwargs):

@@ -15,13 +15,17 @@
 {% endwith %}
 
 <footer class="row form-row justify-content-between text-right">
-    <div class="col-2 input-group-sm mb-0">
-        {% with form.access as field %}
-        {% render_field field aria-label=field.label aria-description=field.help_text|default:field.label title=field.help_text|default:field.label class="form-control" %}
-        {% endwith %}
-    </div>
-    <div class="col-2">
-        <button class="btn btn-primary">{% trans "Publish" %}</button>
+    <div class="col-12 text-right">
+            {% with form.access as field %}
+            <div class="d-inline-block text-info border-right border-secondary mr-2 pr-2">
+                <span class="far fa-eye"></span>
+                <span class="d-inline-block">
+                    {% render_field field aria-label=field.label aria-description=field.help_text|default:field.label title=field.help_text|default:field.label class="form-control d-inline" %}
+                </span>
+            </div>
+            {% endwith %}
+
+            <button class="btn btn-primary">{% trans "Publish" %}</button>
     </div>
 </footer>
 

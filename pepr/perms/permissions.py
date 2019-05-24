@@ -77,7 +77,7 @@ class CanObject(drf_perms.BasePermission, metaclass=Permissions):
         attr = getattr(cls, attr)
         return attr.format(
             model=model,
-            model_name=model._meta.verbose_name.title()
+            model_name=model._meta.verbose_name.name()
             if model else _('element'),
             **kwargs
         )

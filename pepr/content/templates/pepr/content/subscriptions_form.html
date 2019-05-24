@@ -5,10 +5,10 @@
 <h3>{% icon "fa-user-friends fas" %} {% trans "Subscriptions" %}</h3>
 <div class="box">
     <p class="lead mb-3">
-    {% with title=context.title context_type=context|meta:"verbose_name" %}
+    {% with name=context.name context_type=context|meta:"verbose_name" %}
     {% blocktrans %}
     Here you can change users subscriptions for the {{ context_type }}
-    <b>{{ title }}</b>.
+    <b>{{ name }}</b>.
     {% endblocktrans %}
     {% endwith %}
     </p>

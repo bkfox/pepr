@@ -30,9 +30,26 @@
                 {% block navbar %}
                 <a class="navbar-brand" href="#">Pepr</a>
 
-                <b-dropdown right class="float-right" toggle-class="btn-info">
-                    <span slot="button-content">{{ user }}</span>
-                    <!-- <b-dropdown-item>test</b-dropdown-item> -->
+                <b-dropdown right class="float-right" toggle-class="secondary"
+                    text="{{ request.identity.name }}">
+                    {# TODO: identity API #}
+                    <b-dropdown-group id="dropdown-group-1">
+                        <template slot="header">
+                            <span class="fas fa-user-circle"></span>
+                             {% trans "Change Identity" %}
+                        </template>
+                    {% for identity in request.identities %}
+                        <b-dropdown-item-button>
+                            {{ identity.name }}
+                        </b-dropdown-item-button>
+                    {% endfor %}
+                        <b-dropdown-item-button>
+                            <span class="fas fa-plus"></span>
+                            {% trans "Create an identity" %}
+                        </b-dropdown-item-button>
+                    </b-dropdown-group>
+                    <b-dropdown-divider></b-dropdown-divider>
+                    <b-dropdown-item-button>{% trans "Disconnect" %}</b-dropdown-item-button>
                 </b-dropdown>
                 {% endblock %}
             </nav>

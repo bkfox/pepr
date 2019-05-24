@@ -97,7 +97,6 @@ class MultiplexConsumer(ApiConsumer, metaclass=MultiplexConsumerMeta):
             if consumer_class else (None, None)
 
         if not ci:
-            print('resolve...', request.path, ci)
             return await self.send_api_exception(NotFound())
 
         if created:

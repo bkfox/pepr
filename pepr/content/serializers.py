@@ -64,6 +64,6 @@ class ContentSerializer(OwnedSerializer):
 class ContainerSerializer(ContextSerializer):
     class Meta:
         model = Container
-        fields = ContextSerializer.Meta.fields + ('title', 'description')
+        fields = ContextSerializer.Meta.fields + ('name', 'description')
 
 

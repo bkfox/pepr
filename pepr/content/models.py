@@ -160,9 +160,8 @@ class Service(UserWidget):
     def as_view(self):
         """ Return view function for this request.  """
         import inspect
-        if inspect.isclass(self.view):
-            return self.view.as_view()
-        return self.view
+        view = self.view.target
+        return view.as_view() if inspect.isclass(view) else view
 
     def save(self, *args, **kwargs):
         if not self.slug:

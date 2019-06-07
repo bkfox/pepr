@@ -28,9 +28,11 @@ class PermissionMixin:
         'DELETE': (CanDestroy,),
     }
     """
-    Permission to apply for a specific action instead of
-    `self.permission_classes`. It can either be a request method or an
-    action (as given by ``viewset.action``)
+    Overrides permissions for the given actions (as
+    ``{'action-name': (permissions,) }``). Can be ``None``.
+
+    FIXME: It can either be a request method or an action (as given by
+    ``viewset.action``).
     """
 
     @classmethod
@@ -44,12 +46,6 @@ class PermissionMixin:
                 action, permission_classes
             )
         return [perm() for perm in permission_classes]
-
-    def get_role(self, request, obj=None):
-        """
-        Return role for the given context and request.
-        """
-        return obj.get_role(request.identity)
 
     @classmethod
     def get_api_actions(cls, role, obj=None):
@@ -112,25 +108,17 @@ class PermissionViewMixin(PermissionMixin):
     @object.setter
     def object(self, obj):
         setattr(self, '_object', obj)
-        self.role = self.get_role(self.request, obj)
-
-    def get_role(self, request=None, context=None):
-        if not context:
-            return self.role
-
-        request = request or getattr(self, 'request', None)
-        role = self.role
-        return role if role and role.context.pk == context.pk else \
-            context.get_role(request.identity)
+        self.role = obj.get_role(self.request.identity)
 
     def get_permissions(self):
         return self.get_action_permissions(self.action)
 
     def get_context_data(self, **kwargs):
         """ Ensure 'role' and 'context' are in resulting context """
-        kwargs.setdefault('roles', Roles.register)
-        kwargs.setdefault('role', self.get_role(self.request, self.object))
+        kwargs.setdefault('identity', self.request.identity)
+        kwargs.setdefault('role', self.role)
         kwargs.setdefault('context', self.context)
+        kwargs.setdefault('roles', Roles.register)
         return super().get_context_data(**kwargs)
 
 class ContextViewMixin(PermissionViewMixin):
@@ -148,12 +136,11 @@ class AccessibleViewMixin(PermissionViewMixin):
     """
     View mixin handling Accessible objects permission check.
     """
-    def get_role(self, request=None, obj=None):
-        obj = obj or self.object
-        return super().get_role(request, obj and obj.get_context())
-
     def get_queryset(self):
-        return self.model.objects.identity(self.request.identity)
+        qs = self.model.objects.identity(self.request.identity)
+        if self.context:
+            qs = qs.filter(context=self.context)
+        return qs
 
 
 class AccessibleConsumerMixin(SingleObjectMixin, PermissionMixin):

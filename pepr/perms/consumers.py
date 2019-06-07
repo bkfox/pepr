@@ -67,13 +67,10 @@ class AccessiblePubsub(PermissionMixin, PubsubConsumer):
         context = self.get_context(request, match)
         if context is None:
             return None
-
-        if 'role' not in kwargs:
-            kwargs['role'] = context.get_role(self.scope['identity'])
         return await super().get_subscription_data(request, match, **kwargs)
 
     def get_serializer(self, event, subscription, instance, **initkwargs):
-        initkwargs['role'] = subscription.data['role']
+        initkwargs['identity'] = self.scope['identity']
         return super().get_serializer(event, subscription, instance,
                                       **initkwargs)
 

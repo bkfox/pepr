@@ -26,12 +26,7 @@ class BaseSerializer(serializers.ModelSerializer):
     _actions = serializers.SerializerMethodField(method_name='get_api_actions')
 
     identity = None
-    """ Current request user.  """
-    role = None
-    """
-    Current identity role for self.instance's context. Set when
-    `self.instance` is set.
-    """
+    """ Current identity of request user. """
     view_name = ''
     """
     Detail view name used for the id field.
@@ -46,52 +41,32 @@ class BaseSerializer(serializers.ModelSerializer):
         fields = ('pk', 'id', '_actions', '_type')
         read_only_fields = ('pk', 'id')
 
-    def __init__(self, *args, identity=None, role=None, api_actions=None,
+    def __init__(self, *args, identity, viewset=None,
                  **kwargs):
         super().__init__(*args, **kwargs)
-
         self.identity = identity
-        self.role = role
-        self.api_actions = api_actions
+        self.viewset = viewset
 
         self.view_name = self.view_name or \
             self.Meta.model.__name__.lower() + '-detail'
 
-    def get_role(self, context):
-        """ Get role for the given context """
-        if self.identity == self.role == self._context.get('request') is None:
-            raise RuntimeError(
-                'no way to determine identity: you must provide at least '
-                'one of the followings: role, identity, request '
-                '(as context)'
-            )
-
-        if self.role and self.role.context.pk == context.pk:
-            return self.role
-        request = self._context.get('request')
-        identity = self.identity or request and request.identity
-        return identity and context.get_role(identity)
-
     def get_id(self, obj):
         return reverse(self.view_name, kwargs={'pk': obj.pk})
 
-    def _get_api_actions(self, role, obj):
+    def get_api_actions(self, obj):
         """
         Return actions of the related api_action that are granted for the
         given role on obj as a list of string.
         """
-        if self.api_actions:
-            if isinstance(self.api_actions, (list, tuple)):
-                return self.api_actions
-            viewset = self.api_actions
+        if self.viewset:
+            if isinstance(self.viewset, (list, tuple)):
+                return self.viewset
+            viewset = self.viewset
         else:
             viewset = self._context.get('view')
 
         return {} if not isinstance(viewset, PermissionMixin) else \
-            viewset.get_api_actions(role, obj)
-
-    def get_api_actions(self, obj):
-        raise NotImplementedError('this method must be implemented')
+            viewset.get_api_actions(obj.get_role(self.identity), obj)
 
     def get_object_type(self, obj):
         return obj._meta.verbose_name
@@ -113,19 +88,6 @@ class AccessibleSerializer(BaseSerializer):
             field = self.fields['context']
             field.read_only = self.instance is not None
 
-    def get_api_actions(self, obj):
-        role = self.get_role(obj.context)
-        return self._get_api_actions(role, obj)
-
-    def to_internal_value(self, data):
-        value = super().to_internal_value(data)
-        # ensure we've got a role
-        if self.role is None:
-            context = value['context'] if self.instance is None else \
-                      self.instance.get_context()
-            self.role = self.get_role(context)
-        return value
-
 
 class OwnedSerializer(AccessibleSerializer):
     class Meta:
@@ -140,7 +102,7 @@ class OwnedSerializer(AccessibleSerializer):
     def validate(self, data):
         # this should not happen with correct flow. For sugar, we
         # raise a PermissionDenied instead of RuntimeError.
-        if self.role.is_anonymous and not self.is_owner_optional:
+        if self.identity is None and not self.is_owner_optional:
             raise PermissionDenied(
                 'Anonymous not allowed to edit {}'
                 .format(self.model._meta.verbose_name.lower())
@@ -149,16 +111,16 @@ class OwnedSerializer(AccessibleSerializer):
 
     def create(self, validated):
         owner = validated.get('owner')
-        if not self.role.is_anonymous and owner is None:
+        if self.identity is not None and owner is None:
             # child class can have overwrite validated['owner']
             # "owner" field can be read only in order to avoid
-            validated['owner'] = self.role.identity
+            validated['owner'] = self.identity
         return super().create(validated)
 
     def update(self, instance, validated):
         owner = validated.get('owner')
-        if not self.role.is_anonymous and owner is None:
-            validated['owner'] = self.role.identity
+        if self.identity is not None and owner is None:
+            validated['owner'] = self.identity
         return super().update(instance, validated)
 
 
@@ -174,15 +136,16 @@ class SubscriptionSerializer(OwnedSerializer):
         self.fields['status'].read_only = self.instance is None
         # self.fields['owner'].read_only = self.instance is not None
 
-    def validate_request(self, data):
-        if data.get('owner') and data['owner'] != self.role.identity:
+    def validate_request(self, role, data):
+        if data.get('owner') and data['owner'] != self.identity:
             raise ValidationError({'owner': ['not allowed']})
 
         if data['role'] >= ModeratorRole.access:
             raise ValidationError({'role': ["must be < than Moderator role"]})
 
-        context = self.role.context
+        context = role.context
         data.setdefault('access', context.subscription_default_access)
+        data['access'] = min(data['access'], ModeratorRole.access)
 
         accept_role = context.subscription_accept_role
         data['status'] = STATUS_ACCEPTED \
@@ -190,19 +153,19 @@ class SubscriptionSerializer(OwnedSerializer):
             STATUS_REQUEST
         return data
 
-    def validate_invite(self, data):
+    def validate_invite(self, role, data):
         owner = data.get('owner')
-        if owner is None or owner == self.role.identity:
+        if owner is None or owner == self.identity:
             raise ValidationError({'owner': [
                 "This field is required and can't be current identity"
             ]})
 
         data['status'] = STATUS_INVITE
-        data['role'] = min(data['role'], self.role.access)
+        data['role'] = min(data['role'], role.access)
         return data
 
-    def validate_update(self, data):
-        role, instance = self.role, self.instance
+    def validate_update(self, role, data):
+        instance = self.instance
 
         # status validation
         # Rule: a subscription status can update only to the same
@@ -225,23 +188,23 @@ class SubscriptionSerializer(OwnedSerializer):
 
         # role validation
         # Rule: can't set role higher than the one attributed to identity.
-        #
         # If obj owner is identity, use `obj.role` because role can be
         # DefaultRole (e.g. when an Invite is accepted).
-        role_max = instance.role if instance.is_owner(role) else \
-            role.access
+        role_max = instance.role if instance.is_owner(role) else role.access
         data['role'] = min(role_max, data.get('role', instance.role))
         return data
 
     def validate(self, data):
-        role = self.role
-        if role.is_anonymous:
-            raise ValidationError('role must not be anonymous')
+        if self.identity is None:
+            raise PermissionDenied('user must be identitied')
 
         data = super().validate(data)
-        return self.validate_update(data) if self.instance is not None else \
-            self.validate_invite(data) if role.is_subscribed else \
-            self.validate_request(data)
+        role = data['context'].get_role(self.ideneity)
+        if self.instance is not None:
+            return self.validate_update(role, data)
+        elif role.is_subscribed:
+            return self.validate_invite(role, data)
+        return self.validate_request(role, data)
 
 
 class RoleSerializer(serializers.Serializer):
@@ -280,7 +243,7 @@ class ContextSerializer(BaseSerializer):
         # field.user, field.role = self.user, self.role
 
     def get_subscription(self, obj):
-        role = self.get_role(obj)
+        role = obj.get_role(self.identity)
         if not role or not role.subscription:
             return
 
@@ -288,7 +251,7 @@ class ContextSerializer(BaseSerializer):
         viewset = viewset and viewset.subscription_viewset_class
         actions = viewset and viewset.get_api_actions(role, role.subscription)
         return SubscriptionSerializer(
-            role=role, instance=role.subscription, context=self.context,
+            identity=self.identity, instance=role.subscription, context=self.context,
             api_actions=actions
         ).data
 
@@ -300,7 +263,4 @@ class ContextSerializer(BaseSerializer):
         role = obj.get_role(request.identity)
         return RoleSerializer(instance=role, context=self.context).data
 
-    def get_api_actions(self, obj):
-        role = self.get_role(obj)
-        return self._get_api_actions(role, obj)
 

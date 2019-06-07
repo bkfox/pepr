@@ -1,6 +1,6 @@
 {% load static i18n pepr_ui %}
 {% load render_bundle from webpack_loader %}
-{% if not standalone %}
+
 <html>
     <head>
         <meta http-equiv="content-type" content="text/html; charset=UTF-8">
@@ -57,12 +57,9 @@
             <p-alerts id="alerts" ref="alerts"></p-alerts>
 
             <main class="container-fluid p-4">
-    {% endif %}
                 {% block main %}{% endblock %}
-    {% if not standalone %}
             </main>
         </div>
     </body>
 </html>
-{% endif %}
 

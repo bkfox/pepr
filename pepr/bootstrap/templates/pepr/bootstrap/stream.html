@@ -1,5 +1,5 @@
 {% extends "pepr/content/service.html" %}
-{% load i18n pepr_api pepr_ui %}
+{% load i18n pepr_ui %}
 
 {% block app %}
 <div class="box">
@@ -18,9 +18,8 @@
     item-class="box position-relative"
     >
     <template v-slot:data>
-        {% for obj in object_list %}
-        {% serialize obj role=role render=False api_actions=viewset as data %}
-        {{ data|json_script:obj.pk }}
+        {% for data in object_data %}
+        {{ data|json_script:data.pk }}
         {% endfor %}
     </template>
 

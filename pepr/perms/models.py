@@ -114,7 +114,7 @@ class Accessible(models.Model):
     """
     uuid = models.UUIDField(
         db_index=True, unique=True, primary_key=True,
-        default=uuid.uuid4
+        default=None
     )
     context = models.ForeignKey(
         'pepr_perms.ContextBase', on_delete=models.CASCADE,
@@ -129,18 +129,25 @@ class Accessible(models.Model):
     )
     objects = AccessibleQuerySet.as_manager()
 
+    @property
+    def is_saved(self):
+        """ Return True if object has yet been saved. """
+        return self.pk is not None
+
     @cached_method
     def get_context(self):
-        """ Return context as its real class. """
+        """ Return context as its real subclass. """
         return Context.objects.get_subclass(pk=self.context_id) \
             if self.context_id is not None else None
 
-    @property
-    def is_saved(self):
-        """
-        Return True if object has yet been saved.
-        """
-        return self.pk is not None
+    def get_role(self, identity, force=False):
+        """ Return identity's role for this object and its context """
+        return self.context and self.context.get_role(identity, force)
+
+    def save(self, *args, **kwargs):
+        if self.pk is None:
+            self.pk = uuid.uuid4()
+        super().save(*args, **kwargs)
 
     class Meta:
         abstract = True

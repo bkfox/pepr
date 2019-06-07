@@ -1,12 +1,13 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from ..perms.views import SubscriptionViewSet
+from ..perms.viewsets import SubscriptionViewSet
 from .consumers import ContentPubsub
-from .views import ContentViewSet, ContainerViewSet
 from .views import \
-    ServiceDetailView, ContainerUpdateView, \
+    service_view, ContainerUpdateView, \
+    ContainerCreateAnyView, \
     SubscriptionsUpdateView
+from .viewsets import ContentViewSet, ContainerViewSet
 
 
 router = DefaultRouter()
@@ -17,14 +18,16 @@ api_urlpatterns = router.urls
 
 
 urlpatterns = [
-    path('<uuid:pk>', ServiceDetailView.as_view(),
+    path('container/create-any', ContainerCreateAnyView.as_view(),
+         name='pepr.container.create_any'),
+    path('<uuid:pk>', service_view(),
          name='pepr.container'),
-    path('<uuid:pk>/s/<slug:service_slug>', ServiceDetailView.as_view(),
-         name='pepr.service'),
     path('<uuid:pk>/settings', ContainerUpdateView.as_view(),
          name='pepr.container.settings'),
-    path('<uuid:pk>/subscriptions', SubscriptionsUpdateView.as_view(),
+    path('<uuid:pk>/subscriptions', service_view(SubscriptionsUpdateView),
          name='pepr.container.subscriptions'),
+    path('<uuid:pk>/s/<slug:service_slug>', service_view(),
+         name='pepr.service'),
 ]
 
 api_multiplex = {

@@ -1,85 +1,100 @@
-from django.http import Http404, HttpResponse, HttpResponseRedirect
+from django.http import Http404, HttpResponse
 from django.views.generic import DetailView, ListView, UpdateView, View
 from django.views.generic.detail import SingleObjectMixin
 from django.utils.translation import ugettext_lazy as _
 
-from django_filters import rest_framework as filters_drf, \
-                           views as filters_views
-from rest_framework import viewsets
-from rest_framework.decorators import action
+from django_filters import views as filters_views
 
 from ..perms.mixins import PermissionMixin, ContextViewMixin, \
         AccessibleViewMixin
+from ..perms.serializers import SubscriptionSerializer
 from ..perms.models import Subscription
-from ..perms.views import ContextViewSet, AccessibleViewSet, \
-        SubscriptionViewSet
-from ..ui.views import SiteView
+from ..perms.viewsets import SubscriptionViewSet
+from ..ui.views import BaseView
 from ..ui.components import Slots, Widgets
 from ..ui.widgets import ActionWidget, ActionWidgets, \
         DropdownLinkWidget, DropdownWidgets
 
-from .components import ContentFormComp
 from .filters import ContentFilter
 from .forms import ContainerForm
 from .models import Container, Content, Service
-from .serializers import ContentSerializer, ContainerSerializer
+from .viewsets import ContentViewSet
 from .widgets import ContainerServicesWidget, DeleteActionWidget
 
 
-# __all__ = [
-#    'ContentViewSet', 'ContainerViewSet',
-#]
+__all__ = ['ContainerServiceView', 'as_service', 'ServiceView',
+           'ContainerUpdateView', 'ContentListView', 'SubscriptionsUpdateView']
 
 
-#
-# API
-#
-class ContentViewSet(AccessibleViewSet):
+class ContainerServiceView(SingleObjectMixin, View):
     """
-    Model ViewSet for Content elements.
+    Fetch a Container of the given ``pk`` or ``slug`` and forward it a
+    ServiceView. This service is provided as initkwargs, or is fetched
+    from database using ``service_pk`` or ``service_kwargs`` kwargs.
+    This views' ``kwargs`` and ``args`` is passed down to the wrapped
+    view.
+
+    Detail view for services, whose rendering the fetched service's
+    view with the ``kwargs`` and ``args`` provided arguments.
     """
-    model = Content
-    serializer_class = ContentSerializer
-    form_comp = ContentFormComp()
-    filter_backends = (filters_drf.DjangoFilterBackend,)
-    filterset_fields = (
-        'modified', 'created', 'context', 'modifier', 'owner', 'text'
-    )
-
-    @classmethod
-    def register_to(cls, router):
-        """
-        Register this viewset to the given router; it should be used in
-        order to provide consistent interfaces and urls using model's
-        informations (``Content.url_basename`` and ``Content.url_prefix```)
-        """
-        return router.register(cls.model.url_prefix, cls,
-                               cls.model.url_basename)
-
-    @action(detail=True)
-    def form(self, request, pk=None):
-        """ Render an edit form for the given object """
-        instance = self.get_object()
-        role = instance.get_context().get_role(request.identity)
-        content = self.form_comp.render(role, instance)
-        return HttpResponse(content=content)
-
-
-class ContainerViewSet(ContextViewSet):
+    object = None
     model = Container
-    serializer_class = ContainerSerializer
+    service = None
+    service_model = Service
+
+    def get_queryset(self):
+        return super().get_queryset().select_subclasses()
+
+    def get_service_queryset(self):
+        """
+        Return queryset to retrieve service; container is available as
+        ``self.object`` when this method is called from ``dispatch``.
+        """
+        return self.service_model.objects.select_subclasses() \
+                   .identity(self.request.identity) \
+                   .filter(context=self.object).order_by('-is_default')
+
+    def get_service(self):
+        """ Return service for current request. """
+        if self.service is not None:
+            return self.service
+
+        qs = self.get_service_queryset()
+        if 'service_pk' in self.kwargs:
+            service = qs.get(self.kwargs['service_pk'])
+        elif 'service_slug' in self.kwargs:
+            service = qs.get(slug=self.kwargs['service_slug'])
+        else:
+            service = qs.first()
+        return service
+
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        service = self.get_service()
+        if not service:
+            raise Http404()
+        view = service.as_view() if hasattr(service, 'as_view') else service
+        return view(request, *args, context=self.object,
+                    service=service, **kwargs)
 
 
-#
-# Client views
-#
-
-class ServiceView(PermissionMixin, SiteView):
+def service_view(service=None, **initkwargs):
     """
-    A ServiceView is a view rendered inside a container, that can uses
-    a Service model as user configuration.
+    Shorthand to wrap a given view into a ContainerServiceView.
+    Return the view function.
+
+    This function is useful to wrap views that can't be a detail/edit views
+    of a container directly.
     """
-    slots = Slots(SiteView.slots, [
+    return ContainerServiceView.as_view(service=service, **initkwargs)
+
+
+class ServiceView(PermissionMixin, BaseView):
+    """
+    Base view class for rendering something inside a container. If
+    ``service`` is provided, renders it.
+    """
+    slots = Slots(BaseView.slots, [
         # left sidebar
         Widgets('container-sidebar', 'div', {'class': 'col-2 sidebar'},
                 items=[ContainerServicesWidget()]),
@@ -119,54 +134,23 @@ class ServiceView(PermissionMixin, SiteView):
         return super().dispatch(request, *args, service=service, **kwargs)
 
 
-class ServiceDetailView(SingleObjectMixin, View):
+class ContainerCreateAnyView(PermissionMixin, BaseView):
     """
-    Fetch service by ``slug`` or ``pk`` and call corresponding
-    ServiceView. Theses are given with ``service_pk`` and
-    ``service_slug`` attribute in kwargs.
+    View that displays a choice to user to create a container. It
+    uses slots in order to get the list of container classes and views
+    to render.
     """
-    object = None
-    model = Container
-    service_model = Service
-
-    def get_queryset(self):
-        return super().get_queryset().select_subclasses()
-
-    def get_service_queryset(self):
-        """
-        Return queryset to retrieve service; container is available as
-        ``self.object`` when this method is called from ``dispatch``.
-        """
-        if 'service_pk' in self.kwargs:
-            kwargs = {'pk': self.kwargs['service_pk']}
-        elif 'service_slug' in self.kwargs:
-            kwargs = {'slug': self.kwargs['service_slug']}
-        else:
-            kwargs = {}
-        return self.service_model.objects \
-                   .identity(self.request.identity) \
-                   .order_by('-is_default') \
-                   .filter(context=self.object, **kwargs) \
-                   .select_subclasses()
-
-    def get_service(self):
-        """ Return service for current request. """
-        return self.get_service_queryset().first()
-
-    def dispatch(self, request, *args, **kwargs):
-        self.object = self.get_object()
-        service = self.get_service()
-        if not service:
-            raise Http404()
-        view = service.as_view()
-        return view(request, *args, context=self.object,
-                    service=service, **kwargs)
+    slots = Slots(BaseView.slots, [
+        Widgets(
+            'create-forms',
+            items=[]
+        ),
+    ])
+    template_name = 'pepr/content/container_create_any.html'
 
 
-class ContainerUpdateView(ServiceView, ContextViewMixin, UpdateView):
-    """
-    Service used to manage container's settings.
-    """
+class ContainerUpdateView(ContextViewMixin, ServiceView, UpdateView):
+    """ Service used to edit container's settings.  """
     # TODO: permission_classes = tuple()
     model = Container
     form_class = ContainerForm
@@ -186,13 +170,15 @@ class ContainerUpdateView(ServiceView, ContextViewMixin, UpdateView):
         return super().get_queryset().select_subclasses()
 
 
-class SubscriptionsUpdateView(ServiceView, ContextViewMixin, DetailView):
+###### TODO HERE: as Accessible List View?????
+class SubscriptionsUpdateView(AccessibleViewMixin, ServiceView, ListView):
+    """ Service used to edit users' subscriptions to a context """
     # TODO: permission_classes = tuple()
-    model = Container
+    model = Subscription
     template_name = 'pepr/content/subscriptions_form.html'
     slots = Slots(ServiceView.slots, [
         ActionWidgets(
-            'item_actions',
+            'item-actions',
             items=[
                 ActionWidget(
                     text=_('Accept'),
@@ -207,16 +193,31 @@ class SubscriptionsUpdateView(ServiceView, ContextViewMixin, DetailView):
             ]
         )
     ])
+    serializer_class = SubscriptionSerializer
 
-    def get_context_data(self, roles=None, statuses=None, **kwargs):
+    def serialize(self, obj, **initkwargs):
+        """
+        Return serialized data from the given object.
+        """
+        initkwargs.setdefault('identity', self.request.identity)
+        initkwargs.setdefault('viewset', SubscriptionViewSet)
+        return self.serializer_class(obj, **initkwargs).data
+
+    def get_context_data(self, roles=None, statuses=None, object_data=None,
+                         **kwargs):
+        # FIXME: remove ? PermissionViewMixin.get_context_data provides 'roles'
         roles = roles or Subscription._meta.get_field('role').choices
         statuses = statuses or Subscription._meta.get_field('status').choices
+
+        if object_data is None:
+            object_data = [self.serialize(obj) for obj in self.object_list]
+
         return super().get_context_data(roles=roles, statuses=statuses,
-                                        **kwargs)
+                                        object_data=object_data, **kwargs)
 
 
 class ContentListView(AccessibleViewMixin, ServiceView,
-                      filters_views.FilterView):
+                      filters_views.FilterView, ListView):
     """ Display a list of content, either for a given context or not """
     # TODO: permission_classes = tuple()
     model = Content
@@ -224,13 +225,23 @@ class ContentListView(AccessibleViewMixin, ServiceView,
     filterset_class = ContentFilter
     filterset_fields = ('modified', 'created')
     strict = False
+
     viewset = ContentViewSet
+    serializer_class = SubscriptionSerializer
+
+    def serialize(self, obj, **initkwargs):
+        """
+        Return serialized data from the given object.
+        """
+        initkwargs.setdefault('identity', self.request.identity)
+        initkwargs.setdefault('viewset', self.viewset)
+        return self.serializer_class(obj, **initkwargs).data
 
     def get_filterset_kwargs(self, filterset_class):
         kwargs = super().get_filterset_kwargs(filterset_class)
         if self.context and kwargs['data']:
             kwargs['data'] = dict(kwargs['data'])
-            kwargs['data']['context'] = [self.context.id]
+            kwargs['data']['context'] = [self.context.pk]
         return kwargs
 
     def get_queryset(self):
@@ -244,12 +255,16 @@ class ContentListView(AccessibleViewMixin, ServiceView,
     def get_content_slots(self):
         return self.model.get_component_class().slots
 
-    def get_context_data(self, content_slots=None, viewset=None,
-                         **kwargs):
+    def get_context_data(self, content_slots=None, object_data=None, **kwargs):
+        if object_data is None:
+            object_data = [self.serialize(obj) for obj in self.object_list]
+
         return super().get_context_data(
+            object_data=object_data,
             content_slots=content_slots or self.get_content_slots(),
-            viewset=viewset or self.viewset,
             **kwargs
         )
+
+
 
 

@@ -1,6 +1,6 @@
 from rest_framework.routers import DefaultRouter
 
-from .views import ContextViewSet, SubscriptionViewSet
+from .viewsets import ContextViewSet, SubscriptionViewSet
 
 router = DefaultRouter()
 router.register('context', ContextViewSet, basename='context')

@@ -1,19 +1,18 @@
 {% extends "pepr/content/service.html" %}
-{% load i18n widget_tweaks pepr_api pepr_ui %}
+{% load i18n widget_tweaks pepr_ui %}
 
 {% block app %}
 <h3>{% icon "fa-user-friends fas" %} {% trans "Subscriptions" %}</h3>
 <div class="box">
     <p class="lead mb-3">
-    {% with name=context.name context_type=context|meta:"verbose_name" %}
+    {% with name=context.name %}
     {% blocktrans %}
-    Here you can change users subscriptions for the {{ context_type }}
-    <b>{{ name }}</b>.
+    Here you can change subscriptions of <b>{{ name }}</b>.
     {% endblocktrans %}
     {% endwith %}
     </p>
 
-    {% fetch_slot view.slots "item_actions" role=role as item_actions %}
+    {% fetch_slot view.slots "item-actions" role=role as item_actions %}
 
     <nav class="navbar justify-content-end" ref="sub-filters"
         aria-label="{% trans "Subscription Filters" %}"
@@ -47,8 +46,15 @@
             </thead>
         </template>
 
+        <template v-slot:data>
+            {% for data in object_data %}
+            {{ data|json_script:data.pk }}
+            {% endfor %}
+        </template>
+
+
         <template v-slot:item="{list,item,index}">
-            <td>[[ item.data.owner.username ]]</td>
+            <td>[[ item.data.owner.name ]]</td>
             <td>
                 <select class="form-control form-control-sm"
                     v-model="item.data.role">
@@ -65,7 +71,7 @@
             {% endfor %}
             </td>
             <td class="align-right">
-                {% slot view.slots "item_actions" items=item_actions %}
+                {% slot view.slots "item-actions" items=item_actions %}
             </td>
         </template>
     </p-table>

@@ -176,11 +176,11 @@ class CanObject(drf_perms.BasePermission, metaclass=Permissions):
         """
         if not self.model:
             return True
-        role = hasattr(view, 'get_role') and view.get_role(request)
+        role = view.context and view.context.get_role(request.identity)
         return role and self.can(role, self.model)
 
     def has_object_permission(self, request, view, obj):
-        role = view.get_role(request, obj)
+        role = obj.get_role(request.identity)
         return role and self.can_obj(role, obj)
 
     @classmethod

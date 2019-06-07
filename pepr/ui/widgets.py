@@ -15,6 +15,7 @@ from django.urls import reverse
 from .components import Widget, Widgets
 
 
+
 class ActionWidget(Widget):
     """
     Widget used to render actions. Each instance must have a unique name

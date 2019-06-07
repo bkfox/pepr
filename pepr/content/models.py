@@ -18,19 +18,10 @@ from ..utils.fields import ReferenceField
 from .widgets import DeleteActionWidget
 
 
+__all__ = ['Container', 'ContentQuerySet', 'Content', 'Service']
+
+
 class Container(Context):
-    # POLICY_EVERYONE = 0x00
-    # POLICY_ON_REQUEST = 0x01
-    # POLICY_ON_INVITE = 0x02
-    # POLICY_CHOICES = (
-    #    (POLICY_EVERYONE, _('everyone')),
-    #    (POLICY_ON_REQUEST, _('on request')),
-    #    (POLICY_ON_INVITE, _('on Invite')),
-    # )
-    # subscription_policy = models.SmallIntegerField(
-    #    _('subscription policy'),
-    #    choices = POLICY_CHOICES,
-    # )
     slug = models.SlugField(
         _('slug'),
         null=True, blank=True,
@@ -107,11 +98,6 @@ class Content(Owned, TimeStampedModel):
     def api_detail_url(self):
         """ Get detail url for this object """
         return self.get_api_url('detail', kwargs={'pk': str(self.pk)})
-
-    @property
-    def is_saved(self):
-        # FIXME: not the most sure ever but beyond our possibilities
-        return self.modifier is not None
 
     @classmethod
     def get_component_class(cls):

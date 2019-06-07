@@ -30,7 +30,7 @@ def do_component(context, component, **kwargs):
     :param \*args: args to pass to `component.render`
     :param \**kwargs: kwargs to pass to component
     """
-    kwargs.setdefault('role', context['role'])
+    kwargs.setdefault('role', context.get('role'))
     if isinstance(component, Component):
         return component.render(**kwargs)
     if isinstance(component, str):

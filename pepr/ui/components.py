@@ -31,12 +31,12 @@ class Component(TemplateResponseMixin, ContextMixin, PermissionMixin):
     A Component is an element that aims to be rendered in other views.
     It allows rendering item into a string for this purpose.
 
-    A Component should never handle POST actions, but only be used to
+    A Component can only handle GET actions, but only be used to
     render data. This must be done at the view level, in order to ensure
     separate concerns.
 
     Component supports permissions in order to define wethers it should
-    or not render. It renders an empty string if permission check failed.
+    or not be rendered. If not allowed, it renders an empty string.
     """
     template_name = ''
     """
@@ -49,17 +49,15 @@ class Component(TemplateResponseMixin, ContextMixin, PermissionMixin):
     """ Object """
 
     permission_classes = tuple()
+    # disable action_permissions since it would never be used
     action_permissions = None
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
-            if hasattr(self, k):
-                setattr(self, k, v)
-            else:
-                raise ValueError(
-                    '"{}" is not an attribute on class {}'
-                    .format(k, type(self).__name__)
-                )
+            if not hasattr(self, k):
+                raise ValueError('"{}" is not an attribute on class {}'.format(
+                                 k, type(self).__name__))
+            setattr(self, k, v)
 
     def get_object(self, obj=None):
         """
@@ -67,10 +65,8 @@ class Component(TemplateResponseMixin, ContextMixin, PermissionMixin):
         """
         return self.object if obj is None else obj
 
-    def render(self, role, object=None, **kwargs):
-        """
-        Render Component into a string and return it.
-        """
+    def render(self, role=None, object=None, **kwargs):
+        """ Render Component into a string and return it.  """
         object = self.get_object(object)
         if not (self.can(role) if object is None else
                 self.can_obj(role, object)):
@@ -107,7 +103,7 @@ class Component(TemplateResponseMixin, ContextMixin, PermissionMixin):
 
     def get_context_data(self, role, **kwargs):
         kwargs.setdefault('slots', self.slots)
-        kwargs.setdefault('context', role.context)
+        kwargs.setdefault('context', role and role.context)
         return super().get_context_data(role=role, **kwargs)
 
 

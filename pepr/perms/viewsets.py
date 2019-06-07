@@ -48,14 +48,14 @@ class AccessibleViewSet(AccessibleViewMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         super().perform_create(serializer)
         # double check that ensure that the object is valid
-        role = self.get_role(obj=serializer.instance)
+        role = serializer.instance.get_role(self.request.identity)
         self.can_obj(role, serializer.instance, 'create', throws=True)
 
     @transaction.atomic
     def perform_update(self, serializer):
         super().perform_update(serializer)
         # double check that ensures the updated object is still valid
-        role = self.get_role(obj=serializer.instance)
+        role = serializer.instance.get_role(self.request.identity)
         self.can_obj(role, serializer.instance, 'update', throws=True)
 
 

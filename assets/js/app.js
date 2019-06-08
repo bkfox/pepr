@@ -3,6 +3,7 @@ import _ from 'lodash';
 import Vue from 'vue';
 import BootstrapVue from 'bootstrap-vue';
 import VRuntimeTemplate from "../vue/v-runtime-template";
+import VuexOrm from 'vuex-orm';
 
 Vue.use(BootstrapVue)
 
@@ -22,6 +23,10 @@ import User from './pepr/user';
 
 import '../css/pepr.css';
 import '../css/noscript.css';
+
+
+import Vuex from 'vuex';
+import {Database, TestModel} from './orm';
 
 
 var AppComp = Vue.extend({
@@ -106,6 +111,11 @@ var app = null;
 
 window.addEventListener('load', function() {
     app = new AppComp(appConf);
+
+    window.database = new Database()
+    database.register(TestModel);
+    window.storeOptions = database.store();
+    window.$store = new Vuex.Store(storeOptions);
 }, true);
 
 

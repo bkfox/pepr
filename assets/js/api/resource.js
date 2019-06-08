@@ -3,7 +3,6 @@ import Vue from 'vue';
 import Drop from 'pepr/utils/drop';
 import { fetch_api, fetch_json } from './connection';
 
-
 /**
  * A Resource is wrapper that is used to load and edit data on the server.
  * It uses HyperLinked identifiers in order to interact with the distant

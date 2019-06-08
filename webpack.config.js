@@ -81,6 +81,7 @@ module.exports = {
             pepr: path.resolve(__dirname, 'assets/js'),
             vue: 'vue/dist/vue.esm.browser.js',
             vuex: 'vuex/dist/vuex.esm.browser.js',
+            'vuex-orm': 'vuex-orm/dist/vuex-orm.esm.js',
             // we have a modified version with v-runtime-template/pull/33
             'v-runtime-template': '../vue/v-runtime-template.js',
             'vuetify-css': 'vuetify/dist/vuetify.css',

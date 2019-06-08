@@ -249,10 +249,10 @@ class ContextSerializer(BaseSerializer):
 
         viewset = self.context.get('view')
         viewset = viewset and viewset.subscription_viewset_class
-        actions = viewset and viewset.get_api_actions(role, role.subscription)
+        # actions = viewset and viewset.get_api_actions(role, role.subscription)
         return SubscriptionSerializer(
             identity=self.identity, instance=role.subscription, context=self.context,
-            api_actions=actions
+            # api_actions=actions
         ).data
 
     def get_identity_role(self, obj):

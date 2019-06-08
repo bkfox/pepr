@@ -40,10 +40,11 @@ export default class Directive {
      * Register inner directives (overrides existing directives).
      */
     register(directives) {
-        directives.reduce((map, directive) => {
-                                map[directive.key] = directive;
-                                return map;
-                          }, this.directives)
+        directives = directives.reduce((map, directive) => {
+                map[directive.key] = directive;
+                return map;
+        }, {});
+        this.directives = {...this.directives, directives};
     }
 
     /**

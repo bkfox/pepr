@@ -27,6 +27,19 @@ import '../css/noscript.css';
 
 import Vuex from 'vuex';
 import {Database, TestModel} from './orm';
+import {match,and,or} from './orm/match';
+
+console.log('and', and)
+let tests = [
+    [{'a': [1,2,3]}, {a:2}, true],
+    [{'a': [1,2,3], b: 3}, {a:2,b:1}, false],
+    [{'a': [1,2,3], b: 3}, {a:3,b:3}, true],
+    [{'a': and(1,2,3)}, {a:[1,2,3]}, false],
+]
+
+for(let test of tests) {
+    console.log(match(...test), test[2], test);
+}
 
 
 var AppComp = Vue.extend({

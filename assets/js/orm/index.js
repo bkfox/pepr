@@ -41,9 +41,8 @@ export class TestModel extends Model {
 
 TestModel.modelize({
     fields: {
-        'a': [Field({attr:'a_c'})],
-        'b': [Index({attr:'a_b'})],
-        'c': [],
+        'a': Field({attr:'a_c'}),
+        'b': Index({attr:'a_b'}),
     }
 })
 

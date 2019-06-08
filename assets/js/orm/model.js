@@ -3,18 +3,6 @@ import Vue from 'vue';
 import {as} from './utils';
 
 
-// lookup: {attr: lookup}|[lookups]|pred(item,attr=null)|value
-// -> FIXME: conflict if we recurse between attrs & value
-export function match(lookup, value) {
-    if(lookup instanceof Object) {
-        // FIXME: how to 
-    }
-    else if(lookup instanceof Array) {
-
-    }
-
-}
-
 
 /**
  * Basic store options for models.
@@ -69,7 +57,7 @@ export const ModelStore = {
 
 export default class Model {
     static modelize(model) {
-        if(!this.entity) {
+        if(!this.directives) {
             this.entity = this.name.toLowerCase() + 's';
             this.primaryKey = 'pk'
             this.fields = {};
@@ -80,7 +68,7 @@ export default class Model {
             this[attr] = model[attr]
 
         // rebuild list of indexed fields.
-        this.indexes = this.findFields(directive);
+        this.indexes = this.findFields('index');
     }
 
     /**
@@ -88,7 +76,7 @@ export default class Model {
      * of `[fieldName, fieldDirective]`, if `asArray`).
      */
     static findFields(directive, asArray=false) {
-        let fields = Object.entries(this.fields).filter([k, v] => v.has(directive));
+        let fields = Object.entries(this.fields).filter(([k, v]) => v.has(directive));
         return asArray ? fields
                        : fields.reduce((m, [k, v]) => { m[k] = v; return m; }, {});
     }

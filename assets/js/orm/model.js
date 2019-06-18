@@ -1,152 +1,242 @@
-import Vue from 'vue';
-
-import {as} from './utils';
+/** @module orm/model **/
+import {mergeStores} from './utils';
+import ModelModule from './modelModule';
 
 
 
 /**
- * Basic store options for models.
+ * Model is an abstraction used to generates a Vuex module that can store its
+ * instances. A model is described using model and field directives that add
+ * functionalities to the module and the model itself.
+ * @see ModelModule
  */
-export const ModelStore = {
-    getters: {
-        model(state) {
-            return state.model;
-        },
-
-        all(state) {
-            return state.all;
-        },
-
-        // match(lookup, value)
-        // find(lookup) / findKeys
-    },
-
-    mutations: {
-        /// Insert the given data into the store if not present
-        insert(state, data) {
-            data = as(state.model, data);
-            if(data.$key === null)
-                throw "missing key for data";
-
-            if(state.all[data.$key] === undefined)
-                Vue.set(state.all, data.$key, data);
-        },
-
-        /// Insert given data into the store (overrides existing data).
-        reset(state, data) {
-            data = as(state.model, data);
-            if(data.$key === null)
-                throw "missing key for data";
-            Vue.set(state.all, data.$key, data);
-        },
-
-        /// Remove the given instance from the store
-        remove(state, data) {
-            data = as(state.model, data);
-            if(data.$key)
-                Vue.delete(state.all, data.$key);
-        },
-
-        /// Remove from the store at the given key
-        removeAt(state, key) {
-            Vue.delete(state.all, key);
-        },
-    },
-}
-
-
 export default class Model {
-    static modelize(model) {
-        if(!this.directives) {
-            this.entity = this.name.toLowerCase() + 's';
-            this.primaryKey = 'pk'
-            this.fields = {};
-            this.directives = {};
-        }
-
-        for(let attr in model)
-            this[attr] = model[attr]
-
-        // rebuild list of indexed fields.
-        this.indexes = this.findFields('index');
-    }
-
     /**
-     * Search fields having this `directive` and return as an object (or array
-     * of `[fieldName, fieldDirective]`, if `asArray`).
+     * Return primary key for data.
+     * @param {Object|Model} data
      */
-    static findFields(directive, asArray=false) {
-        let fields = Object.entries(this.fields).filter(([k, v]) => v.has(directive));
-        return asArray ? fields
-                       : fields.reduce((m, [k, v]) => { m[k] = v; return m; }, {});
-    }
-
-    static get state() {
-        return {
-            model: this,
-            all: {},
-        }
-    }
-
-    static commit(name, ...args) {
-        return this.$store.commit(this.entity + '/' + name, ...args);
-    }
-
-    static getters(name) {
-        return this.$store.getters[this.entity + '/' + name];
-    }
-
-    static dispatch(name, ...args) {
-        return this.$store.dispatch(this.entity + '/' + name, ...args);
-    }
-
-    // TODO HERE
-    // -> registerDirective(directive, field=null)
-    //
-    // fields: {
-    //      a: Field({ index: Index() }),
-    //      b: Directive({}, Relation(), Index())
-    // },
-    // directives: []
-    //
-    //
-    static onRegister(database) {
-        // common store options
-        database.register(this, ModelStore);
-
-        // model directives
-        // TODO
-
-        // fields directives
-        for(let name of Object.keys(this.fields || {})) {
-            let field = this.fields[name];
-            if(field instanceof Array)
-                for(let directive of field)
-                    directive.onRegister(database, this, name)
-            else
-                field.onRegister(database, this, name)
-        }
-    }
-
-    constructor(data=null) {
-        for(let attr in data)
-            this[attr] = data[attr];
+    static key(data) {
+        return data[this.primaryKey] || null;
     }
 
     /**
-     * Return constructor in order to access statics as: obj.$.commit()
+     * Ensure data is an instance of model class. If not, instanciate this
+     * model with provided data and store.
+     *
+     * @param {Object|Model} data
+     * @param {Vuex.Store} store - init store
+     */
+    static as(data, store=null) {
+        return data instanceof this ? data : new this(data, store)
+    }
+
+    /**
+     * Return a namespaced version of the key of a store's element.
+     * @param {String} key
+     */
+    static namespaced(key) {
+        return this.entity + '/' + key;
+    }
+
+
+    /**
+     * Call callback for each directive and field directive.
+     *
+     * @param {Function} callback - function to call
+     * @param {Directive[]} [directives=this.directives] - model directives
+     * @param {Object.<String, Directive[]|Directive>} [fields=this.fields] - field directives
+     */
+    static runDirectives(callback, directives, fields) {
+        directives = directives ? [...directives, ...this.directives] : this.directives;
+        fields = fields ? {...fields, ...this.fields} : this.fields;
+
+        for(let directive of directives)
+            callback(directive);
+
+        for(let [name, field] of Object.entries(fields))
+            if(field instanceof Array)
+                field.forEach(field => callback(field, name))
+            else
+                callback(field, name)
+    }
+
+    /**
+     * Initialize model class and set defaults static attributes. Called by
+     * Database before model is registered.
+     * @param {Database}
+     */
+    static modelize(database, directives=[], fields=[]) {
+        let defaults = /** @lends module:orm/model.Model **/ {
+            /** 
+             * @member {String} - module name in store (default is "modelname" + s)
+             * @static
+             */
+            entity: this.name.toLowerCase() + 's',
+            /**
+             * @member {String} - instance attribute to use as primary key (bound to $key)
+             * @static
+             */
+            primaryKey: 'pk',
+            /**
+             * @member {Object.<String, Directive|Directive[]>} - field directives by field name
+             * @static
+             */
+            fields: {},
+            /**
+             * @member {String[]} - model directives
+             * @static
+             */
+            directives: []
+        };
+        for(let [key, value] of Object.entries(defaults))
+            if(this[key] === undefined)
+                this[key] = value;
+
+        // prototypes
+        this.runDirectives((dir, field=null) => {
+            var prototype = dir.modelPrototype(database, this, field);
+            if(prototype)
+                for(var key in prototype)
+                    this[key] = key;
+        }, directives, fields)
+    }
+
+    /**
+     * Return model as a Vuex module for provided database, using provided and 
+     * model's directives.
+     *
+     * @see {orm/model/Model.store}
+     */
+    static store(database) {
+        const stores  = [];
+        this.runDirectives((dir, field=null) => {
+            var store = dir.store(database, this, field);
+            store && stores.push(store)
+        })
+        return stores ? mergeStores(...stores) : {};
+    }
+
+    /**
+     * Vuex store plugin. Call `plugin` on directives and update prototype's
+     * `$store`.
+     * @param {Vuex.Store} store
+     */
+    static plugin(store, directives=null, fields=null) {
+        /**
+         * Model instance's store, by default the latest one passed to
+         * `plugin(store)`.
+         *
+         * @member Model.prototype.$store
+         */
+        this.prototype.$store = store;
+
+        let model = this;
+
+        this.runDirectives((dir, field=null) => dir.plugin(store, model, field),
+                           directives, fields)
+    }
+
+    /**
+     * Getter of model's module in store
+     */
+    static getter(name, store=null) {
+        store = store || this.prototype.$store;
+        return store.getters[this.namespaced(name)];
+    }
+
+    /**
+     * Commit to model's module in store
+     */
+    static commit(name, payload, store=null) {
+        store = store || this.prototype.$store;
+        return store.commit(this.namespaced(name), payload);
+    }
+
+    /**
+     * Dispatch to model's module in store
+     */
+    static dispatch(name, payload, store=null) {
+        store = store || this.prototype.$store;
+        return store.dispatch(this.namespaced(name), payload);
+    }
+
+    /**
+     * @param {Object} data of the model instance, set as instance's attributes.
+     */
+    constructor(data=null, store=null) {
+        for(var attr in data)
+            this[attr] = data[attr];
+
+        if(store !== null)
+            this.$store = store;
+    }
+
+    /**
+     * @member {Model} - reference to the instance's class to access statics members (e.g.
+     * `obj.$.commit()`)
      */
     get $() {
         return this.constructor;
     }
 
-
     /**
-     * Return instance primary key or null.
+     * @member {ModelKey|null} - instance primary key if any
      */
     get $key() {
-        const attr = this.constructor.primaryKey;
-        return attr in this ? this[attr] : null;
+        return this.$.key(this);
     }
+
+    /**
+     * Return getter from item's model store.
+     * @param {String} type
+     */
+    $getter(type) { return this.$.getter(type, ); }
+
+    /**
+     * Commit mutation to item's model store
+     * @param {String} type
+     * @param {Object} payload
+     */
+    $commit(type, payload) { return this.$.commit(type, payload, this.$store); }
+
+    /**
+     * Dispatch action to item's model store
+     * @param {String} type
+     * @param {Object} payload
+     */
+    $dispatch(type, payload) { return this.$.dispatch(type, payload, this.$store); }
+
+    /**
+     * Update item in the store
+     * @param {Object} data - update with those data instead of this instance
+     * @return item updated (from store if any)
+     */
+    // TODO: support for store == null && update this
+    $update(data=null) {
+        if(data)
+            for(var attr in data)
+                this[attr] = data[attr];
+
+        if(!this.$store)
+            return this;
+
+        this.$commit('update', {data: data || this});
+        return this.$.getter('all')[this.$key];
+    }
+
+    /**
+     * Remove item from store
+     * @method
+     */
+    $remove() { this.$commit('remove', {key: this.$key}) }
 }
+
+
+/**
+ * Return the basic module store for the provided database (without directives)
+ * @param {Database} database
+ * @return {module:orm/model.Model.Store
+ */
+Model.module = ModelModule
+
 

@@ -1,6 +1,5 @@
 import {acquireId} from 'pepr/utils/id';
 import Emitter from 'pepr/utils/emitter';
-import Resource from './resource';
 
 /**
  * This class handles a request (to be) sent to the server through the
@@ -12,7 +11,7 @@ import Resource from './resource';
  * @fires Request#message
  */
 export default class Request extends Emitter {
-    constructor(path, data=null, {connection, classe=Resource, ...args})
+    constructor(path, data=null, {connection, classe=Object, ...args})
     {
         data = {request_id: acquireId(),
                 path: path,

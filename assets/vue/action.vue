@@ -37,7 +37,7 @@ export default {
 
     computed: {
         visible() {
-            const actions = this.item && this.item.actions;
+            const actions = this.item && this.item.meta.actions;
             return !(actions instanceof Array) ||
                    actions.includes(this.api_action)
         }

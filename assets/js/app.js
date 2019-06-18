@@ -3,7 +3,6 @@ import _ from 'lodash';
 import Vue from 'vue';
 import BootstrapVue from 'bootstrap-vue';
 import VRuntimeTemplate from "../vue/v-runtime-template";
-import VuexOrm from 'vuex-orm';
 
 Vue.use(BootstrapVue)
 
@@ -17,29 +16,10 @@ import store from './store';
 
 import Action, * as actions from './api/action';
 import Connection from './api/connection';
-import Resource from './api/resource';
-import { Role, Context } from './api/perms';
 import User from './pepr/user';
 
 import '../css/pepr.css';
 import '../css/noscript.css';
-
-
-import Vuex from 'vuex';
-import {Database, TestModel} from './orm';
-import {match,and,or} from './orm/match';
-
-console.log('and', and)
-let tests = [
-    [{'a': [1,2,3]}, {a:2}, true],
-    [{'a': [1,2,3], b: 3}, {a:2,b:1}, false],
-    [{'a': [1,2,3], b: 3}, {a:3,b:3}, true],
-    [{'a': and(1,2,3)}, {a:[1,2,3]}, false],
-]
-
-for(let test of tests) {
-    console.log(match(...test), test[2], test);
-}
 
 
 var AppComp = Vue.extend({
@@ -71,7 +51,7 @@ export const appConf = {
     },
 
     created() {
-        this.connection = new Connection(conf.connection);
+        this.connection = new Connection({...conf.connection, store: this.$store});
         this.connection.connect();
         this.user = new User(this.connection);
     },
@@ -124,11 +104,6 @@ var app = null;
 
 window.addEventListener('load', function() {
     app = new AppComp(appConf);
-
-    window.database = new Database()
-    database.register(TestModel);
-    window.storeOptions = database.store();
-    window.$store = new Vuex.Store(storeOptions);
 }, true);
 
 

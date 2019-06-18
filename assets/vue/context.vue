@@ -5,22 +5,29 @@
 </template>
 
 <script>
-import {Subscription} from 'pepr/api/perms';
-import storeCollectionMixin from './storeCollectionMixin';
+import {Subscription, Context} from 'pepr/models';
+import storeMixin from './storeMixin';
 
+/**
+ * Component handling pepr context's data and user subscription.
+ *
+ * @module vue/context
+ * @extends module:vue/storeMixin
+ * @vue-prop {String} path - path to context data
+ * @vue-data {Context} context - loaded context
+ * @vue-computed {Object} role - (computed) user role in this context
+ * @vue-computed {Object} subscription - (computed) user's subscription
+ */
 export default {
-    // TODO: watch path
-
-    mixins: [storeCollectionMixin],
+    mixins: [storeMixin],
 
     props: {
-        contextId: { type: String },
-        subscriptionEndpoint: { type: String },
-        storeNamespace: { type: String, default: 'context' },
+        path: { type: String },
     },
 
     data() {
         return {
+            model: this.modelClass || Context,
             context: null,
         }
     },
@@ -41,19 +48,23 @@ export default {
     },
 
     methods: {
-        loadContext(id) {
-            // TODO: release context
-            const self = this;
-            return this.acquire({id}).then(
-                context => {
-                    if(context.subscription)
-                        self.acquire({item: new Subscription(context.subscription)}, 'subscription');
-                    self.context = context;
-                    return context;
-                }
-            )
+        /**
+         * Fetch context from the server using provided url
+         * @param {String} url - context url
+         */
+        fetchContext(url) {
+            if(this.context)
+                this.context.$release(this.cid);
+
+            return this.model.dispatch('fetch', {
+                url, store: this.$store, collection: this.cid
+            }).then(item => this.context = item);
         },
 
+        /**
+         * Subscribe to current context
+         * @param {Object} data - subscription data
+         */
         subscribe(data={}) {
             data = { context: this.context.key,
                      access: this.context.data.subscription_default_access,
@@ -65,7 +76,7 @@ export default {
     },
 
     mounted() {
-        this.loadContext(this.contextId);
+        this.fetchContext(this.path);
     },
 }
 </script>

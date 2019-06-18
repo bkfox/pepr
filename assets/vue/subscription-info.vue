@@ -72,7 +72,7 @@
 </template>
 
 <script>
-import { ROLES } from '../js/api/perms';
+import { ROLES } from 'pepr/models/subscription';
 
 export default {
     props: {

@@ -24,10 +24,12 @@ export const PUBSUB_EVENT_TYPES = {
  *  - 'message': other messages.
  */
 export default class Pubsub extends Request {
-    constructor(path, data=null, {filter, lookup, ...args}) {
+    constructor(path, data=null, {filter, lookup, model, ...args}) {
         data = {method: 'POST', data: {}, ...data}
         data.data = {...data.data, filter: filter, lookup: lookup};
         super(path, data, args)
+
+        this.model = model;
     }
 
     drop() {
@@ -38,8 +40,16 @@ export default class Pubsub extends Request {
 
     createEvent(type, data=null, options={}) {
         const event = super.createEvent(type, data, options);
-        if(event.type == 'message')
-            event.type = PUBSUB_EVENT_TYPES[event.data.method] || event.type;
+        if(event.type == 'message') {
+            const pubsubEvent = PUBSUB_EVENT_TYPES[event.data.method]
+            if(pubsubEvent) {
+                event.type = pubsubEvent;
+                if(this.model && event.item) {
+                    const item = new this.model(event.item, this.connection.store)
+                    event.item = item.$update()
+                }
+            }
+        }
         return event;
     }
 }

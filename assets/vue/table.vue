@@ -3,7 +3,7 @@
         <slot name="header"></slot>
         <tbody>
             <tr v-for="(item, index) in items"
-                ref="items" :key="item.key">
+                ref="items" :key="item.$key">
                 <slot name="item" :item="item" :index="index" :list="this">
                 </slot>
             </tr>

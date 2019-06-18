@@ -1,5 +1,4 @@
 import { fetch_api, fetch_json } from './connection';
-import Resource from './resource';
 
 /**
  * Actions are functions that can be executed to provide interaction with the
@@ -72,16 +71,17 @@ export class RequestAction extends Action {
  */
 export class ResourceAction extends Action {
     run({item, path='', options={}}) {
-        return item.api(path, options);
+        return item.fetch(path, options);
     }
 }
 
 /**
  * Save a resource
  */
+// TODO: redo
 export class SaveAction extends Action {
     run({item=null, path=null, data={}}) {
-        return item ? item.save(data) : Resource.create(path, data);
+        // return item ? item.save(data) : Resource.create(path, data);
     }
 }
 

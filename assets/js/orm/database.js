@@ -1,61 +1,51 @@
+/** @module orm/database **/
 import {mergeStores} from './utils';
 
-// TODO: add $store to each model
 
 /**
  * Store builder for the registered models.
  */
 export default class Database {
-    constructor() {
-        this.entities = {};
+    /**
+     * @param options - Set Database instance's attributes
+     */
+    constructor({endpoint='/', directives=null, fields=null}={}) {
+        /**
+         * @member {String} - API root endpoint (prepent to models' endpoints).
+         */
+        this.endpoint = endpoint;
+
+        /**
+         * @member {Object.<String,Model>} - registered models
+         */
+        this.models = {};
+
+        /**
+         * @member {Object} - the generated store
+         */
+        this.store = {
+            modules: {},
+            plugins: [],
+        }
     }
 
     /**
-     * Register a model if not registered and merge the provided store
-     * into the entity.
+     * Register a model class (if not registered) and merge the provided store
+     * into the model's module.
      */
-    register(model, store={}, getKey=null) {
-        if(this.entities[model.entity] === undefined) {
-            this.entities[model.entity] = mergeStores({}, model);
-            model.onRegister(this);
+    register(model, store={}) {
+        if(this.models[model.entity] === undefined) {
+            // TODO: this.fields directives on database
+            model.modelize(this);
+            this.models[model.entity] = model;
+            this.store = mergeStores(this.store, model.store(this));
+            this.store.modules[model.entity] = model.module(this);
+            console.log(model.module(this));
+            this.store.plugins.push(store => model.plugin(store));
         }
 
         if(store)
-            mergeStores(this.entities[model.entity], store, getKey);
-    }
-
-    /**
-     * Return entity as module
-     */
-    module(entity) {
-        return {
-            namespaced: true,
-            ...entity
-        }
-    }
-
-    /**
-     * Return entities as a `store.modules` object.
-     */
-    modules(modules) {
-        const self = this;
-        return Object.keys(this.entities).reduce((modules, name) => {
-            modules[name] = {...modules[name], ...self.module(self.entities[name])}
-            return modules
-        }, {})
-    }
-
-    /**
-     * Return a store options merged to the provided ones. Entities' values
-     * overrides provided options in case of conflict, in order to ensure
-     * determined behaviours.
-     */
-    store(options={}) {
-        return {
-            ...options,
-            modules: this.modules(options.modules || {}),
-            // plugins
-        }
+            mergeStores(this.store.modules[model.entity], store);
     }
 }
 

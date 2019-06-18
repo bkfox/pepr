@@ -73,14 +73,17 @@ export function fetch_json(url, options, json=true) {
  **/
 export default class Connection extends Requests {
     /**
-     * Creates a new Connection.
+     * @param {Number=} reconnect - timeout before reconnection (reconnect if > 0)
+     * @param {String} url - WebSocket's url
+     * @param {Vuex.Store} store - Vuex store (used by Pubsub)
      */
-    constructor({reconnect=null, url=null, ...options})
+    constructor({reconnect=null, url=null, store=null, ...options})
     {
         super(options);
 
         this.url = url;
         this.reconnect = reconnect;
+        this.store = null;
     }
 
     drop(data={}) {
@@ -255,8 +258,8 @@ export default class Connection extends Requests {
     /**
      * Pubsub subscribe to the server and return the subscription request.
      */
-    subscribe(path, filter, lookup) {
-        return this.request(path, null, {filter, lookup, once: true, classe: Pubsub})
+    subscribe(path, filter, lookup, model=null) {
+        return this.request(path, null, {filter, lookup, model, once: true, classe: Pubsub})
     }
 }
 

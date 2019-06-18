@@ -22,8 +22,7 @@ __all__ = [
 
 class BaseSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField(read_only=True)
-    _type = serializers.SerializerMethodField(method_name='get_object_type')
-    _actions = serializers.SerializerMethodField(method_name='get_api_actions')
+    meta = serializers.SerializerMethodField()
 
     identity = None
     """ Current identity of request user. """
@@ -31,6 +30,7 @@ class BaseSerializer(serializers.ModelSerializer):
     """
     Detail view name used for the id field.
     """
+    # FIXME: not used in here but what about usage?
     api_actions = None
     """
     Viewset class or list of action names used to initialize the field
@@ -38,7 +38,7 @@ class BaseSerializer(serializers.ModelSerializer):
     """
 
     class Meta:
-        fields = ('pk', 'id', '_actions', '_type')
+        fields = ('pk', 'id', 'meta')
         read_only_fields = ('pk', 'id')
 
     def __init__(self, *args, identity, viewset=None,
@@ -68,8 +68,11 @@ class BaseSerializer(serializers.ModelSerializer):
         return {} if not isinstance(viewset, PermissionMixin) else \
             viewset.get_api_actions(obj.get_role(self.identity), obj)
 
-    def get_object_type(self, obj):
-        return obj._meta.verbose_name
+    def get_meta(self, obj):
+        return {
+            'action': self.get_api_actions(obj),
+            'type': obj._meta.verbose_name,
+        }
 
 
 class AccessibleSerializer(BaseSerializer):

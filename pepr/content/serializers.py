@@ -40,7 +40,7 @@ class ContentSerializer(OwnedSerializer):
             'modified', 'modifier',
             'context', 'text',
             'access',
-            'html', '_actions', '_type'
+            'html', 'meta'
         )
         read_only_fields = ('pk', 'created', 'owner',
                             'modified', 'modifier')
@@ -52,7 +52,7 @@ class ContentSerializer(OwnedSerializer):
     def get_html(self, obj):
         if not self.render:
             return
-        role = self.get_role(obj.get_context())
+        role = obj.get_role(self.identity)
         return obj.as_component().render(role)
 
     # Rule: content access is limited to its role.

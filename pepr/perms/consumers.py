@@ -48,6 +48,7 @@ def IdentityMiddlewareStack(inner, **kwargs):
     return AuthMiddlewareStack(IdentityMiddleware(inner, **kwargs))
 
 
+# TODO: watch Subscription changes
 class AccessiblePubsub(PermissionMixin, PubsubConsumer):
     permission_classes = (CanAccess,)
     context_class = Context
@@ -67,7 +68,9 @@ class AccessiblePubsub(PermissionMixin, PubsubConsumer):
         context = self.get_context(request, match)
         if context is None:
             return None
-        return await super().get_subscription_data(request, match, **kwargs)
+        role = context.get_role(self.scope['identity'])
+        return await super().get_subscription_data(request, match, role=role,
+                                                   **kwargs)
 
     def get_serializer(self, event, subscription, instance, **initkwargs):
         initkwargs['identity'] = self.scope['identity']

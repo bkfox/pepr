@@ -54,10 +54,10 @@
 
 
         <template v-slot:item="{list,item,index}">
-            <td>[[ item.data.owner.name ]]</td>
+            <td>[[ item.owner.name ]]</td>
             <td>
                 <select class="form-control form-control-sm"
-                    v-model="item.data.role">
+                    v-model="item.role">
                     {% for value,label in roles %}
                     <option value={{ value }}>{{ label }}</option>
                     {% endfor %}
@@ -65,7 +65,7 @@
             </td>
             <td>
             {% for status,label in statuses %}
-                <span v-if="item.data.status == {{ status }}">
+                <span v-if="item.status == {{ status }}">
                 {{ label }}
                 </span>
             {% endfor %}

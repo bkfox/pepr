@@ -3,7 +3,7 @@
 
 {% block main %}
 <p-context ref="context"
-    context-id="{% if context %}{% url "container-detail" pk=context.pk %}{% endif %}"
+    path="{% if context %}{% url "container-detail" pk=context.pk %}{% endif %}"
     >
 <template v-slot:default="{context, subscription, role}">
 

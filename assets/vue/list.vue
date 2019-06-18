@@ -31,10 +31,10 @@
 import { mapActions } from 'vuex';
 
 import { acquireId } from 'pepr/utils/id';
-import Resource from 'pepr/api/resource';
 import Pubsub from 'pepr/api/pubsub';
+import Content from 'pepr/models/content';
 
-import storeCollectionMixin from './storeCollectionMixin';
+import StoreMixin from './storeMixin';
 
 /**
  * Component rendering items of an array. Data can be retrieved and
@@ -42,7 +42,7 @@ import storeCollectionMixin from './storeCollectionMixin';
  * ...).
  */
 export default {
-    mixins: [storeCollectionMixin],
+    mixin: [StoreMixin],
 
     props: {
         /**
@@ -85,6 +85,8 @@ export default {
         const self = this;
         const cid = acquireId();
         return {
+            model: this.modelClass || Content,
+
             /**
              * Store's collection id for this list
              */
@@ -97,15 +99,15 @@ export default {
              * @type {Pubsub|null}
              */
             pubsub: null,
+
             /**
              * Pubsub events listener
              */
             listener: {
-                self: this,
                 on: {
-                    create: ({item}) => self.acquire(item),
-                    update: ({item}) => self.acquire(item),
-                    delete: ({item}) => self.drop(item.id),
+                    create: ({item}) => item.$acquire(self.cid),
+                    update: ({item}) => item.$acquire(self.cid),
+                    delete: ({item}) => item.$remove(),
                 }
             },
         };
@@ -117,20 +119,19 @@ export default {
         },
 
         collection() {
-            return this.$store.getters[this.namespaced('collection')](this.cid);
+            return this.model.getter('collections')[this.cid];
         },
 
         items() {
-            return this.$store.getters[this.namespaced('collectionItems')](this.cid);
+            return this.model.getter('collectionItems')(this.cid);
         },
-
     },
 
     methods: {
         clear(pubsub=true) {
             if(pubsub)
                 this.unsubscribe()
-            this.release();
+            this.commit('release', {collection: this.cid})
         },
 
         /**
@@ -148,7 +149,7 @@ export default {
             let path = this.pubsubPath ? this.pubsubPath : this.path + 'pubsub/';
             path = path + '/subscription';
 
-            const pubsub = this.connection.subscribe(path, this.pubsubFilter, this.pubsubLookup);
+            const pubsub = this.connection.subscribe(path, this.pubsubFilter, this.pubsubLookup, this.model);
             if(this.pubsub)
                 pubsub != this.pubsub && this.unsubscribe();
             else
@@ -174,6 +175,7 @@ export default {
             if(!slot || slot.length == 0)
                 return;
 
+            let datas = [];
             for(var item of slot) {
                 item = item.children && item.children[0];
                 if(!item || !item.text)
@@ -181,22 +183,22 @@ export default {
 
                 try {
                     const data = JSON.parse(item.text);
-                    item = new Resource(data);
                     if(data)
-                        this.acquire({item});
+                        datas.push(data);
                 }
                 catch(e) {
                     console.error(e);
                 }
             }
-            return;
+
+            this.model.dispatch('updateList', {collection: this.cid, datas})
         },
     },
 
     mounted() {
         this.loadData(this.$slots.data);
-        if(!this.items)
-            this.load({path: this.path})
+        //if(!this.items && this.path)
+        //    this.load({path: this.path})
 
         if(this.pubsubFilter)
             this.subscribe();

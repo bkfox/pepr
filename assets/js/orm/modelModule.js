@@ -133,36 +133,6 @@ store.getters = /** @lends module:orm/model.Model.Store.getters **/ {
         // TODO use indexes
         return lookup => Object.values(state.all).filter(item => match(lookup, item));
     },
-
-    /**
-     * Registered indexers (holding indexes)
-     * @member {Object.<String,module:orm/indexer.Indexer>}
-     */
-    indexers(state) {
-        return state.indexers;
-    },
-
-    /**
-     * Return index for the given key.
-     * @param {String} index
-     * @return {Object.<IndexKey, ModelKey[]>}
-     * @see {Indexer}
-     */
-    index(state) {
-        return index => state.indexers[index] && state.indexers[index].index;
-    },
-
-    /**
-     * @param {String} index - index key
-     * @param {IndexKey} entry - indexed value
-     * @return {Model[]|null}
-     */
-    indexItems(state) {
-        return (index, entry) => {
-            index = state.indexers[index] && state.indexers[index][entry];
-            return (index && index.map(key => state.all[key]).filter(item => item)) || null;
-        }
-    },
 };
 
 
@@ -221,9 +191,8 @@ store.mutations = /** @lends module:orm/model.Model.Store.mutations **/ {
             throw "data's key is missing";
 
         let item = state.all[key];
-        let attrs = Object.keys(data);
         if(item) {
-            for(var attr of attrs)
+            for(var attr of Object.keys(data))
                 if(data[attr] === undefined)
                     Vue.delete(item, attr);
                 else
@@ -233,10 +202,6 @@ store.mutations = /** @lends module:orm/model.Model.Store.mutations **/ {
             model = model || state.model;
             item = Vue.set(state.all, key, model.as(data, this));
         }
-
-        // FIXME: item indexes wont be updated correctly
-        if(state.indexers)
-            commit(this, 'index', state, {item, attrs});
         return item;
     },
 
@@ -268,70 +233,6 @@ store.mutations = /** @lends module:orm/model.Model.Store.mutations **/ {
     removeList(state, {keys}) {
         for(var data of datas)
             commit(this, 'update', state, key);
-    },
-
-    /**
-     * Set an indexer for the given key. Indexers are used to generate
-     * indexers. If `indexer` is null, removes it with the provided key.
-     *
-     * @param options
-     * @param options.index - index name
-     * @param options.indexer - indexer or null if to be removed
-     */
-    indexer(state, {index, indexer=null}) {
-        if(indexer === null) {
-            Vue.delete(state.indexers, index)
-            return;
-        }
-
-        indexer.reset(Object.values(state.all))
-        Vue.set(state.indexers, index, indexer);
-    },
-
-    /**
-     * Update index(es) for item (before it is saved if no `previous` is provided).
-     * If no index name is provided, update all indexes of item.
-     *
-     * When `attrs` is provided, only update indexes whose key is in it or a
-     * function.
-     *
-     * @param options
-     * @param {Model} options.item - item instance to index
-     * @param {String[]} options.attrs - update indexes only for those attributes
-     * @param {Model} [options.previous=null] - previous version of item (`undefined` if none). By default get it from state.
-     * @param {String} [options.index=null] - if not null update only this index.
-     *
-     * @see {Indexer.update}
-     */
-    index(state, {item, attrs=null, index=null, previous=null}) {
-        // TODO: implement indexing only provided attrs
-        previous = previous === null ? state.all[item.$key] : previous;
-        if(index !== null)
-            return state.indexers[index].update(item, previous, attrs)
-
-        for(let indexer of Object.values(state.indexers))
-            indexer.update(item, previous, attrs)
-    },
-
-    /**
-     * Remove item from index(es).
-     * @see {Indexer.delete}
-     */
-    indexRemove(state, {item, index=null}) {
-        if(index !== null)
-            return state.indexers[index].delete(item);
-
-        for(let indexer of Object.values(state.indexers))
-            indexer.remove(item)
-    },
-
-    /**
-     * Delete index entry: all related items will be updated
-     * entry removed
-     */
-    indexRemoveEntry(state, {index, entry}) {
-        const indexer = state.indexers[index]
-        indexer && indexer.removeEntry(entry);
     },
 };
 

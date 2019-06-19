@@ -23,6 +23,7 @@
     "vue-template-loader": "^1.0.0",
     "vuetify-loader": "^1.2.2",
     "webpack": "^4.32.2",
+    "webpack-bundle-analyzer": "^3.3.2",
     "webpack-bundle-tracker": "^0.4.2-beta",
     "webpack-cli": "^3.3.2"
   },

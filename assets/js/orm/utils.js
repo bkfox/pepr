@@ -5,7 +5,7 @@
  * @param value - value to test
  * @return {Boolean} true if value is an iterable, false otherwise
  */
-function iterable(value) {
+export function iterable(value) {
     return value !== null && value[Symbol.iterator] instanceof Function;
 }
 

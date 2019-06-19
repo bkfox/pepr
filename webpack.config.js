@@ -5,20 +5,26 @@ const BundleTracker = require('webpack-bundle-tracker');
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const { createLodashAliases } = require('lodash-loader');
 const { VueLoaderPlugin } = require('vue-loader');
-//const VuetifyLoaderPlugin = require('vuetify-loader/lib/plugin')
-//const StylusLoaderPlugin = require('stylus-loader');
+const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
 
-module.exports = {
+
+module.exports = (env, argv) => Object({
     context: __dirname,
     entry: './assets/index',
+    // TODO separate files
+    mode: 'development',
 
     output: {
         path: path.resolve('./assets/bundles/'),
-        filename: "[name]-[hash].js",
-        chunkFilename: "[name]-[hash].js",
+        filename: argv.mode == 'production' ? "[name]-[hash].js": '[name].dev.js',
+        chunkFilename: argv.mode == 'production' ? "[name]-[hash].js": '[name].dev.js',
     },
 
     optimization: {
+        // TODO: modes handling tree shaking
+        usedExports: true,
+        concatenateModules: argv.mode == 'production' ? true : false,
+
         splitChunks: {
             cacheGroups: {
                 vendor: {
@@ -45,11 +51,14 @@ module.exports = {
             chunkFilename: "[id].css"
         }),
         new VueLoaderPlugin(),
-        //new VuetifyLoaderPlugin(),
     ],
 
     module: {
         rules: [
+            {
+                test: /\/node_modules\//,
+                sideEffects: false
+            },
             {
                 test: /\.css$/,
                 use: [ { loader: MiniCssExtractPlugin.loader },
@@ -93,5 +102,5 @@ module.exports = {
         ],
         extensions: ['.js', '.vue', '.css', '.styl', '.ttf']
     },
-}
+})
 

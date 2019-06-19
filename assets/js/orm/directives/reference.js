@@ -2,6 +2,9 @@
 import Vue from 'vue';
 import Directive from './directive';
 
+import {iterable} from '../utils';
+
+
 /**
  * Create a property on Model used to retrieve related target(s), whose
  * keys are retrieved from Model's `attr`. Items not present in store are
@@ -52,7 +55,7 @@ export default class ReferenceDirective extends Directive /** @lends ReferenceDi
      * @return {module:orm/directives/reference.ReferenceDirective.ModelPrototype}
      */
     modelPrototype(database, model, field) {
-        const prototype = super.modelProperty(database, model, field);
+        const prototype = super.modelPrototype(database, model, field);
         if(field === null)
             return prototype;
 

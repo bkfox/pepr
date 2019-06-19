@@ -1,6 +1,5 @@
 // TODO: handle disconnect event from the webbrowser/computer and better
 //       heuristic for reconnect
-import _ from 'lodash';
 import Cookies from 'js-cookie';
 
 import Pubsub from './pubsub';

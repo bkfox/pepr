@@ -1,54 +1,115 @@
 /** @module orm/indexer **/
 import Vue from 'vue';
+import {iterable} from './utils';
 
+// TODO: #Vue3 remove Vue.set for Map and Set
 
+/**
+ * Create and manage an index over a items for a provided lookup.
+ * Index is a Map storing items' key for the value retrieved by lookup.
+ */
 export default class Indexer {
-    constructor(lookup) {
+    /**
+     * @constructs Indexer
+     * @member {Model} - model class
+     * @param {String} lookup - name of attribute to index
+     */
+    constructor(model, lookup) {
+        /** @member {Model} - model class **/
+        this.model = model;
+        /** @member {String} - name of items' attribute to index */
         this.lookup = lookup;
-        this.index = {};
+        /** @member {Map.<IndexKey,Set.<ModelKey>>} - the index */
+        this.index = new Map();
     }
 
+    /**
+     * Add item's key to index entries.
+     * @param {ModelKey} key - item's key
+     * @param {IndexKey[]} lookups - entries lookups
+     * @param {Boolean} [updateIndex=true] - call Vue.set to update index
+     */
     acquire(key, lookups, updateIndex=true) {
         for(var lookup of lookups) {
-            const entry = this.index[lookup] || new Set();
+            const entry = this.index.get(lookup) || this.index.set(lookup, new Set());
             entry && entry.add(key)
-            Vue.set(this.index, lookup, entry)
         }
+        updateIndex && Vue.set(this, 'index', this.index);
     }
 
+    /**
+     * Remove item's key from index entries.
+     * @param {ModelKey} key - item's key
+     * @param {IndexKey[]} lookups - entries lookups
+     * @param {Boolean} [updateIndex=true] - call Vue.set to update index
+     */
     release(key, lookups, updateIndex=true) {
         for(var lookup of lookups) {
-            const entry = this.index[lookup];
-            entry && entry.delete(item.$key);
-            if(entry.size)
-                Vue.set(this.index, lookup, entry)
-            else
-                Vue.delete(this.index, lookup);
+            const entry = this.index.get(lookup);
+            entry && entry.delete(key);
+            if(!entry.size)
+                this.index.delete(lookup);
         }
+        updateIndex && Vue.set(this, 'index', this.index);
     }
 
     /**
      * @return {Set} entries' lookups for provided item
-     *
      */
     lookups(item) {
-        var lookups = this.lookup instanceof Function ? this.lookup(item) : item.$attr(this.lookup);
-        if(lookups instanceof Array)
-            return new Set(lookups);
+        var lookups = item[this.lookup];
         if(lookups instanceof Set)
             return lookups;
+        if(iterable(lookups))
+            return new Set(lookups);
         return (new Set()).add(lookups);
     }
 
+    /**
+     * Shortcut to get index entry
+     * @param {IndexKey} lookup
+     */
+    entry(lookup) {
+        return this.index.get(lookup);
+    }
+
+    /**
+     * Return entry's items
+     * @param {IndexKey} lookup
+     * @param {Object.<ModelKey, Model>} all - retrieve items there
+     * @return {Model[]}
+     */
+    entryItems(lookup, all) {
+        let entry = this.index.get(lookup);
+        if(!entry)
+            return [];
+
+        let items = [];
+        for(var key of entry) {
+            let item = all[key];
+            item && items.push(item);
+        }
+        return items;
+    }
+
+    /**
+     * Update index with the given item.
+     * @param {Model|Object} item
+     * @param {Model=} previous
+     */
     update(item, previous=null) {
-        if(!item.$key)
-            throw "can't index item without $key";
-        if(previous && previous.$key !== item.$key)
-            throw "item and previous must have the same $key";
+        // this allows indexing based on data without having to instanciate
+        // a model instance.
+        itemKey = this.model.key(item);
+        previousKey = this.model.key(previous);
+
+        if(!itemKey)
+            throw "can't index an item without key";
+        if(previous && previousKey !== itemKey)
+            throw "item and previous must have the same key";
 
         // skip if the same value
-        if(previous && !(this.lookup instanceof Function) &&
-           previous[this.lookup] == item[this.lookup])
+        if(previous && previous[this.lookup] == item[this.lookup])
             return;
 
         let lookups = this.lookups(item);
@@ -61,204 +122,60 @@ export default class Indexer {
                     lookups.delete(lookup);
                 }
             }
-            this.release(previous.$key, prev);
+            this.release(previousKey, prev);
         }
-        this.acquire(item.$key, lookups);
+        this.acquire(itemKey, lookups);
     }
 
+    /**
+     * Remove item from index
+     * @param {Model} item
+     */
     remove(item) {
-        if(!item.$key)
-            return;
-        this.release(item.$key, this.lookups(item));
+        let key = this.model.key(item);
+        key && this.release(key, this.lookups(item));
     }
 
     /**
      * Remove an entry and update all related items' values.
+     * @param {IndexKey} lookup - entry's lookup
+     * @param {Object.<ModelKey, Model>} all - items
      */
     removeEntry(lookup, all) {
-        if(this.key instanceof Function)
-            throw "Indexer lookup must be an attribute name";
-
-        entry = this.index[lookup];
+        let entry = this.index.get(lookup);
         if(!entry)
             return;
 
         for(var key of entry) {
             let item = all[key];
             if(item) {
-                let attr = item[this.key];
-                if(attr instanceof Set) {
-                    attr.delete(lookup);
-                    Vue.set(item, this.key, attr)
-                }
+                let attr = item[this.lookup];
+                if(attr instanceof Set)
+                    attr.delete(lookup) && Vue.set(item, this.lookup, attr)
                 else if(attr instanceof Array) {
                     let at = attr.indexOf(lookup);
                     at >= 0 && attr.splice(at, 1);
                 }
                 else
-                    Vue.set(item, this.key, null);
+                    Vue.set(item, this.lookup, null);
             }
         }
-        Vue.delete(this.index, lookup);
+        this.index.delete(lookup);
+        Vue.set(this, 'index', this.index);
     }
 
     /**
      * Re-build the entire index from the given list of items.
-     * @method Indexer.reset
      * @param {Model[]} items
      */
     reset(items=null) {
-        if(!items)
-            this.index = {};
-
-        const self = this;
-        this.index = items.reduce((map, item) => {
-            self._add(item.$key, self.getEntries(item))
-            return map;
-        }, {})
+        this.index = new Map();
+        if(items)
+            for(var item in items) {
+                let [lookups, key] = [this.lookups(item), this.model.key(item)];
+                this.acquire(key, lookups, false);
+            }
+        Vue.set(this, 'index', this.index);
     }
 }
-
-/**
- * Used to manage an index over a list of items. Indexes are list of
- * items id grouped by a predicate (which can either be a method or an attribute).
- *
- * @class
- */
-class Indexer_ {
-    /**
-     * @constructs Indexer
-     * @param {String} key - Indexer's key.
-     */
-    constructor(key) {
-        // FIXME: rename
-        /**
-         * Key of item attribute whose value is used as index key(s) or a `function(item)`
-         * returning index key(s).
-         * @member {String|GetIndexKey} Indexer.key
-         */
-        this.key = key;
-
-        /**
-         * @function GetIndexKey
-         * @param {Model} item
-         * @return {String|String[]} index key(s) for this item.
-         */
-
-        /**
-         * The index itself.
-         * @member {Object.<String,ModelKey[]>} Indexer.index
-         */
-        this.index = {};
-    }
-
-
-    /**
-     * Return index keys for the provided item.
-     * @method Indexer.getEntries
-     * @param {Model} item
-     */
-    getEntries(item, attrs=null) {
-        // TODO: attrs
-        var keys = this.key instanceof Function ? this.key(item) : item.$attr(this.key);
-        return keys instanceof Array ? keys : [keys];
-    }
-
-    _add(itemKey, entries) {
-        for(let entry of entries) {
-            let keys = this.index[entry];
-            if(!keys)
-                this.index[entry] = [itemKey];
-            else if(!keys.includes(entry))
-                keys.push(itemKey)
-        }
-    }
-
-    _delete(itemKey, entries) {
-        for(let entry of entries) {
-            let index_ = index[entry];
-            if(index_) {
-                    continue;
-
-                let at = index_.index_Of(itemKey);
-                at >= 0 && index_.splice(at, 1);
-                if(!index_.length)
-                    delete index[entry];
-            }
-        }
-    }
-
-    /**
-     * Update index with the given item.
-     *
-     * @method Indexer.update
-     * @param {Model} item
-     * @param {Model=} previous
-     * @param {String[]} attributes name
-     */
-    update(item, previous=null, attrs=null) {
-        // TODO: remove only for keys that changed
-        let entries = item && this.getEntries(item, attrs);
-        if(previous) {
-            let prev = this.getEntries(previous, attrs);
-            if(item && entries == prev)
-                return;
-            this._delete(previous.$key, prev);
-        }
-
-        if(entries)
-            this._add(item.$key, entries)
-    }
-
-    /**
-     * Remove an item from the index.
-     * @method Indexer.delete
-     */
-    delete(item) {
-        this._delete(item.$key, this.getEntries(item));
-    }
-
-    /**
-     * Re-build the entire index from the given list of items.
-     * @method Indexer.reset
-     * @param {Model[]} items
-     */
-    reset(items=null) {
-        if(!items)
-            this.index = {};
-
-        const self = this;
-        this.index = items.reduce((map, item) => {
-            self._add(item.$key, self.getEntries(item))
-            return map;
-        }, {})
-    }
-
-    deleteEntry(entry, all) {
-        if(this.key instanceof Function)
-            throw "This method is only allowed on Indexers whose `key` " +
-                  "is an attribute name";
-
-        entry = this.index[entry];
-        if(!entry)
-            return;
-
-        for(var key of entry) {
-            let item = all[key];
-            if(!item)
-                continue;
-
-            let attr = item[this.key];
-            if(attr instanceof Array) {
-                let at = attr.indexOf(entry);
-                at >= 0 && attr.splice(at, 1);
-            }
-            else
-                item[this.key] = null;
-        }
-
-        delete this.index[entry];
-    }
-}
-
 

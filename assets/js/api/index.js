@@ -1,5 +1,3 @@
-import _ from 'lodash';
-
 import Action from './action';
 import Request from './request';
 import Requests from './requests';

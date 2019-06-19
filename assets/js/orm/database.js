@@ -35,12 +35,10 @@ export default class Database {
      */
     register(model, store={}) {
         if(this.models[model.entity] === undefined) {
-            // TODO: this.fields directives on database
             model.modelize(this);
             this.models[model.entity] = model;
             this.store = mergeStores(this.store, model.store(this));
             this.store.modules[model.entity] = model.module(this);
-            console.log(model.module(this));
             this.store.plugins.push(store => model.plugin(store));
         }
 

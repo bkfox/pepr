@@ -1,6 +1,3 @@
-import _ from 'lodash';
-
-
 /**
  *  Event passed by an Emitter to a listener.
  */

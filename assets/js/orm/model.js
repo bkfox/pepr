@@ -46,14 +46,10 @@ export default class Model {
      * @param {Directive[]} [directives=this.directives] - model directives
      * @param {Object.<String, Directive[]|Directive>} [fields=this.fields] - field directives
      */
-    static runDirectives(callback, directives, fields) {
-        directives = directives ? [...directives, ...this.directives] : this.directives;
-        fields = fields ? {...fields, ...this.fields} : this.fields;
-
-        for(let directive of directives)
+    static runDirectives(callback) {
+        for(let directive of this.directives)
             callback(directive);
-
-        for(let [name, field] of Object.entries(fields))
+        for(let [name, field] of Object.entries(this.fields))
             if(field instanceof Array)
                 field.forEach(field => callback(field, name))
             else
@@ -65,7 +61,7 @@ export default class Model {
      * Database before model is registered.
      * @param {Database}
      */
-    static modelize(database, directives=[], fields=[]) {
+    static modelize(database) {
         let defaults = /** @lends module:orm/model.Model **/ {
             /** 
              * @member {String} - module name in store (default is "modelname" + s)
@@ -86,7 +82,11 @@ export default class Model {
              * @member {String[]} - model directives
              * @static
              */
-            directives: []
+            directives: [],
+            /**
+             * @member {Object.<String, Function|Object>} directive's plugins to run.
+             */
+            plugins: {},
         };
         for(let [key, value] of Object.entries(defaults))
             if(this[key] === undefined)
@@ -98,7 +98,7 @@ export default class Model {
             if(prototype)
                 for(var key in prototype)
                     this[key] = key;
-        }, directives, fields)
+        })
     }
 
     /**
@@ -117,11 +117,11 @@ export default class Model {
     }
 
     /**
-     * Vuex store plugin. Call `plugin` on directives and update prototype's
+     * Store plugin -- it calls all 
      * `$store`.
      * @param {Vuex.Store} store
      */
-    static plugin(store, directives=null, fields=null) {
+    static plugin(store) {
         /**
          * Model instance's store, by default the latest one passed to
          * `plugin(store)`.
@@ -131,9 +131,11 @@ export default class Model {
         this.prototype.$store = store;
 
         let model = this;
-
-        this.runDirectives((dir, field=null) => dir.plugin(store, model, field),
-                           directives, fields)
+        this.runDirectives(
+            (dir, field=null) => dir.plugin && dir.plugin(store, model, field),
+        )
+        for(plugin of Object.values(this.plugins))
+            plugin(store, model);
     }
 
     /**
@@ -238,5 +240,4 @@ export default class Model {
  * @return {module:orm/model.Model.Store
  */
 Model.module = ModelModule
-
 

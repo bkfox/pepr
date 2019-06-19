@@ -1,5 +1,3 @@
-import _ from 'lodash';
-
 import Vue from 'vue';
 import BootstrapVue from 'bootstrap-vue';
 import VRuntimeTemplate from "../vue/v-runtime-template";

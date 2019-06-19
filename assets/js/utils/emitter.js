@@ -1,5 +1,3 @@
-import _ from 'lodash';
-
 import Event from './event';
 import Listener from './listener';
 

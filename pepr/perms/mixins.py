@@ -4,7 +4,7 @@ from rest_framework import exceptions
 from rest_framework.views import APIView
 
 from ..api.mixins import SingleObjectMixin
-from .roles import Roles
+from .settings import settings
 from .permissions import CanAccess, CanCreate, CanUpdate, CanDestroy
 
 
@@ -12,8 +12,7 @@ class PermissionMixin:
     """
     Add support for permission check on the child class. Works in a
     similar way DRF ``APIView``, except it has an ``action_permissions``
-    attribute that allows specifying permission on a per action or per
-    request's method basis.
+    attribute specifying permissions per action or request's method basis.
 
     Context can be assigned for this instance's view, updating current
     role. Usage of this feature is up to class user, although a good
@@ -37,9 +36,7 @@ class PermissionMixin:
 
     @classmethod
     def get_action_permissions(cls, action=None):
-        """
-        Return permissions for the given action or defaults.
-        """
+        """ Return permissions for action. """
         permission_classes = cls.permission_classes
         if action is not None and cls.action_permissions:
             permission_classes = cls.action_permissions.get(
@@ -49,9 +46,7 @@ class PermissionMixin:
 
     @classmethod
     def get_api_actions(cls, role, obj=None):
-        """
-        Return a list of api actions key allowed for this role.
-        """
+        """ Return a list of api actions key allowed for this role. """
         actions = getattr(cls, 'action_permissions', {}).keys()
         return [a for a in actions if cls.can(role, a)] if obj is None else \
             [a for a in actions if cls.can_obj(role, obj, a)]
@@ -115,16 +110,16 @@ class PermissionViewMixin(PermissionMixin):
 
     def get_context_data(self, **kwargs):
         """ Ensure 'role' and 'context' are in resulting context """
-        kwargs.setdefault('identity', self.request.identity)
-        kwargs.setdefault('role', self.role)
-        kwargs.setdefault('context', self.context)
-        kwargs.setdefault('roles', Roles.register)
+        # FIXME: under "perms" key
+        perms = kwargs.setdefault('pepr_perms', {})
+        perms.setdefault('identity', self.request.identity)
+        perms.setdefault('role', self.role)
+        perms.setdefault('context', self.context)
+        perms.setdefault('roles', settings.roles)
         return super().get_context_data(**kwargs)
 
 class ContextViewMixin(PermissionViewMixin):
-    """
-    View mixin for views that work with a single Context.
-    """
+    """ View mixin for views that work with a single Context. """
     def get_queryset(self):
         model = getattr(self, 'model', None)
         if not model:
@@ -133,9 +128,7 @@ class ContextViewMixin(PermissionViewMixin):
 
 
 class AccessibleViewMixin(PermissionViewMixin):
-    """
-    View mixin handling Accessible objects permission check.
-    """
+    """ View mixin handling Accessible objects permission check. """
     def get_queryset(self):
         qs = self.model.objects.identity(self.request.identity)
         if self.context:
@@ -144,9 +137,7 @@ class AccessibleViewMixin(PermissionViewMixin):
 
 
 class AccessibleConsumerMixin(SingleObjectMixin, PermissionMixin):
-    """
-    Consumer mixin handling Accessible objects permission check
-    """
+    """ Consumer mixin handling Accessible objects permission check. """
     def get_queryset(self, request):
         return super().get_queryset(request).identity(request.identity)
 

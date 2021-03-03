@@ -1,13 +1,20 @@
-from django.db.models import Q
-from django.core.exceptions import PermissionDenied
-
 from .models import Context
 
 
-__all__ = ['IdentityMiddleware']
+__all__ = ('IdentityMiddleware',)
 
 
 class IdentityMiddleware:
+    """
+    Provides identities for request's user.
+
+    Current identity id can be specified with ``pepr.perms.identity``
+    cookie.
+
+    Request will have two extra attributes:
+    - ``identity``: current identity
+    - ``identities``: queryset of all available identities for user.
+    """
     context_class = Context
 
     def __init__(self, get_response):

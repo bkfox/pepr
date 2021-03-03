@@ -25,7 +25,7 @@ class Loader:
     urlpatterns = None
     """ Discovered urlpatterns for regular views. """
     multiplex_class = None
-    """ MultiplexConsumer class used to register consumers to.  """
+    """ MultiplexConsumer class used to register consumers to. """
 
     consts = {}
 

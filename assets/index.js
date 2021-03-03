@@ -1,3 +1,0 @@
-import './js';
-import './vue';
-

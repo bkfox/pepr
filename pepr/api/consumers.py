@@ -2,8 +2,6 @@ import asyncio
 import json
 from uuid import UUID
 
-from django.conf import settings
-
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from rest_framework.exceptions import APIException, ParseError, ValidationError
@@ -14,7 +12,7 @@ from ..utils.debug import report_error
 from .message import ApiResponse
 
 
-__all__ = ['is_action', 'action', 'ApiConsumerMeta', 'ApiConsumerBase', 
+__all__ = ['is_action', 'action', 'ApiConsumerMeta', 'ApiConsumerBase',
            'ApiConsumer']
 
 

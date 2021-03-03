@@ -105,7 +105,7 @@ class Content(Owned, TimeStampedModel):
         return ContentComp
 
     def as_component(self):
-        """ Return component that renders self. """
+        """ Return component rendering self. """
         return self.get_component_class()(object=self)
 
     @classmethod

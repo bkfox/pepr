@@ -157,10 +157,6 @@ class Switch(Register):
         wait_kwargs.setdefault('return_when', asyncio.FIRST_COMPLETED)
         done, pending = await asyncio.wait(aws, **wait_kwargs)
 
-        for task in done:
-            ci = getattr(task, 'consumer_info', None)
-            if ci is None:
-                continue
         self.stop((task.consumer_info for task in done
                     if hasattr(task, 'consumer_info')))
 

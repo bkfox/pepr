@@ -12,8 +12,8 @@ class Register:
     entry_overwrite = False
     """ If True, silently overwrite entries """
 
-    def __init__(self, **kwargs):
-        self.entries = {}
+    def __init__(self, entries={}, **kwargs):
+        self.entries = dict(entries)
         self.__dict__.update(kwargs)
 
     def clone(self):

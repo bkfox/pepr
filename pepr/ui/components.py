@@ -28,20 +28,15 @@ def render_slots(role, slots, *names, _pred=None,
 
 class Component(TemplateResponseMixin, ContextMixin, PermissionMixin):
     """
-    A Component is an element that aims to be rendered in other views.
-    It allows rendering item into a string for this purpose.
-
-    A Component can only handle GET actions, but only be used to
-    render data. This must be done at the view level, in order to ensure
-    separate concerns.
+    A Component is an element rendered inside views as string.
 
     Component supports permissions in order to define wethers it should
-    or not be rendered. If not allowed, it renders an empty string.
+    or not be rendered (returns empty string).
     """
     template_name = ''
     """
-    Name of the template to load from `get_template` can be a list of/a
-    single string.
+    Template name to load from `get_template` can be a list or a single
+    string.
     """
     slots = None
     """ Component's slots """

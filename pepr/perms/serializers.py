@@ -1,4 +1,3 @@
-
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.urls import reverse
 
@@ -7,17 +6,15 @@ from rest_framework.validators import UniqueTogetherValidator
 from rest_framework.reverse import reverse
 
 from .mixins import PermissionMixin
-from .models import Context, Subscription, \
-        STATUS_INVITE, STATUS_REQUEST, STATUS_ACCEPTED
+from .models import Context, Subscription
 from .roles import ModeratorRole
 
 
-__all__ = [
+__all__ = (
     'BaseSerializer', 'AccessibleSerializer', 'OwnedSerializer',
     'SubscriptionSerializer', 'ContextSerializer',
-    'OwnerSerializer', 'RoleSerializer',
-    'ContextUserSubscriptionField',
-]
+    'RoleSerializer',
+)
 
 
 class BaseSerializer(serializers.ModelSerializer):
@@ -151,9 +148,9 @@ class SubscriptionSerializer(OwnedSerializer):
         data['access'] = min(data['access'], ModeratorRole.access)
 
         accept_role = context.subscription_accept_role
-        data['status'] = STATUS_ACCEPTED \
+        data['status'] = Subscription.STATUS_ACCEPTED \
             if accept_role is not None and data['role'] <= accept_role else \
-            STATUS_REQUEST
+            Subscription.STATUS_REQUEST
         return data
 
     def validate_invite(self, role, data):
@@ -163,7 +160,7 @@ class SubscriptionSerializer(OwnedSerializer):
                 "This field is required and can't be current identity"
             ]})
 
-        data['status'] = STATUS_INVITE
+        data['status'] = Subscription.STATUS_INVITE
         data['role'] = min(data['role'], role.access)
         return data
 
@@ -176,11 +173,11 @@ class SubscriptionSerializer(OwnedSerializer):
         # Rule: Invite can't be accepted by others, while
         #       request can't be accepted by owner.
         status = data.get('status')
-        if status is STATUS_ACCEPTED:
-            test = instance.status is STATUS_ACCEPTED or (
-                instance.status is STATUS_INVITE
+        if status is Subscription.STATUS_ACCEPTED:
+            test = instance.status is Subscription.STATUS_ACCEPTED or (
+                instance.status is Subscription.STATUS_INVITE
                 if instance.is_owner(role) else
-                instance.status is STATUS_REQUEST
+                instance.status is Subscription.STATUS_REQUEST
             )
         else:
             test = status in (instance.status, None)

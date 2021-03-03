@@ -1,6 +1,5 @@
 from django.db import transaction
 from django.http import Http404
-from django.utils.functional import cached_property
 
 from rest_framework import viewsets
 from rest_framework.exceptions import PermissionDenied
@@ -9,8 +8,7 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .mixins import ContextViewMixin, AccessibleViewMixin
-from .models import Subscription, STATUS_REQUEST, STATUS_INVITE, \
-    STATUS_ACCEPTED
+from .models import Subscription
 from .permissions import *
 from .serializers import AccessibleSerializer, OwnedSerializer, \
         ContextSerializer, SubscriptionSerializer
@@ -83,7 +81,7 @@ class SubscriptionViewSet(OwnedViewSet):
         if not obj:
             raise Http404
 
-        obj.status = STATUS_ACCEPTED
+        obj.status = Subscription.STATUS_ACCEPTED
         obj.save()
 
         serializer = self.get_serializer(identity=request.identity, instance=obj)

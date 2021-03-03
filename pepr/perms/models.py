@@ -15,33 +15,22 @@ from ..utils.iter import as_choices
 from ..utils.functional import cached_method
 from .permissions import *
 from .roles import *
+from .settings import settings
 
 
-__all__ = ['STATUS_INVITE, STATUS_REQUEST', 'STATUS_ACCEPTED',
-           'STATUS_CHOICES', 'access_choices',
+__all__ = ['access_choices',
            'Context', 'Accessible', 'Owned', 'Subscription',
            'Authorization',
            'ContextQuerySet', 'AccessibleQuerySet', 'OwnedQuerySet']
 
 
-STATUS_INVITE = 1
-STATUS_REQUEST = 2
-STATUS_ACCEPTED = 3
-
-STATUS_CHOICES = (
-    (STATUS_INVITE, _('Invite')),
-    (STATUS_REQUEST, _('Request')),
-    (STATUS_ACCEPTED, _('Accepted')),
-)
-
-
 def access_choices(pred=None):
     """
     Return Roles' access as field choices. If ``pred`` is given,
-    use it to filter which access
+    use it to filter access choices
     """
-    roles = Roles.values() if pred is None else \
-        (r for r in Roles.values() if pred(r))
+    roles = settings.roles.values() if pred is None else \
+        (r for r in settings.roles.values() if pred(r))
     return list(as_choices('access', 'name', roles))
 
 # Rule: Subscription allowed roles are all with access > than default
@@ -90,11 +79,11 @@ class AccessibleQuerySet(InheritanceQuerySetMixin, models.QuerySet):
         return (
             # identity with registered access
             Q(context__subscription__role__gte=F('access'),
-              context__subscription__status=STATUS_ACCEPTED,
+              context__subscription__status=Subscription.STATUS_ACCEPTED,
               context__subscription__owner=identity) |
             # identity with no access, but who is platform member
             (
-                ~Q(context__subscription__status=STATUS_ACCEPTED,
+                ~Q(context__subscription__status=Subscription.STATUS_ACCEPTED,
                    context__subscription__owner=identity) &
                 Q(access__lte=DefaultRole.access)
             )
@@ -176,7 +165,7 @@ class ContextQuerySet(AccessibleQuerySet):
         # FIXME/TODO: default user's context
         return self.identities().filter(
             Q(identity_owner=user) |
-            Q(subscription__status=STATUS_ACCEPTED,
+            Q(subscription__status=Subscription.STATUS_ACCEPTED,
               subscription__role__gte=F('identity_policy'),
               subscription__owner__identity_owner=user)
         ).order_by('-identity_owner')
@@ -214,10 +203,10 @@ class ContextQuerySet(AccessibleQuerySet):
 class ContextBase(Accessible):
     """
     Each instance of ``Context`` defines a context in which permissions,
-    subscriptions and access to objects take place.
+    subscriptions and objects' access take place.
     """
     allow_subscription_request = models.BooleanField(
-        verbose_name=_('allow subscription request'),
+        verbose_name=_('Allow subscription request'),
         default=False,
         help_text=_('User can request a subscription. If not, only by '
                     'Invite.')
@@ -246,18 +235,17 @@ class ContextBase(Accessible):
         _('Identity Policy'), choices=subscription_role_choices,
         blank=True, null=True,
         help_text=_(
-            'Define which members can personnify this context to edit, '
-            'publish, and do other things.'
+            'Define which members can act taking context\'s as identity'
         )
     )
     identity_owner = models.ForeignKey(
         User, on_delete=models.CASCADE,
-        verbose_name=_('real person behind the identity'),
+        verbose_name=_('Real person behind the identity'),
         blank=True, null=True, db_index=True,
-        help_text=_('if user page, set to the actual user.')
+        help_text=_('If user page, set to the actual user.')
     )
     name = models.CharField(
-        _('name'), max_length=128,
+        _('Name'), max_length=128,
         blank=True, null=True
     )
 
@@ -302,13 +290,13 @@ class ContextBase(Accessible):
 
         if identity is not None:
             subscription = Subscription.objects.filter(
-                context=self, owner=identity, status=STATUS_ACCEPTED,
+                context=self, owner=identity, status=Subscription.STATUS_ACCEPTED,
             ).first()
 
             # get role from subscription or from default only if role is
             # not yet given
             if role is None:
-                role = Roles.get(subscription.role) \
+                role = settings.roles.get(subscription.role) \
                     if subscription and subscription.is_subscribed \
                     else DefaultRole
 
@@ -391,6 +379,16 @@ class Subscription(Owned):
 
     There can be only one Subscription for a pair of owner and context.
     """
+    STATUS_INVITE = 1
+    STATUS_REQUEST = 2
+    STATUS_ACCEPTED = 3
+
+    STATUS_CHOICES = (
+        (STATUS_INVITE, _('Invite')),
+        (STATUS_REQUEST, _('Request')),
+        (STATUS_ACCEPTED, _('Accepted')),
+    )
+
     status = models.SmallIntegerField(
         _('status'),
         choices=STATUS_CHOICES,
@@ -407,8 +405,16 @@ class Subscription(Owned):
         unique_together = ('context', 'owner')
 
     @property
+    def is_invite(self):
+        return self.status == self.STATUS_INVITE
+
+    @property
+    def is_request(self):
+        return self.status == self.STATUS_REQUEST
+
+    @property
     def is_subscribed(self):
-        return self.status == STATUS_ACCEPTED
+        return self.status == self.STATUS_ACCEPTED
 
     def get_role(self, access=None):
         """
@@ -417,7 +423,7 @@ class Subscription(Owned):
         """
         if access is None:
             access = self.role
-        cls = Roles.get(access) or AnonymousRole
+        cls = settings.roles.get(access) or AnonymousRole
         return cls(self.context, self.owner, self)
 
 

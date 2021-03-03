@@ -9,7 +9,6 @@ from ..utils import register
 __all__ = ['GenericMeta', 'RegisterMeta']
 
 
-
 class GenericMeta(ModelBase):
     """
     Metaclass usable for classes that can either or not be models. To
@@ -34,8 +33,8 @@ class GenericMeta(ModelBase):
 
 class RegisterMeta(type,register.RegisterClass):
     """
-    Metaclass class registering its created classes. The ``should_add``
-    is used to determine wether or not a class should be registered.
+    Register of the classes created by this metaclass when ``should_add``
+    returns True.
     """
     def __new__(cls, name, base, attrs):
         cl = super().__new__(cls, name, base, attrs)

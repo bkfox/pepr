@@ -1,64 +1,22 @@
 import logging
-from collections import namedtuple
 
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
-from ..utils.register import Register
-from ..utils.metaclass import RegisterMeta
-
 from .permissions import CanAccess, CanCreate, CanUpdate, CanDestroy
 
-__all__ = ['Roles', 'Role',
-           'AnonymousRole', 'DefaultRole', 'SubscriberRole',
-           'MemberRole', 'ModeratorRole', 'AdminRole']
-
+__all__ = ('Role', 'AnonymousRole', 'DefaultRole', 'SubscriberRole',
+           'MemberRole', 'ModeratorRole', 'AdminRole',
+           'default_roles')
 
 logger = logging.getLogger('pepr')
 
 
-class RolesRegister(Register):
-    by_name = None
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.by_name = {}
-
-    def reset(self, *args, **kwargs):
-        r = super().reset(*args, **kwargs)
-        self.by_name = {r.__name__: r for r in self.values()}
-        return r
-
-class Roles(RegisterMeta):
+class Role:
     """
-    Register class that list all defined Role for the project. It also
-    keeps track of which role is related to a specific role.
+    Role is assigned to user for a specific context defining what user can
+    or not do.
     """
-    register_class = RolesRegister
-    entry_key_attr = 'access'
-
-    @classmethod
-    def get_base_class(cls):
-        return Role
-
-    @classmethod
-    def add(cls, role, *args, **kwargs):
-        # ensure defaults is a copy
-        defaults, role.defaults = role.defaults, {}
-        role.defaults.update(defaults)
-
-        if role.access in cls.register:
-            logger.debug(
-                '[pepr/perms] register {}: another class is yet '
-                'registered for this access, it will be replaced.'
-                .format(role.__name__)
-            )
-        return super().add(role, *args, **kwargs)
-
-# FIXME: Role as a Register class. Problem: Register meant to be used
-#        as an instance; __getattr__ is also only for an instance.
-# TODO: register/unregister permission
-class Role(metaclass=Roles):
     access = 0
     """
     [class] Defines an access level for the role (used as key), that is
@@ -73,7 +31,9 @@ class Role(metaclass=Roles):
     """[class] description displayed to user"""
     defaults = {}
     """
-    [class] default permissions as `{ (perm, model): granted }`.
+    [class] default permissions as `{ perm_key: granted }`.
+
+    ``perm_key`` is a string such as: ``perm.label ['.' model.db_table]``
 
     Sugar syntax: it can be set to a list of Permission instead
     of a dict
@@ -105,10 +65,10 @@ class Role(metaclass=Roles):
     @cached_property
     def permissions(self):
         """
-        Permissions for this role taking including context
-        authorizations, as dict of ``{ perm_key: granted }``.
+        Permissions for role instance, based on context and access
+        level, as dict of ``{ perm_key: granted }``.
         """
-        from ..perms.models import Authorization
+        from .models import Authorization
 
         perms = self.defaults.copy()
         if not self.context:
@@ -133,7 +93,7 @@ class Role(metaclass=Roles):
                self.access >= access
 
     def is_granted(self, perm, model):
-        """ Return RolePermission for the given perm and model.  """
+        """ Return wether permission is granted for the given model.  """
         permissions = self.permissions
         for m in (model, None):
             test = permissions.get(self.perm_key(perm, m), None)
@@ -143,7 +103,7 @@ class Role(metaclass=Roles):
 
     @classmethod
     def register(cls, model, granted, *perms):
-        """ Register a permission for the given model and role.  """
+        """ Register a permission for the given model and role. """
         for perm in perms:
             cls.defaults[cls.perm_key(perm, model)] = granted
 
@@ -160,9 +120,12 @@ class Role(metaclass=Roles):
         :param Permission|str perm: permission or permission codename
         :param Model model: if perm is a string, specifies model.
         """
-        from .permissions import Permissions
-        perm = Permissions.get(perm) if isinstance(perm, str) else perm
-        return perm, model
+        from .permissions import Permission
+        perm = perm.label if isinstance(perm, Permission) else perm
+        if model:
+            model = model._meta.db_table
+            return f'{perm.label}.{model}'
+        return perm.label
 
     def __init__(self, context, identity, subscription=None):
         self.context = context
@@ -174,6 +137,7 @@ class Role(metaclass=Roles):
 # ``Roles.remove()``.
 
 class AnonymousRole(Role):
+    """ Anonymous role: unregistered users. """
     access = -0x10
     name = _('Anonymous')
     description = _('Unregistered user.')
@@ -183,6 +147,7 @@ AnonymousRole.register(None, False, CanAccess, CanCreate)
 
 
 class DefaultRole(Role):
+    """ Default role: Registered but not subscribed people. """
     access = 0x10
     name = _('Registered')
     description = _('Registered but not subscribed people.')
@@ -193,6 +158,7 @@ DefaultRole.register(None, False, CanAccess, CanCreate, CanUpdate, CanDestroy)
 
 
 class SubscriberRole(Role):
+    """ Subscriber role: subscribe to a context. """
     access = 0x20
     name = _('Subscriber')
     description = _('They only follow what happens.')
@@ -203,6 +169,7 @@ SubscriberRole.register(None, False, CanCreate, CanUpdate, CanDestroy)
 
 
 class MemberRole(Role):
+    """ Member role: participating subscribed people. """
     access = 0x40
     name = _('Member')
     description = _(
@@ -215,6 +182,7 @@ MemberRole.register(None, False, CanUpdate, CanDestroy)
 
 
 class ModeratorRole(Role):
+    """ Moderator role """
     access = 0x80
     name = _('Moderator')
     description = _(
@@ -226,6 +194,7 @@ ModeratorRole.register(None, True, CanAccess, CanCreate, CanUpdate, CanDestroy)
 
 
 class AdminRole(Role):
+    """ Admin role: has rights above everyone else inside a context """
     access = 0x100
     name = _('Admin')
     description = _(
@@ -244,4 +213,8 @@ class AdminRole(Role):
 
 AdminRole.register(None, True, CanAccess, CanCreate, CanUpdate, CanDestroy)
 
+
+default_roles = (AnonymousRole, DefaultRole, SubscriberRole, MemberRole,
+                 ModeratorRole, AdminRole)
+""" Roles provided by default. """
 

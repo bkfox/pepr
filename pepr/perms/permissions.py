@@ -1,62 +1,15 @@
-from django.core.exceptions import PermissionDenied
 from django.utils.translation import ugettext_lazy as _
 from rest_framework.permissions import BasePermission, BasePermissionMetaclass
-from rest_framework import permissions as drf_perms
+from rest_framework import permissions
 from rest_framework.exceptions import PermissionDenied
 
-from ..utils.register import Register
-from ..utils.metaclass import RegisterMeta
-from ..utils.string import camel_to_snake
 
-__all__ = ['AND', 'OR', 'Permissions',
+__all__ = ['Permission',
            'CanAccess', 'CanCreate', 'CanUpdate', 'CanDestroy',
            'CanSubscribe', 'CanInvite', 'CanAcceptSubscription',
            'CanUnsubscribe']
 
-class AND(drf_perms.AND):
-    def can(self, *args, **kwargs):
-        return (self.op1.can(*args, **kwargs) &
-                self.op2.can(*args, **kwargs))
-
-    def can_obj(self, *args, **kwargs):
-        return (self.op1.can_obj(*args, **kwargs) &
-                self.op2.can_obj(*args, **kwargs))
-
-
-class OR(drf_perms.OR):
-    def can(self, *args, **kwargs):
-        return (self.op1.can(*args, **kwargs) |
-                self.op2.can(*args, **kwargs))
-
-    def can_obj(self, *args, **kwargs):
-        return (self.op1.can_obj(*args, **kwargs) |
-                self.op2.can_obj(*args, **kwargs))
-
-
-class Permissions(RegisterMeta, drf_perms.BasePermissionMetaclass):
-    """
-    Register class for permissions
-    """
-    entry_key_attr = '__name__'
-
-    @classmethod
-    def get_base_class(cls):
-        return CanObject
-
-    def __and__(self, other):
-        return drf_perms.OperandHolder(AND, self, other)
-
-    def __or__(self, other):
-        return drf_perms.OperandHolder(OR, self, other)
-
-    def __rand__(self, other):
-        return drf_perms.OperandHolder(AND, other, self)
-
-    def __ror__(self, other):
-        return drf_perms.OperandHolder(OR, other, self)
-
-
-class CanObject(drf_perms.BasePermission, metaclass=Permissions):
+class Permission(permissions.BasePermission):
     """
     Base Permission class handling Accessible and Owned object
     permissions. Class methods ``can`` and  ``can_obj`` are where the
@@ -68,9 +21,12 @@ class CanObject(drf_perms.BasePermission, metaclass=Permissions):
     """
     name = ''
     """ [class] name displayed to user"""
+    label = ''
+    """ [class] permission label used in keys """
     description = ''
     """ [class] description displayed to user"""
     model = None
+    """ Model """
 
     @classmethod
     def _get_formated(cls, attr, model=None, **kwargs):
@@ -99,6 +55,9 @@ class CanObject(drf_perms.BasePermission, metaclass=Permissions):
 
     @classmethod
     def test_accessible(cls, role, obj):
+        """
+        Test wether role has access to object.
+        """
         from .models import Accessible
         if not isinstance(obj, Accessible) or role.has_access(obj.access):
             return None
@@ -214,7 +173,8 @@ class CanObject(drf_perms.BasePermission, metaclass=Permissions):
         return ChildPermission
 
 
-class CanAccess(CanObject):
+class CanAccess(Permission):
+    """ Access allowed for role on object. """
     @classmethod
     def can_obj(cls, role, obj):
         from .models import Accessible
@@ -222,36 +182,41 @@ class CanAccess(CanObject):
             return True
 
 
-class CanCreate(CanObject):
+class CanCreate(Permission):
     """ Permission to create an accessible object """
     name = _('Create a new {model_name}')
+    label = 'create'
 
 
-class CanUpdate(CanObject):
+class CanUpdate(Permission):
     """ Permission to update any accessible object """
     name = _('Update any {model_name}')
+    label = 'update'
 
 
-class CanDestroy(CanObject):
+class CanDestroy(Permission):
     """ Permission to update any accessible object """
     name = _('Delete any {model_name}')
+    label = 'destroy'
 
 
-class CanManage(CanObject):
+class CanManage(Permission):
     name = _('Manage context')
+    label = 'manage'
 
 
-class CanSubscribe(CanObject):
+class CanSubscribe(Permission):
     """
     User can create a request or Invite for the ``obj``/``role``
     context.
     """
     name = _('Subscribe')
+    label = 'subscribe'
 
     @classmethod
     def can_obj(cls, role, obj):
         from .models import Subscription
-        # yet saved: just say yes
+        # already cached: just say yes
         if role.subscription and obj.pk == role.subscription.pk:
             return True
         return obj.owner is None and cls.can(role, Subscription)
@@ -264,8 +229,9 @@ class CanSubscribe(CanObject):
             role.context.allow_subscription_request
 
 
-class CanInvite(CanObject):
+class CanInvite(Permission):
     name = _('Invite')
+    label = 'invite'
 
     @classmethod
     def can_obj(cls, role, obj):
@@ -274,7 +240,7 @@ class CanInvite(CanObject):
                 obj.owner is None:
             return False
 
-        # Rule: Only subscribed user can create Invites.
+        # Rule: Only subscribed user can invite.
         return cls.can(role, Subscription) and obj is not None and \
             not obj.is_owner(role)
 
@@ -283,19 +249,20 @@ class CanInvite(CanObject):
         return role.is_subscribed and super(CanInvite, cls).can(role, model)
 
 
-class CanAcceptSubscription(CanObject):
+class CanAcceptSubscription(Permission):
     """
     Permission to accept an existing subscription (request and
     Invite).
     """
-    name = _('Accept requests')
+    name = _('Accept subscription requests')
+    label = 'accept_subscription'
 
     @classmethod
     def can_obj(cls, role, obj):
-        from .models import STATUS_INVITE, STATUS_REQUEST
-        if obj.status == STATUS_INVITE:
+        from .models import Subscription
+        if obj.is_invite:
             return obj.is_owner(role)
-        if obj.status == STATUS_REQUEST and role.is_subscribed:
+        if obj.is_request and role.is_subscribed:
             return super(CanAcceptSubscription, cls).can_obj(role, obj)
         return False
 
@@ -303,9 +270,10 @@ class CanAcceptSubscription(CanObject):
 
 class CanUnsubscribe(CanDestroy):
     """
-    Checks that deletion does not leave the context without admin.
+    Checks that deletion does not leave a context without admin.
     """
     name = _('Unsubscribe')
+    label = 'unsubscribe'
 
     @classmethod
     def can_unsubscribe(cls, role):

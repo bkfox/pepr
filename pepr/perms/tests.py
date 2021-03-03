@@ -4,9 +4,9 @@ from django.test import Client, TestCase
 
 # tests use `pepr.content` models in order to have concrete classes.
 from ..content.models import Content
-from ..perms import roles
-from ..perms.models import Authorization, Context, Subscription
-from ..perms.roles import Roles
+from .settings import settings
+from .models import Authorization, Context, Subscription
+from .roles import *
 
 
 
@@ -23,15 +23,15 @@ class BaseCase(TestCase):
         Return Role expected for the given user
         """
         if user.is_anonymous:
-            return roles.AnonymousRole
+            return AnonymousRole
         if user.is_superuser:
-            return roles.AdminRole
+            return AdminRole
 
         role = next(filter(lambda r: r.name == user.username,
-                           Roles.values()))
+                           default_roles)
 
-        role = role if role.access >= roles.MemberRole.access else \
-               roles.DefaultRole
+        role = role if role.access >= MemberRole.access else \
+               DefaultRole
         return role(self.context, user, user.subscription)
 
     def setup_user(self, role):
@@ -43,7 +43,7 @@ class BaseCase(TestCase):
         user.save()
 
         # member subscription
-        if access >= roles.MemberRole.access:
+        if access >= MemberRole.access:
             user.subscription = Subscription(
                 context=self.context, access=access, owner=user
             )
@@ -67,7 +67,7 @@ class BaseCase(TestCase):
         self.anonymous_user = auth.get_user(Client())
 
         self.users = []
-        for role in Roles.values():
+        for role in default_roles:
             self.setup_role(role)
 
 
@@ -86,8 +86,8 @@ class ContextCase(BaseCase):
             self.assertIsNone(role, 'no role expected')
 
     def test_get_special_role(self):
-        self.do_get_special_role(self.super_user, roles.AdminRole)
-        self.do_get_special_role(self.anonymous_user, roles.AnonymousRole)
+        self.do_get_special_role(self.super_user, AdminRole)
+        self.do_get_special_role(self.anonymous_user, AnonymousRole)
 
         for user in self.users:
             self.do_get_special_role(user, None)
@@ -106,8 +106,8 @@ class ContextCase(BaseCase):
 
     def test_get_role(self):
         # - special roles: admin, anonymous, default
-        self.do_get_role(self.super_user, roles.AdminRole)
-        self.do_get_role(self.anonymous_user, roles.AnonymousRole)
+        self.do_get_role(self.super_user, AdminRole)
+        self.do_get_role(self.anonymous_user, AnonymousRole)
 
         # - self.users
         for user in self.users:
@@ -129,7 +129,7 @@ class AccessibleBaseCase(BaseCase):
     def setup_items(self, **initkwargs):
         items = [self.model(context=self.context, access=role.access,
                             **initkwargs)
-                 for role in Roles.values()]
+                 for role in default_roles]
         for item in items:
             item.save()
         self.items = items
@@ -217,7 +217,7 @@ class RoleCase(BaseCase):
                 codename=str(role.access), model=None,
                 granted=role.access == access
             )
-            for role in Roles.values()
+            for role in default_roles
         ])
 
     def setup_role(self, role):
@@ -227,8 +227,8 @@ class RoleCase(BaseCase):
     def do_permissions(self, role):
         perms = role.permissions
         self.assertEqual(
-            len(perms), len(Roles.register),
-            'wrong permission count for role {}'.format(role.name)
+            len(perms), len(default_roles),
+            f'wrong permission count for role {role.name}'
         )
 
         for perm in perms.values():
@@ -238,7 +238,7 @@ class RoleCase(BaseCase):
     def test_permissions(self):
         for user in self.users:
             role = self.context.get_role(user)
-            if isinstance(role, roles.AdminRole):
+            if isinstance(role, AdminRole):
                 continue
             self.do_permissions(role)
 

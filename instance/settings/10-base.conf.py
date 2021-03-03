@@ -9,20 +9,16 @@ except NameError: DEBUG = True
 ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
-    'pepr.bootstrap',
-    'pepr.users',
-    'pepr.api',
+    # 'pepr.bootstrap',
+    # 'pepr.users',
+    # 'pepr.api',
     'pepr.perms',
-    'pepr.ui',
-    'pepr.content',
+    # 'pepr.ui',
+    # 'pepr.content',
 
     # FIXME: put them in their respective files
-    #'django_assets'
-    'webpack_loader',
-    'widget_tweaks',
     'rest_framework',
     'django_filters',
-
     'channels',
 
     'django.contrib.admin',

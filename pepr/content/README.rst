@@ -9,5 +9,3 @@ are three main elements:
 - ``Service``: configure a view used to render Content objects on a Container (e.g.: stream, calendar, etc.);
 
 They both are ``Accessible`` object in order to correctly handle access and permissions.
-
-

@@ -126,7 +126,7 @@ good set of principle:
 
 Others:
 - because Context can be an Accessible, permissions related to the current Context
-don't use the ``model``;
+are not linked to a ``model``;
 
 
 Authorization
@@ -151,23 +151,21 @@ such as for super-users and anonymous users. This allows a slight difference bet
 each other: subscriptions defines the relation to a Context for a given user while the
 role gives the user accesses and permissions.
 
-The aims of subscription is to be used as common base for a membership system: invitation, following, subscribing, etc.
+Subscriptions aims to be used as common base for a membership system: invitation,
+following, subscribing.
 
 Usage in Pepr
 .............
 
-In Pepr the permission system is really the backbone of the project: it boths ensure
-permission management, but also provide the base models used for Content and Containers.
-The provided views mostly inherit from ``AccessibleView``: this enforce the idea of
-that there always is a permission context user acts in..
-
-TODO: add more about components etc.
-
-
+In Pepr the permission system is the backbone of the project: it ensures permissions
+management while providing base models for most applications content.
+Views mostly inherit from ``AccessibleView`` in order to enforce the idea that there
+always is a permission context user acts in..
 
 TODO & FIXME
 ------------
 
+- settings: validation of admin role and anonymous' role, expose as attribute.
 - set of basic/common Permissions + add example
 
 - role ``has_perm()`` calling a method on Permission: this allows more control

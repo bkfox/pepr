@@ -1,5 +1,7 @@
-from pepr.utils.settings import Settings
+from pepr.settings import Settings
 from .roles import Role, default_roles
+
+__all__ = ('PeprPermsSettings', 'settings')
 
 class PeprPermsSettings(Settings):
     roles = {}

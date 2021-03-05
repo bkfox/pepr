@@ -7,6 +7,14 @@ from ..api.mixins import SingleObjectMixin
 from .settings import settings
 from .permissions import CanAccess, CanCreate, CanUpdate, CanDestroy
 
+# TODO:
+# - use role instead of identity: check if it is okay for all mixins
+# - identity is passed by role: check if it is okay for all cases (should be as i am smart)
+# - content
+#   - components.Component: get_context_data, make it beautitful and simple (kwargs)
+#   - components.Components: check if accessible, then perm check
+#   - render html in serializer
+
 
 class PermissionMixin:
     """
@@ -85,16 +93,12 @@ class PermissionMixin:
 class PermissionViewMixin(PermissionMixin):
     """
     Base mixin for views handling permissions access.
+
+    Provide template context variables:
+    - ``role``: current user's role;
+    - ``roles``: all available roles
     """
     role = None
-
-    @property
-    def context(self):
-        return self.role and self.role.context
-
-    @context.setter
-    def context(self, obj):
-        self.role = obj.get_role(self.request.identity)
 
     @property
     def object(self):
@@ -109,14 +113,12 @@ class PermissionViewMixin(PermissionMixin):
         return self.get_action_permissions(self.action)
 
     def get_context_data(self, **kwargs):
-        """ Ensure 'role' and 'context' are in resulting context """
-        # FIXME: under "perms" key
-        perms = kwargs.setdefault('pepr_perms', {})
-        perms.setdefault('identity', self.request.identity)
-        perms.setdefault('role', self.role)
-        perms.setdefault('context', self.context)
-        perms.setdefault('roles', settings.roles)
+        """ Ensure 'role' and 'roles' are in resulting context """
+        kwargs.setdefault('role', self.role)
+        # kwargs.setdefault('role', self.identity)
+        kwargs.setdefault('roles', settings.roles)
         return super().get_context_data(**kwargs)
+
 
 class ContextViewMixin(PermissionViewMixin):
     """ View mixin for views that work with a single Context. """
@@ -131,11 +133,12 @@ class AccessibleViewMixin(PermissionViewMixin):
     """ View mixin handling Accessible objects permission check. """
     def get_queryset(self):
         qs = self.model.objects.identity(self.request.identity)
-        if self.context:
-            qs = qs.filter(context=self.context)
+        if self.role and self.role.context:
+            qs = qs.filter(context=self.role.context)
         return qs
 
 
+# FIXME: get role?
 class AccessibleConsumerMixin(SingleObjectMixin, PermissionMixin):
     """ Consumer mixin handling Accessible objects permission check. """
     def get_queryset(self, request):
@@ -144,4 +147,5 @@ class AccessibleConsumerMixin(SingleObjectMixin, PermissionMixin):
     def get_object(self, request):
         obj = super().get_object(request)
         self.check_object_permissions(request, obj)
+        return obj
 

@@ -48,7 +48,7 @@ class Permission(permissions.BasePermission):
         return cls._get_formated('description', model=None)
 
     @classmethod
-    def get_context(cls, role, obj):
+    def get_context(cls, obj):
         from .models import Context, Accessible
         return obj if isinstance(obj, Context) else \
             obj.context if isinstance(obj, Accessible) else None
@@ -84,7 +84,7 @@ class Permission(permissions.BasePermission):
         #       lower privilege level; EXCEPT when both are admin.
         if obj.is_saved and not role.is_anonymous and \
                 obj.owner is not None and obj.owner != role.identity:
-            owner_role = obj.get_context().get_role(obj.owner)
+            owner_role = obj.get_role(obj.owner)
             strict = role.is_admin and owner_role.is_admin
             test = role.has_access(owner_role.access, strict)
             # if role has access, further permissions tests must be
@@ -139,7 +139,7 @@ class Permission(permissions.BasePermission):
         return role and self.can(role, self.model)
 
     def has_object_permission(self, request, view, obj):
-        role = obj.get_role(request.identity)
+        role = obj.context.get_role(request.identity)
         return role and self.can_obj(role, obj)
 
     @classmethod

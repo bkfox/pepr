@@ -130,8 +130,8 @@ class Accessible(models.Model):
             if self.context_id is not None else None
 
     def get_role(self, identity, force=False):
-        """ Return identity's role for this object and its context """
-        return self.context and self.context.get_role(identity, force)
+        """ Return role for identity on accessible. """
+        return self.context.get_role(identity, force)
 
     def save(self, *args, **kwargs):
         if self.pk is None:
@@ -317,6 +317,7 @@ class ContextBase(Accessible):
 # We use ContextBase as concrete model class because we'll have a clash
 # with related_name of `Accessible.context` field and Context's parent pointer.
 Context = ContextBase
+# Nullable field for Context, as it can be root.
 Context._meta.get_field('context').blank = True
 Context._meta.get_field('context').null = True
 

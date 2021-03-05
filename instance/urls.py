@@ -5,16 +5,12 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path
 
-from pepr.api.loader import Loader
-from pepr.api.views import ApiConstsView
+# from pepr.api.views import ApiConstsView
+from pepr.apps import discover_urls
 
-from .routing import PeprMultiplex
-
-loader = Loader(True, multiplex_class=PeprMultiplex, api_url_prefix='/api')
-
-urlpatterns = loader.urls + [
+urlpatterns = discover_urls() + [
     path('admin/', admin.site.urls),
-    path('api/consts', ApiConstsView.as_view(loader=loader), name='api-consts')
+    # path('api/consts', ApiConstsView.as_view(loader=loader), name='api-consts')
 ]
 
 

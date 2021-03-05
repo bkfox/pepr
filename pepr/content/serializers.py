@@ -4,13 +4,12 @@ from rest_framework import serializers
 
 from ..perms.serializers import ContextSerializer, OwnedSerializer
 
-from .models import Container, Content, Service
+from .models import Container, Content
 
-__all__ = ['ContentAuthorSerializer', 'ContentSerializer',
-           'ContainerSerializer', ]
+__all__ = ('ContentAuthorSerializer', 'ContentSerializer',
+           'ContainerSerializer', )
 
 
-# TODO: move to 'content' application
 class OwnerSerializer(serializers.ModelSerializer):
     """
     Serializer class for the owner of an Owned object.
@@ -18,7 +17,6 @@ class OwnerSerializer(serializers.ModelSerializer):
     class Meta:
         model = auth.User
         fields = ('id', 'username')
-
 
 
 class ContentAuthorSerializer(serializers.ModelSerializer):

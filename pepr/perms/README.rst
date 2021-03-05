@@ -40,66 +40,60 @@ Setup
 
 Inside **models.py**:
 
-```
-from django.db import models
-from pepr.perms.models import Accessible, Context
-from pepr.perms.roles import MemberRole
+.. code-block:: python
+    from django.db import models
+    from pepr.perms.models import Accessible, Context
+    from pepr.perms.roles import MemberRole
 
 
-class Dashboard(Context):
-   title = models.CharField(max_length=64)
+    class Dashboard(Context):
+       title = models.CharField(max_length=64)
 
-class Note(OwnedAccessible):
-   content = models.TextField()
-
-```
+    class Note(OwnedAccessible):
+       content = models.TextField()
 
 Simple setup:
 
-```
-# user is retrieved from view's request.user
+.. code-block:: python
+    # user is retrieved from view's request.user
 
-from django.auth.models import User
-from pepr.perms.models import Context, Accessible, Subscription
-from pepr.perms.roles import MemberRole, ModeratorRole
+    from django.auth.models import User
+    from pepr.perms.models import Context, Accessible, Subscription
+    from pepr.perms.roles import MemberRole, ModeratorRole
 
-from .models import Dashboard, Note
+    from .models import Dashboard, Note
 
-# create a context
-dashboard = Dashboard(title="my dashboard")
-dashboard.save()
+    # create a context
+    dashboard = Dashboard(title="my dashboard")
+    dashboard.save()
 
 
-# set user's subscription
-subscription = Subscription(context = dashboard,
-                            owner = user,
-                            access = MemberRole.access)
-subscription.save()
+    # set user's subscription
+    subscription = Subscription(context = dashboard,
+                                owner = user,
+                                access = MemberRole.access)
+    subscription.save()
 
-# create multiple notes with different access levels
-for i in range(0, 10):
-   note = Note(context = context
-               access = MemberRole.access if i % 2 else
-                        ModeratorRole.access,
-               content = 'this is note number {}'.format(i))
-   note.save()
-
-```
+    # create multiple notes with different access levels
+    for i in range(0, 10):
+       note = Note(context = context
+                   access = MemberRole.access if i % 2 else
+                            ModeratorRole.access,
+                   content = 'this is note number {}'.format(i))
+       note.save()
 
 Accessibles
 ...........
 
-```
-# get all notes user has access to
-notes = Notes.objects.user(user)
+.. code-block:: python
+    # get all notes user has access to
+    notes = Notes.objects.user(user)
 
-# for a given context
-notes = notes.context(dashboard)
+    # for a given context
+    notes = notes.context(dashboard)
 
-# user's role
-role = dashboard.get_role(user)
-
-```
+    # user's role
+    role = dashboard.get_role(user)
 
 
 Design considerations
@@ -125,7 +119,7 @@ good set of principle:
 
 
 Others:
-- because Context can be an Accessible, permissions related to the current Context
+- because Context is an Accessible, permissions related to the current one
 are not linked to a ``model``;
 
 

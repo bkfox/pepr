@@ -110,8 +110,7 @@ class Permission(permissions.BasePermission):
         objects, tests role ``is_granted`` for ``obj``.
         """
         from .models import Accessible, Context, Owned
-        context = cls.get_context(role, obj)
-        if context is not None and context.pk != role.context.pk:
+        if obj.context_id is not None and obj.context_id != role.context.pk:
             raise ValueError('Role and obj context are different')
 
         test_owned = cls.test_owned(role, obj)
@@ -175,6 +174,8 @@ class Permission(permissions.BasePermission):
 
 class CanAccess(Permission):
     """ Access allowed for role on object. """
+    label = 'access'
+
     @classmethod
     def can_obj(cls, role, obj):
         from .models import Accessible

@@ -9,10 +9,7 @@ from django.db import models
 from django.db.models import F, Q
 from django.utils.translation import ugettext_lazy as _
 
-from model_utils.managers import InheritanceQuerySetMixin
-
 from ..utils.iter import as_choices
-from ..utils.functional import cached_method
 from .permissions import *
 from .roles import *
 from .settings import settings
@@ -45,93 +42,68 @@ subscription_request_role_choices = access_choices(
 """ Available roles for subscription request """
 
 
-class AccessibleQuerySet(InheritanceQuerySetMixin, models.QuerySet):
-    """
-    Queryset used by the Accessible model.
-    """
+class BaseAccessibleQuerySet(models.QuerySet):
+    """ Queryset used by the Accessible model. """
     def access(self, access):
         """
         Return contexts available for this access level
         """
         return self.filter(access__lte=access)
 
-    def context(self, context):
-        """
-        Filter in elements for the given context
-        """
-        return self.filter(context=context)
-
     # We use a distinct function to get Q objet in order to allow
     # extensibility of the identity() method.
-    @classmethod
-    def get_identity_q(cls, identity):
+    def get_identity_q(self, identity, subscription_prefix=''):
         """
         Return Q object used to filter Accessible instances for the
         given identity by :func:`AccessibleQuerySet.identity`.
         """
         # special identity case
-        # FIXME: this is not extensible
         role = Context.get_special_role(identity)
         if role:
             return Q(access__lte=role.access)
 
+        subscription_prefix += 'subscription__'
         # registered identity
         return (
             # identity with registered access
-            Q(context__subscription__role__gte=F('access'),
-              context__subscription__status=Subscription.STATUS_ACCEPTED,
-              context__subscription__owner=identity) |
+            Q(**{ subscription_prefix + 'role__gte': F('access'),
+                  subscription_prefix + 'status': Subscription.STATUS_ACCEPTED,
+                  subscription_prefix + 'owner': identity }) |
             # identity with no access, but who is platform member
-            (
-                ~Q(context__subscription__status=Subscription.STATUS_ACCEPTED,
-                   context__subscription__owner=identity) &
-                Q(access__lte=DefaultRole.access)
-            )
+            (~Q(**{subscription_prefix + 'status': Subscription.STATUS_ACCEPTED,
+                   subscription_prefix + 'owner': identity}) &
+             Q(access__lte=DefaultRole.access))
         )
 
     def identity(self, identity):
-        """
-        Filter Accessible objects based on identity's role.
-        """
+        """ Return queryset of objects accessible by identity. """
         return self.filter(self.get_identity_q(identity)).distinct()
 
 
-class Accessible(models.Model):
+class BaseAccessible(models.Model):
     """
     Simple abstract class used to define basic access control
     based on access's privilege.
     """
     uuid = models.UUIDField(
         db_index=True, unique=True, primary_key=True,
-        default=None
-    )
-    context = models.ForeignKey(
-        'pepr_perms.ContextBase', on_delete=models.CASCADE,
-        # we do this because context related_name clashes
-        related_name='%(class)s'
+        default=None, blank=True
     )
     access = models.SmallIntegerField(
-        _('access'),
+        _('visibility'),
         choices=access_choices(),
-        help_text=_('People with the given access or higher would be '
-                    'able to access this element.')
+        help_text=_('Only people with at least this role can see this.')
     )
-    objects = AccessibleQuerySet.as_manager()
+    objects = BaseAccessibleQuerySet.as_manager()
 
     @property
     def is_saved(self):
         """ Return True if object has yet been saved. """
         return self.pk is not None
 
-    @cached_method
-    def get_context(self):
-        """ Return context as its real subclass. """
-        return Context.objects.get_subclass(pk=self.context_id) \
-            if self.context_id is not None else None
-
     def get_role(self, identity, force=False):
         """ Return role for identity on accessible. """
-        return self.context.get_role(identity, force)
+        raise NotImplemented('Not implemented')
 
     def save(self, *args, **kwargs):
         if self.pk is None:
@@ -142,7 +114,7 @@ class Accessible(models.Model):
         abstract = True
 
 
-class ContextQuerySet(AccessibleQuerySet):
+class ContextQuerySet(BaseAccessibleQuerySet):
     @classmethod
     def get_identities_q(cls):
         return (Q(identity_policy__isnull=False) |
@@ -187,20 +159,20 @@ class ContextQuerySet(AccessibleQuerySet):
             .first()
         return (identity, identities)
 
-    def subscription(self, identity, access=None):
-        """
-        Get contexts that identity has a subscription to (filtered by
-        ``role`` if given).
-        """
+    def subscription(self, identity, access=None, status=None):
+        """ Get contexts that identity has a subscription to. """
         if identity is None:
             return self.none()
+        qs = self
+        filters = { 'subscription_set__owner': identity }
         if access is not None:
-            return self.filter(subscription_set__owner=identity,
-                               subscription_set__access=access)
+            filters['subscription_set__access'] = access
+        if status is not None:
+            filters['subscription_set__status'] = status
         return self.filter(subscription_set__owner=identity)
 
 
-class ContextBase(Accessible):
+class Context(BaseAccessible):
     """
     Each instance of ``Context`` defines a context in which permissions,
     subscriptions and objects' access take place.
@@ -219,6 +191,7 @@ class ContextBase(Accessible):
         help_text=_('Automatically accept all subscription requests up '
                     'to this role.')
     )
+    # FIXME: subscription_default_{access,role} => some unused?
     subscription_default_access = models.SmallIntegerField(
         verbose_name=_("subscription's default access"),
         choices=subscription_role_choices,
@@ -244,8 +217,8 @@ class ContextBase(Accessible):
         blank=True, null=True, db_index=True,
         help_text=_('If user page, set to the actual user.')
     )
-    name = models.CharField(
-        _('Name'), max_length=128,
+    title = models.CharField(
+        _('Title'), max_length=128,
         blank=True, null=True
     )
 
@@ -314,12 +287,39 @@ class ContextBase(Accessible):
         return super().save(*args, **kwargs)
 
 
-# We use ContextBase as concrete model class because we'll have a clash
-# with related_name of `Accessible.context` field and Context's parent pointer.
-Context = ContextBase
-# Nullable field for Context, as it can be root.
-Context._meta.get_field('context').blank = True
-Context._meta.get_field('context').null = True
+class AccessibleQuerySet(BaseAccessibleQuerySet):
+    """
+    Queryset used by the Accessible model.
+    """
+    def context(self, context):
+        """
+        Filter in elements for the given context
+        """
+        return self.filter(context=context)
+
+    def get_identity_q(self, identity, subscription_prefix=''):
+        return super().get_identity_q(identity, subscription_prefix or
+                                        'subscription__')
+
+
+class Accessible(BaseAccessible):
+    """
+    Simple abstract class used to define basic access control
+    based on access's privilege.
+    """
+    context = models.ForeignKey(
+        Context, on_delete=models.CASCADE,
+        # we do this because context related_name clashes
+        related_name='%(class)s'
+    )
+    objects = AccessibleQuerySet.as_manager()
+
+    def get_role(self, identity, force=False):
+        """ Return role for identity on accessible. """
+        return self.context.get_role(identity, force)
+
+    class Meta:
+        abstract = True
 
 
 class OwnedQuerySet(AccessibleQuerySet):

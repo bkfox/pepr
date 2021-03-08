@@ -1,0 +1,15 @@
+{% load humanize i18n %}
+
+<div class="media">
+    <div class="media-content">
+        <div>
+            {% if object.owner %}
+            <strong>{{ object.owner.title }}</strong>
+            {% else %}
+            <strong>{% trans "Anonymous" %}</strong>
+            {% endif %}
+            <small>{{ object.modified|naturaltime }}</small>
+        </div>
+        {{ object.text }}
+    </div>
+</div>

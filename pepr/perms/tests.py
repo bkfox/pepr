@@ -9,7 +9,6 @@ from .models import Authorization, Context, Subscription
 from .roles import *
 
 
-
 class BaseCase(TestCase):
     context = None
     contents = None
@@ -28,7 +27,7 @@ class BaseCase(TestCase):
             return AdminRole
 
         role = next(filter(lambda r: r.name == user.username,
-                           default_roles)
+                           default_roles))
 
         role = role if role.access >= MemberRole.access else \
                DefaultRole

@@ -2,9 +2,11 @@ from django.core.exceptions import ImproperlyConfigured
 from django.template import loader
 from django.views.generic.base import ContextMixin, TemplateResponseMixin
 
+from ..perms.assets import roles as roles_info
 from ..perms.models import Accessible
 from ..perms.mixins import PermissionMixin
 from ..perms.settings import settings
+from .forms import ContentForm
 
 
 __all__ = ('Component',)
@@ -74,5 +76,64 @@ class Component(TemplateResponseMixin, ContextMixin, PermissionMixin):
             kwargs.setdefault('role', role)
             kwargs.setdefault('roles', settings.roles)
         return super().get_context_data(**kwargs)
+
+
+class FormComp(Component):
+    """ Component rendering a form """
+    form_class = None
+    """ form class to use """
+    form_kwargs = None
+    """ form kwargs to use """
+
+    def get_form_class(self, **kwargs):
+        """ Return form class """
+        return self.form_class
+
+    def get_form_kwargs(self, role, obj=None, **kwargs):
+        """ Return form init kwargs. """
+        kwargs = self.form_kwargs or {}
+
+        if role:
+            kwargs.setdefault('role', role)
+
+        if obj:
+            kwargs.setdefault('instance', obj)
+        elif role:
+            initial = kwargs.setdefault('initial', {})
+            initial.setdefault('context', role.context.uuid)
+            initial.setdefault('access', role.context.access)
+        return kwargs
+
+    def get_form(self, **kwargs):
+        """ Return form instance """
+        form_class = self.get_form_class(**kwargs)
+        form_kwargs = self.get_form_kwargs(**kwargs)
+        form = form_class(**form_kwargs)
+        return form
+
+    def get_context_data(self, **kwargs):
+        if 'form' not in kwargs:
+            kwargs['form'] = self.get_form(**kwargs)
+        kwargs.setdefault('model', kwargs['form']._meta.model)
+        return super().get_context_data(**kwargs)
+
+    def __init__(self, form_class=None, form_kwargs=None, **kwargs):
+        if form_class is not None:
+            self.form_class = form_class
+        if form_kwargs is not None:
+            self.form_kwargs = form_kwargs
+        super().__init__(**kwargs)
+
+
+class AccessibleFormComp(FormComp):
+    def get_context_data(self, roles=None, **kwargs):
+        if roles is None:
+            roles = roles_info()
+        return super().get_context_data(roles=roles, **kwargs)
+
+
+class ContentFormComp(AccessibleFormComp):
+    form_class = ContentForm
+    template_name = 'pepr/content/content_form.html'
 
 

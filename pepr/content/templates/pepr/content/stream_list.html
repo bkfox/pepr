@@ -1,0 +1,22 @@
+{% extends "pepr/content/service.html" %}
+{% load i18n pepr_perms pepr_content %}
+
+{% block service %}
+{% if create_form %}
+<div class="">
+    {% component create_form role %}
+</div>
+{% endif %}
+<div class="content-list">
+    {% for obj in object_list %}
+    <div id="content-{{ obj.pk }}">
+        {% with preview=True %}
+        {% component obj.as_component role %}
+        {% endwith %}
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}
+
+

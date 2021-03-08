@@ -1,0 +1,36 @@
+{
+  "name": "pepr-assets",
+  "version": "0.0.0",
+  "description": "Assets for Pepr",
+  "main": "assets/index.js",
+  "author": "bkfox",
+  "license": "AGPL",
+  "devDependencies": {
+    "@vue/compiler-sfc": "^3.0.7",
+    "css-loader": "^2.1.1",
+    "extract-text-webpack-plugin": "^4.0.0-beta.0",
+    "file-loader": "^3.0.1",
+    "lodash": "^4.17.15",
+    "mini-css-extract-plugin": "^0.5.0",
+    "node-sass": "^4.14.1",
+    "sass": "^1.32.8",
+    "sass-loader": "^7.3.1",
+    "style-loader": "^0.23.1",
+    "ttf-loader": "^1.0.2",
+    "vue-loader": "^16.1.2",
+    "webpack": "^4.46.0",
+    "webpack-cli": "^3.3.11"
+  },
+  "dependencies": {
+    "@mdi/font": "^5.9.55",
+    "@vuex-orm/core": "^0.36.3",
+    "@vuex-orm/plugin-axios": "^0.9.4",
+    "buefy": "^0.9.4",
+    "bulma": "^0.9.2",
+    "vue": "^3.0.7",
+    "vuex": "^3.6.2"
+  },
+  "scripts": {
+    "build": "webpack --config webpack.config.js"
+  }
+}

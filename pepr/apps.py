@@ -1,19 +1,27 @@
 import importlib
+import os
 
 from django.apps import apps, AppConfig
 from django.utils.functional import cached_property
 from django.urls import path, include
 
 
-__all__ = ('discover_urls', 'discover_consumers', 'PeprAppConfig')
+__all__ = ('discover_apps', 'discover_urls', 'discover_consumers',
+           'PeprAppConfig')
+
+
+def discover_apps():
+    """ Get assets from all registered PeprAppConfig. """
+    return (app for app in apps.get_app_configs()
+            if isinstance(app, PeprAppConfig))
 
 
 def discover_urls(api_prefix='api/'):
     """ Get url patterns from all registered PeprAppConfig. """
     urls, api_urls = [], []
 
-    for app in apps.get_app_configs():
-        if isinstance(app, PeprAppConfig) and app.discover_urls:
+    for app in discover_apps():
+        if app.discover_urls:
             if app.urls:
                 urls.append(app.urls)
             if app.api_urls:
@@ -25,9 +33,8 @@ def discover_urls(api_prefix='api/'):
 def discover_consumers():
     """ Get consumers from all registered PeprAppConfig. """
     consumers = {}
-    for app in apps.get_app_configs():
-        if isinstance(app, PeprAppConfig) and app.discover_consumers and \
-                app.consumers:
+    for app in discover_apps():
+        if app.discover_consumers and app.consumers:
             consumers.update(app.consumers)
     return consumers
 
@@ -41,9 +48,18 @@ class PeprAppConfig(AppConfig):
     discover_urls = True
     discover_consumers = True
     discover_assets = True
+    """ Relative path to assets index. """
+    url_prefix = ''
+    """ Prefix to urls and api_urls. """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.url_prefix:
+            self.url_prefix = self.label
 
     @cached_property
     def urls_module(self):
+        """ Return application's ``urls`` module. """
         return self.get_module('urls')
 
     @cached_property
@@ -52,8 +68,8 @@ class PeprAppConfig(AppConfig):
         Url patterns as Django's ``path(self.label + '/')``, or None.
         Taken from ``app.urls.urlpatterns``.
         """
-        urls = getattr(self.urls_module, 'urlpatterns', None)
-        return path(self.label + '/', include(urls)) if urls else None
+        urls = getattr(self.urls_module, 'urls', None)
+        return path(self.url_prefix + '/', include(urls)) if urls else None
 
     @cached_property
     def api_urls(self):
@@ -61,8 +77,8 @@ class PeprAppConfig(AppConfig):
         Api url patterns as Django's ``path(self.label + '/')``, or None.
         Taken from ``app.urls.api_urlpatterns``.
         """
-        urls = getattr(self.urls_module, 'api_urlpatterns', None)
-        return path(self.label + '/', include(urls)) if urls else None
+        urls = getattr(self.urls_module, 'api_urls', None)
+        return path(self.url_prefix + '/', include(urls)) if urls else None
 
     @cached_property
     def consumers(self):

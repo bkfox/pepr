@@ -3,27 +3,33 @@ from django.contrib.auth import models as auth
 from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 
+from model_utils.managers import InheritanceQuerySetMixin
 from model_utils.models import TimeStampedModel
 from rest_framework.reverse import reverse
+
 
 from ..perms.models import Context, Accessible, Owned, OwnedQuerySet
 
 
-__all__ = ('Container', 'ContentQuerySet', 'Content')
+__all__ = ('Container', 'ContentQuerySet', 'Content', 'Service', 'StreamService')
 
 
+# TODO:
+# - Container
+#   - unique slug generation
+#   - 
 class Container(Context):
     """ Context on which content can be published. """
     slug = models.SlugField(
-        _('slug'),
+        _('Slug name'),
         null=True, blank=True,
         max_length=64,
         unique=True,
-        help_text=_('Used in url')
+        help_text=_('Used to generate the url of the page')
     )
     # TODO: image & cover
     description = models.TextField(
-        _('description'),
+        _('Description'),
         blank=True, null=True,
         max_length=256,
     )
@@ -34,15 +40,15 @@ class Container(Context):
 
     def save(self, *args, **kwargs):
         if not self.slug:
-            self.slug = slugify(self.name)
+            self.slug = slugify(self.title)
         return super().save(*args, **kwargs)
 
 
-class ContentQuerySet(OwnedQuerySet):
-    def _get_user_q(self, user):
+class ContentQuerySet(InheritanceQuerySetMixin, OwnedQuerySet):
+    def get_identity_q(self, user):
         if not user.is_anonymous:
-            return super()._get_user_q(user) | models.Q(modifier=user)
-        return super()._get_user_q(user)
+            return super().get_identity_q(user) | models.Q(modifier=user)
+        return super().get_identity_q(user)
 
 
 class Content(Owned, TimeStampedModel):
@@ -111,4 +117,17 @@ class Content(Owned, TimeStampedModel):
             self.modifier = role.identity
 
 
+class Service(Accessible):
+    """
+    Service offers end-user level application at context level.
+    """
+    title = models.CharField(_('Title'), max_length=128, blank=True, null=True)
+    enabled = models.BooleanField(_('Enabled'), default=True)
+
+    class Meta:
+        abstract = True
+
+
+class StreamService(Service):
+    pass
 

@@ -56,6 +56,8 @@ class AccessibleViewSet(AccessibleViewMixin, viewsets.ModelViewSet):
         role = serializer.instance.get_role(self.request.identity)
         self.can_obj(role, serializer.instance, 'update', throws=True)
 
+    def get_permissions(self, action):
+        return self.get_action_permissions(action)
 
 class OwnedViewSet(AccessibleViewSet):
     serializer_class = OwnedSerializer

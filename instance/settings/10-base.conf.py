@@ -12,9 +12,9 @@ INSTALLED_APPS = [
     # 'pepr.bootstrap',
     # 'pepr.users',
     # 'pepr.api',
+    'pepr',
     'pepr.perms',
-    # 'pepr.ui',
-    # 'pepr.content',
+    'pepr.content',
 
     # FIXME: put them in their respective files
     'rest_framework',

@@ -92,14 +92,16 @@ class Role:
         return self.access > access if strict else \
                self.access >= access
 
-    def is_granted(self, perm, model):
+    def is_granted(self, perm, model=None):
         """ Return wether permission is granted for the given model.  """
+        if self.is_admin:
+            return True
         permissions = self.permissions
-        for m in (model, None):
-            test = permissions.get(self.perm_key(perm, m), None)
+        if model:
+            test = permissions.get(self.perm_key(perm, model), None)
             if test is not None:
                 return test
-        return False
+        return permissions.get(self.perm_key(perm), False)
 
     @classmethod
     def register(cls, model, granted, *perms):
@@ -123,9 +125,9 @@ class Role:
         from .permissions import Permission
         perm = perm.label if isinstance(perm, Permission) else perm
         if model:
-            model = model._meta.db_table
+            model = model if isinstance(model, str) else model._meta.db_table
             return f'{perm.label}.{model}'
-        return perm.label
+        return perm
 
     def __init__(self, context, identity, subscription=None):
         self.context = context

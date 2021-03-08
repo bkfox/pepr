@@ -1,11 +1,13 @@
 from django.core.exceptions import PermissionDenied
+from django.http import Http404
 
 from rest_framework import exceptions
 from rest_framework.views import APIView
 
-from ..api.mixins import SingleObjectMixin
+from .assets import roles
 from .settings import settings
 from .permissions import CanAccess, CanCreate, CanUpdate, CanDestroy
+from .models import Context
 
 # TODO:
 # - use role instead of identity: check if it is okay for all mixins
@@ -98,26 +100,33 @@ class PermissionViewMixin(PermissionMixin):
     - ``role``: current user's role;
     - ``roles``: all available roles
     """
+    context_class = Context
     role = None
 
-    @property
-    def object(self):
-        return getattr(self, '_object', None)
+    def get_context_queryset(self):
+        """ Return context queryset """
+        return self.context_class.objects.identity(self.request.identity)
 
-    @object.setter
-    def object(self, obj):
-        setattr(self, '_object', obj)
-        self.role = obj.get_role(self.request.identity)
-
-    def get_permissions(self):
-        return self.get_action_permissions(self.action)
+    def get_context(self, context_pk=None, context_slug=None, **kwargs):
+        """ Return context from pk or slug in dispatch kwargs. """
+        qs = self.get_context_queryset()
+        if context_pk:
+            return qs.get(pk=context_pk)
+        if context_slug:
+            return qs.get(slug=context_slug)
+        raise Http404('not found')
 
     def get_context_data(self, **kwargs):
         """ Ensure 'role' and 'roles' are in resulting context """
         kwargs.setdefault('role', self.role)
-        # kwargs.setdefault('role', self.identity)
-        kwargs.setdefault('roles', settings.roles)
+        kwargs.setdefault('roles', roles() )
         return super().get_context_data(**kwargs)
+
+    def dispatch(self, request, *args, **kwargs):
+        context = self.get_context(**kwargs)
+        self.role = context and context.get_role(request.identity)
+        # FIXME self.can(self.role, request.method)
+        return super().dispatch(request, *args, **kwargs)
 
 
 class ContextViewMixin(PermissionViewMixin):
@@ -136,16 +145,4 @@ class AccessibleViewMixin(PermissionViewMixin):
         if self.role and self.role.context:
             qs = qs.filter(context=self.role.context)
         return qs
-
-
-# FIXME: get role?
-class AccessibleConsumerMixin(SingleObjectMixin, PermissionMixin):
-    """ Consumer mixin handling Accessible objects permission check. """
-    def get_queryset(self, request):
-        return super().get_queryset(request).identity(request.identity)
-
-    def get_object(self, request):
-        obj = super().get_object(request)
-        self.check_object_permissions(request, obj)
-        return obj
 

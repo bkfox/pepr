@@ -2,6 +2,7 @@
 
 <div class="media">
     <div class="media-content">
+        {% block header %}
         <div>
             {% if object.owner %}
             <strong>{{ object.owner.title }}</strong>
@@ -10,6 +11,8 @@
             {% endif %}
             <small>{{ object.modified|naturaltime }}</small>
         </div>
-        {{ object.text }}
+        {% endblock %}
+        <div>{% block content %}{{ object.text }}{% endblock %}</div>
+        <div>{% block footer %}{% endblock %}</div>
     </div>
 </div>

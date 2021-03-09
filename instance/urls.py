@@ -5,8 +5,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path
 
-# from pepr.api.views import ApiConstsView
-from pepr.apps import discover_urls
+from pepr.core.apps import discover_urls
 
 urlpatterns = discover_urls() + [
     path('admin/', admin.site.urls),

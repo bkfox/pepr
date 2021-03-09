@@ -9,14 +9,9 @@ except NameError: DEBUG = True
 ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
-    # 'pepr.bootstrap',
-    # 'pepr.users',
-    # 'pepr.api',
-    'pepr',
-    'pepr.perms',
+    'pepr.core',
     'pepr.content',
 
-    # FIXME: put them in their respective files
     'rest_framework',
     'django_filters',
     'channels',
@@ -39,7 +34,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
-    'pepr.perms.middleware.IdentityMiddleware',
+    'pepr.core.middleware.IdentityMiddleware',
 ]
 
 ROOT_URLCONF = 'instance.urls'
@@ -93,4 +88,5 @@ USE_TZ = True
 STATIC_URL = '/static/'
 MEDIA_ROOT = BASE_DIR + '/media/'
 MEDIA_URL = '/media/'
+
 

@@ -2,45 +2,31 @@ from django.contrib.auth import models as auth
 
 from rest_framework import serializers
 
-from ..perms.serializers import ContextSerializer, OwnedSerializer
+from ..core.serializers import ContextSerializer, OwnedSerializer
 
 from .models import Container, Content
 
-__all__ = ('ContentAuthorSerializer', 'ContentSerializer',
-           'ContainerSerializer', )
+__all__ = ('ContainerSerializer', 'ContentSerializer')
 
 
-class OwnerSerializer(serializers.ModelSerializer):
-    """
-    Serializer class for the owner of an Owned object.
-    """
+class ContainerSerializer(ContextSerializer):
     class Meta:
-        model = auth.User
-        fields = ('id', 'username')
-
-
-class ContentAuthorSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = auth.User
-        fields = ('id', 'username')
+        model = Container
+        fields = ContextSerializer.Meta.fields + ('description',)
 
 
 class ContentSerializer(OwnedSerializer):
     html = serializers.SerializerMethodField(required=False)
     # owner = serializers.HyperlinkedIdentityField(view_name = 'user')
-    modifier = ContentAuthorSerializer(required=False)
+    # modifier = ContentAuthorSerializer(required=False)
 
     class Meta:
         model = Content
         fields = (
-            'pk', 'id',
-            'created', 'owner',
-            'modified', 'modifier',
-            'context', 'text',
-            'access',
-            'html', 'meta'
+            'id', 'created', 'owner', 'modified', 'modifier',
+            'access', 'context', 'text', 'html', 'meta'
         )
-        read_only_fields = ('pk', 'created', 'owner',
+        read_only_fields = ('id', 'created', 'owner',
                             'modified', 'modifier')
 
     def __init__(self, *args, render=True, **kwargs):
@@ -57,11 +43,5 @@ class ContentSerializer(OwnedSerializer):
     #       TODO: enforce at a Permission level
     def before_change(self, role, instance, validated):
         validated['access'] = min(role.access, validated['access'])
-
-
-class ContainerSerializer(ContextSerializer):
-    class Meta:
-        model = Container
-        fields = ContextSerializer.Meta.fields + ('name', 'description')
 
 

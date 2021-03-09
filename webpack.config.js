@@ -9,13 +9,13 @@ const { VueLoaderPlugin } = require('vue-loader');
 module.exports = (env, argv) => Object({
     context: __dirname,
     entry: {
-        // vendor: './assets/pepr/vendor',
-        pepr: './assets/pepr/index',
-        // content: './assets/content/index',
+        core: './assets/core',
+        content: './assets/content',
+        content_stream: './assets/content/stream',
     },
 
     output: {
-        path: path.resolve('pepr/static/pepr'),
+        path: path.resolve('pepr/core/static/pepr/'),
         filename: '[name].js',
         chunkFilename: '[name].js',
     },
@@ -86,10 +86,10 @@ module.exports = (env, argv) => Object({
 
     resolve: {
         alias: {
+            pepr: path.resolve('./assets/'),
             vue: 'vue/dist/vue.esm-browser.js',
         },
         modules: [
-            './assets',
             './node_modules',
         ],
         extensions: ['.js', '.vue', '.css', '.scss', '.styl', '.ttf']

@@ -2,10 +2,10 @@ from django.core.exceptions import ImproperlyConfigured
 from django.template import loader
 from django.views.generic.base import ContextMixin, TemplateResponseMixin
 
-from ..perms.assets import roles as roles_info
-from ..perms.models import Accessible
-from ..perms.mixins import PermissionMixin
-from ..perms.settings import settings
+from ..core.assets import roles as roles_info
+from ..core.models import Accessible
+from ..core.mixins import PermissionMixin
+from ..core.settings import settings
 from .forms import ContentForm
 
 
@@ -36,15 +36,15 @@ class Component(TemplateResponseMixin, ContextMixin, PermissionMixin):
                                  k, type(self).__name__))
             setattr(self, k, v)
 
-    def get_object(self, obj=None):
+    def get_object(self, object=None):
         """
         Return given object or self.object
         """
-        return self.object if obj is None else obj
+        return self.object if object is None else object
 
-    def render(self, role=None, obj=None, **kwargs):
+    def render(self, role=None, object=None, **kwargs):
         """ Render Component into a string and return it.  """
-        obj = self.get_object(obj)
+        obj = self.get_object(object)
         if (isinstance(obj, Accessible) and \
                 (not role or not self.can_obj(role, obj))) or \
                 (obj is None and role and not self.can(role)):
@@ -89,15 +89,15 @@ class FormComp(Component):
         """ Return form class """
         return self.form_class
 
-    def get_form_kwargs(self, role, obj=None, **kwargs):
+    def get_form_kwargs(self, role, object=None, **kwargs):
         """ Return form init kwargs. """
         kwargs = self.form_kwargs or {}
 
         if role:
             kwargs.setdefault('role', role)
 
-        if obj:
-            kwargs.setdefault('instance', obj)
+        if object:
+            kwargs.setdefault('instance', object)
         elif role:
             initial = kwargs.setdefault('initial', {})
             initial.setdefault('context', role.context.uuid)

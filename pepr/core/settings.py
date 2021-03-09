@@ -5,6 +5,7 @@ from importlib import import_module
 import glob
 import os.path
 
+from .roles import Role, default_roles
 
 __all__ = ('load_conf', 'Settings')
 
@@ -37,8 +38,8 @@ class Settings:
         if default_config:
             self.set_config(default_config)
 
-        if key and hasattr(settings, key):
-            config = getattr(settings, key)
+        if key and hasattr(self, key):
+            config = getattr(self, key)
             self.set_config(config)
 
     def set_config(self, config):
@@ -65,4 +66,23 @@ class Settings:
             raise ValueError(f'"{key}" not found in module "{path}"')
         return getattr(module, key)
 
+
+class PeprCoreSettings(Settings):
+    """
+    Settings for Pepr Core application.
+    """
+    roles = {}
+    """ Roles used by Django project. """
+
+    def validate(self, config):
+        if 'roles' in config:
+            # TODO: check on anonymous and admin role
+            roles = (role if issubclass(role, Role) else self.import_item(role)
+                     for role in config['roles'])
+            config['roles'] = { role.access: role for role in roles }
+        return config
+
+settings = PeprCoreSettings('PEPR', {
+    'roles': default_roles
+})
 

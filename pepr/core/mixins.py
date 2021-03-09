@@ -9,13 +9,37 @@ from .settings import settings
 from .permissions import CanAccess, CanCreate, CanUpdate, CanDestroy
 from .models import Context
 
-# TODO:
-# - use role instead of identity: check if it is okay for all mixins
-# - identity is passed by role: check if it is okay for all cases (should be as i am smart)
-# - content
-#   - components.Component: get_context_data, make it beautitful and simple (kwargs)
-#   - components.Components: check if accessible, then perm check
-#   - render html in serializer
+
+__all__ = ('BaseViewMixin', 'PermissionMixin', 'PermissionViewMixin',
+           'AccessibleViewMixin', 'ContextViewMixin')
+
+
+class BaseViewMixin:
+    """
+    Base mixin for views.
+
+    View can have a Media subclass
+    """
+    template_base = 'pepr/base.html'
+    template_embed = 'pepr/base_embed.html'
+
+    class Assets:
+        """ Assets to include in rendered view """
+        css = []
+        js = []
+
+    def get_media(self):
+        return self.Media()
+
+    def get_context_data(self, **kwargs):
+        if not kwargs.get('template_base'):
+            if kwargs.pop('embed', None) or self.request.GET.get('embed'):
+                kwargs['template_base'] = self.template_embed
+            else:
+                kwargs['template_base'] = self.template_base
+        if not kwargs.get('assets'):
+            kwargs['assets'] = self.get_assets()
+        return super().get_context_data(**kwargs)
 
 
 class PermissionMixin:
@@ -103,18 +127,20 @@ class PermissionViewMixin(PermissionMixin):
     context_class = Context
     role = None
 
+    def get_permissions(self):
+        return self.get_action_permissions(self.action)
+
     def get_context_queryset(self):
         """ Return context queryset """
         return self.context_class.objects.identity(self.request.identity)
 
     def get_context(self, context_pk=None, context_slug=None, **kwargs):
         """ Return context from pk or slug in dispatch kwargs. """
-        qs = self.get_context_queryset()
         if context_pk:
-            return qs.get(pk=context_pk)
+            return self.get_context_queryset().get(pk=context_pk)
         if context_slug:
-            return qs.get(slug=context_slug)
-        raise Http404('not found')
+            return self.get_context_queryset().get(slug=context_slug)
+        return None
 
     def get_context_data(self, **kwargs):
         """ Ensure 'role' and 'roles' are in resulting context """
@@ -124,25 +150,35 @@ class PermissionViewMixin(PermissionMixin):
 
     def dispatch(self, request, *args, **kwargs):
         context = self.get_context(**kwargs)
-        self.role = context and context.get_role(request.identity)
+        if context:
+            self.role = context.get_role(request.identity)
         # FIXME self.can(self.role, request.method)
         return super().dispatch(request, *args, **kwargs)
 
 
-class ContextViewMixin(PermissionViewMixin):
-    """ View mixin for views that work with a single Context. """
+class ContextViewMixin(PermissionMixin):
+    """
+    Mixin handling Accessible objects permission check. Can work with
+    PermissionViewMixin
+    """
     def get_queryset(self):
-        model = getattr(self, 'model', None)
-        if not model:
-            model = self.get_serializer_class().Meta.model
-        return model.objects.all()
-
-
-class AccessibleViewMixin(PermissionViewMixin):
-    """ View mixin handling Accessible objects permission check. """
-    def get_queryset(self):
-        qs = self.model.objects.identity(self.request.identity)
-        if self.role and self.role.context:
-            qs = qs.filter(context=self.role.context)
+        qs = super().get_queryset().identity(self.request.identity)
+        role = getattr(self, 'role', None)
+        if role and role.context:
+            qs = qs.filter(context=role.context)
         return qs
+
+
+class AccessibleViewMixin(PermissionMixin):
+    """
+    Mixin handling Accessible objects permission check. Can work with
+    PermissionViewMixin
+    """
+    def get_queryset(self):
+        qs = super().get_queryset().identity(self.request.identity)
+        role = getattr(self, 'role', None)
+        if role and role.context:
+            qs = qs.filter(context=role.context)
+        return qs
+
 

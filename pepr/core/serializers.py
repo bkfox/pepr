@@ -19,6 +19,7 @@ __all__ = (
 
 class BaseSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField(read_only=True)
+    """ API url to object """
     meta = serializers.SerializerMethodField()
 
     identity = None
@@ -72,11 +73,65 @@ class BaseSerializer(serializers.ModelSerializer):
         }
 
 
-class AccessibleSerializer(BaseSerializer):
-    context_id = serializers.HyperlinkedRelatedField(
-        view_name='context-detail', read_only=True
+class ContextSerializer(BaseSerializer):
+    """ Serializer for Context.  """
+    role = serializers.SerializerMethodField(
+        method_name='get_identity_role',
+    )
+    subscription = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Context
+        fields = BaseSerializer.Meta.fields + (
+            'allow_subscription_request',
+            'subscription_default_role',
+            'subscription_accept_role',
+            'subscription_default_access',
+            'role', 'subscription'
+            'title'
+        )
+
+    view_name = 'context-detail'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # field = self.fields['subscription']
+        # field.user, field.role = self.user, self.role
+
+    def get_subscription(self, obj):
+        role = obj.get_role(self.identity)
+        if not role or not role.subscription:
+            return
+
+        viewset = self.context.get('view')
+        viewset = viewset and viewset.subscription_viewset_class
+        # actions = viewset and viewset.get_api_actions(role, role.subscription)
+        return SubscriptionSerializer(
+            identity=self.identity, instance=role.subscription, context=self.context,
+            # api_actions=actions
+        ).data
+
+    def get_identity_role(self, obj):
+        request = self.context.get('request')
+        if not request:
+            return None
+
+        role = obj.get_role(request.identity)
+        return RoleSerializer(instance=role, context=self.context).data
+
+
+class RoleSerializer(serializers.Serializer):
+    """ Serializer for role. """
+    access = serializers.IntegerField()
+    is_anonymous = serializers.BooleanField()
+    is_subscribed = serializers.BooleanField()
+    is_admin = serializers.BooleanField()
+    identity = serializers.PrimaryKeyRelatedField(
+        queryset=Context.objects.identities(),
     )
 
+
+class AccessibleSerializer(BaseSerializer):
     class Meta:
         fields = BaseSerializer.Meta.fields + ('context', 'access')
         read_only_fields = BaseSerializer.Meta.read_only_fields
@@ -128,7 +183,7 @@ class SubscriptionSerializer(OwnedSerializer):
     """ Serializer class for Subscription instances. """
     class Meta:
         model = Subscription
-        fields = OwnedSerializer.Meta.fields + ('status', 'access', 'role')
+        fields = OwnedSerializer.Meta.fields + ('access', 'role')
         read_only_fields = OwnedSerializer.Meta.read_only_fields
 
     def __init__(self, *args, **kwargs):
@@ -205,62 +260,5 @@ class SubscriptionSerializer(OwnedSerializer):
         elif role.is_subscribed:
             return self.validate_invite(role, data)
         return self.validate_request(role, data)
-
-
-class RoleSerializer(serializers.Serializer):
-    """ Serializer for role. """
-    access = serializers.IntegerField()
-    is_anonymous = serializers.BooleanField()
-    is_subscribed = serializers.BooleanField()
-    is_admin = serializers.BooleanField()
-    identity = serializers.PrimaryKeyRelatedField(
-        queryset=Context.objects.identities(),
-    )
-
-
-class ContextSerializer(BaseSerializer):
-    """ Serializer for Context.  """
-    role = serializers.SerializerMethodField(
-        method_name='get_identity_role',
-    )
-    subscription = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Context
-        fields = BaseSerializer.Meta.fields + (
-            'allow_subscription_request',
-            'subscription_default_role',
-            'subscription_accept_role',
-            'subscription_default_access',
-            'role', 'subscription'
-        )
-
-    view_name = 'context-detail'
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # field = self.fields['subscription']
-        # field.user, field.role = self.user, self.role
-
-    def get_subscription(self, obj):
-        role = obj.get_role(self.identity)
-        if not role or not role.subscription:
-            return
-
-        viewset = self.context.get('view')
-        viewset = viewset and viewset.subscription_viewset_class
-        # actions = viewset and viewset.get_api_actions(role, role.subscription)
-        return SubscriptionSerializer(
-            identity=self.identity, instance=role.subscription, context=self.context,
-            # api_actions=actions
-        ).data
-
-    def get_identity_role(self, obj):
-        request = self.context.get('request')
-        if not request:
-            return None
-
-        role = obj.get_role(request.identity)
-        return RoleSerializer(instance=role, context=self.context).data
 
 

@@ -7,15 +7,15 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .mixins import ContextViewMixin, AccessibleViewMixin
+from .mixins import AccessibleViewMixin, ContextViewMixin
 from .models import Subscription
 from .permissions import *
 from .serializers import AccessibleSerializer, OwnedSerializer, \
         ContextSerializer, SubscriptionSerializer
 
 
-__all__ = ['ContextViewSet', 'AccessibleViewSet', 'OwnedViewSet',
-           'SubscriptionViewSet']
+__all__ = ('AccessibleViewSet', 'OwnedViewSet', 'SubscriptionViewSet',
+           'ContextViewSet')
 
 
 class AccessibleViewSet(AccessibleViewMixin, viewsets.ModelViewSet):
@@ -56,8 +56,6 @@ class AccessibleViewSet(AccessibleViewMixin, viewsets.ModelViewSet):
         role = serializer.instance.get_role(self.request.identity)
         self.can_obj(role, serializer.instance, 'update', throws=True)
 
-    def get_permissions(self, action):
-        return self.get_action_permissions(action)
 
 class OwnedViewSet(AccessibleViewSet):
     serializer_class = OwnedSerializer
@@ -116,4 +114,5 @@ class ContextViewSet(ContextViewMixin, viewsets.ModelViewSet):
     def get_serializer(self, *args, **kwargs):
         kwargs.setdefault('identity', self.request.identity)
         return super().get_serializer(*args, **kwargs)
+
 

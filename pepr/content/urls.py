@@ -1,9 +1,15 @@
 from django.urls import path, include
-from .views import StreamServiceView, StreamServiceDetailView
+from rest_framework.routers import DefaultRouter
 
+from . import views, viewsets
+
+router = DefaultRouter()
+router.register('content', viewsets.ContentViewSet, basename='content')
+
+api_urls = router.urls
 
 services_urls = [
-    path('stream', StreamServiceView.as_view()),
+    path('stream', views.StreamServiceView.as_view()),
 ]
 
 urls = [

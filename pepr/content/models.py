@@ -8,7 +8,7 @@ from model_utils.models import TimeStampedModel
 from rest_framework.reverse import reverse
 
 
-from ..perms.models import Context, Accessible, Owned, OwnedQuerySet
+from ..core.models import Context, Accessible, Owned, OwnedQuerySet
 
 
 __all__ = ('Container', 'ContentQuerySet', 'Content', 'Service', 'StreamService')
@@ -45,17 +45,17 @@ class Container(Context):
 
 
 class ContentQuerySet(InheritanceQuerySetMixin, OwnedQuerySet):
-    def get_identity_q(self, user):
-        if not user.is_anonymous:
-            return super().get_identity_q(user) | models.Q(modifier=user)
-        return super().get_identity_q(user)
+    def get_identity_q(self, identity):
+        if identity:
+            return super().get_identity_q(identity) | models.Q(modifier=identity)
+        return super().get_identity_q(identity)
 
 
 class Content(Owned, TimeStampedModel):
     """ Content published by users. """
     # modifier read-only field
     modifier = models.ForeignKey(
-        auth.User,
+        Context,
         on_delete=models.SET_NULL,
         verbose_name=_('modified by'),
         null=True, blank=True,
@@ -65,7 +65,6 @@ class Content(Owned, TimeStampedModel):
         verbose_name=_('text'),
         null=True, blank=True,
     )
-    # TODO: text format: raw, markdown, wisiwyg
 
     objects = ContentQuerySet.as_manager()
 
@@ -74,6 +73,7 @@ class Content(Owned, TimeStampedModel):
 
     api_basename = 'content'
     template_name = 'pepr/content/content.html'
+    form_template_name = 'pepr/content/content_form.html'
 
     def get_api_url(self, url_name='', *args, **kwargs):
         """ Reverse api url for this model """
@@ -94,10 +94,25 @@ class Content(Owned, TimeStampedModel):
         from .components import Component
         return Component
 
-    def as_component(self):
+    def as_component(self, component_class=None, **kwargs):
         """ Return component rendering content instance. """
-        return self.get_component_class()(template_name=self.template_name,
-                                          object=self)
+        comp_class = component_class or self.get_component_class()
+        kwargs.setdefault('template_name', self.template_name)
+        kwargs.setdefault('object', self)
+        return comp_class(template_name=self.template_name, object=self)
+
+    def get_component_form_class(self):
+        from .components import ContentFormComp
+        return ContentFormComp
+
+    def as_component_form(self, **kwargs):
+        """ Return component rendering content instance. """
+        if not 'component_class' in kwargs:
+            kwargs['component_class'] = self.get_component_form_class()
+        if not 'template_name' in kwargs:
+            kwargs['template_name'] = self.form_template_name
+        return self.as_component(**kwargs)
+
 
     @classmethod
     def get_serializer_class(cl):

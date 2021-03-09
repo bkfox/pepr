@@ -1,7 +1,7 @@
 from enum import IntEnum
 import os
 
-from pepr.settings import load_conf
+from pepr.core.settings import load_conf
 
 class Mode(IntEnum):
     Testing = 0x00

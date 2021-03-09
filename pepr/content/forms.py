@@ -1,6 +1,6 @@
 from django import forms
 
-from ..perms.forms import OwnedForm
+from ..core.forms import OwnedForm
 from .models import Content, Container
 
 

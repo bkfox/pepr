@@ -1,11 +1,17 @@
-import Vue from 'vue';
+import App from 'pepr/core/app'
 
-appBuilder = new AppBuilder({
-    
-});
+import * as models from './models'
 
-appBuilder.load({async:true}).then(app => {
+const config = {
+    props: {
+        apiUrl: { type: String, default: '/api/' },
+    },
+}
+const app = new App(config, {models});
+
+app.load({async:true}).then(app => {
     window.app = app;
 })
 
+export default app;
 

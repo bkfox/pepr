@@ -110,3 +110,8 @@ class PeprAppConfig(AppConfig):
             if importlib.util.find_spec(name) else None
 
 
+class PeprCoreConfig(PeprAppConfig):
+    name = 'pepr.core'
+    label = 'pepr_core'
+    url_prefix = 'pepr/core'
+

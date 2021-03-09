@@ -191,12 +191,11 @@ class Context(BaseAccessible):
         help_text=_('Automatically accept all subscription requests up '
                     'to this role.')
     )
-    # FIXME: subscription_default_{access,role} => some unused?
     subscription_default_access = models.SmallIntegerField(
-        verbose_name=_("subscription's default access"),
+        verbose_name=_("subscription's default visibility"),
         choices=subscription_role_choices,
         default=MemberRole.access,
-        help_text=_("Default access for users' subscriptions."),
+        help_text=_("Default visibility for users' subscriptions."),
     )
     subscription_default_role = models.SmallIntegerField(
         verbose_name=_("subscription's default role"),
@@ -231,8 +230,6 @@ class Context(BaseAccessible):
     """
     objects = ContextQuerySet.as_manager()
 
-    class Meta:
-        db_table = 'pepr_perms_context'
 
     @staticmethod
     def get_special_role(identity):
@@ -299,7 +296,7 @@ class AccessibleQuerySet(BaseAccessibleQuerySet):
 
     def get_identity_q(self, identity, subscription_prefix=''):
         return super().get_identity_q(identity, subscription_prefix or
-                                        'subscription__')
+                                        'context__')
 
 
 class Accessible(BaseAccessible):

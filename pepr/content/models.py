@@ -124,6 +124,10 @@ class Content(Owned, TimeStampedModel):
         from .serializers import ContentSerializer
         return ContentSerializer
 
+    def get_serializer(self, serializer_class=None, **kwargs):
+        ser_class = serializer_class or self.get_serializer_class()
+        return ser_class(self, **kwargs)
+
     def save_by(self, role):
         super().save_by(role)
         # `modifier` must be updated to the given role's user. we do it

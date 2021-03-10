@@ -8,13 +8,14 @@
 </div>
 {% endif %}
 <div class="content-list">
-    {% for obj in object_list %}
-    <div id="content-{{ obj.pk }}">
-        {% with preview=True %}
-        {% component obj.as_component role %}
-        {% endwith %}
-    </div>
-    {% endfor %}
+    <p-list :model="Content" context-id="contextId" orderBy="-modifiedDate">
+        <template v-slot:item="{item, items, index}">
+            <div :id="item.pk" class="box">
+                <p-content :item="item"></p-content>
+            </div>
+            <br>
+        </template>
+    </p-list>
 </div>
 
 {% endblock %}

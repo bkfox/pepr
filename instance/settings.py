@@ -1,7 +1,26 @@
 from enum import IntEnum
+import glob
 import os
+import os.path
 
-from pepr.core.settings import load_conf
+
+def load_conf(*source_dirs, globals = None, ext='.conf.py'):
+    """
+    Load config files from given directories, returning updated globals.
+    """
+    globals = globals or {}
+    for src in source_dirs:
+        files = glob.glob(os.path.join(src, f'*{ext}'))
+        files.sort()
+        for f in files:
+            try:
+                exec(open(f).read(), globals)
+            except Exception as err:
+                raise RuntimeError(f'{f}: {err}')
+    return globals
+
+
+
 
 class Mode(IntEnum):
     Testing = 0x00

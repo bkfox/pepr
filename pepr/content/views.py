@@ -3,9 +3,12 @@ from django.shortcuts import render
 from django.views.generic import DetailView, ListView
 
 from ..core.mixins import BaseViewMixin, PermissionViewMixin
+from ..core.models import Subscription
+from ..core.serializers import SubscriptionSerializer
 from .components import ContentFormComp
 from .forms import ContentForm
 from .models import Container, Content, StreamService
+from .serializers import ContainerSerializer
 
 
 class BaseServiceMixin(BaseViewMixin, PermissionViewMixin):
@@ -38,8 +41,27 @@ class StreamServiceView(BaseServiceMixin, ListView):
     create_form = ContentForm
 
     class Assets:
-        css = ['pepr/content.css']
-        js = ['pepr/content.js']
+        css = ('pepr/content.css',)
+        js = ('pepr/content.js',)
+
+    # TODO: move in InContextMixin / AccessibleViewMixin?
+    def get_app_data(self):
+        subscriptions = Subscription.objects.context(self.role.context) \
+                                   .identity(self.request.identity) \
+                                   .filter(status=Subscription.STATUS_ACCEPTED)
+        context_ids = [obj.context_id for obj in self.object_list]
+        contexts = self.get_context_class().objects.filter(pk__in=context_ids)
+        return {
+            'subscriptions': SubscriptionSerializer(subscriptions, many=True,
+                identity=self.request.identity).data,
+            'contexts': ContainerSerializer(contexts, many=True,
+                identity=self.request.identity).data,
+            'contents': [
+                obj.get_serializer(identity=self.request.identity).data
+                for obj in self.object_list
+            ]
+        }
+
 
     def get_context_data(self, create_form=None, **kwargs):
         if self.role.is_granted('create', self.model) and \

@@ -22,12 +22,12 @@ class ContentSerializer(OwnedSerializer):
 
     class Meta:
         model = Content
-        fields = (
-            'id', 'created', 'owner', 'modified', 'modifier',
+        fields = OwnedSerializer.Meta.fields + (
+            'created', 'modified', 'modifier_id',
             'access', 'context', 'text', 'html', 'meta'
         )
-        read_only_fields = ('id', 'created', 'owner',
-                            'modified', 'modifier')
+        read_only_fields = OwnedSerializer.Meta.fields + (
+            'api_url', 'created', 'modified', 'modifier_id')
 
     def __init__(self, *args, render=True, **kwargs):
         super().__init__(*args, **kwargs)

@@ -1,6 +1,8 @@
-Pepr Perms
+Pepr Core
 ==========
-In PEPR, permissions management is done using a system composed of two mains
+Provide Pepr core functionalities: permission management and core class (AppConfig, etc.).
+
+In Pepr, permissions management is done using a system composed of two mains
 aspects:
 
 - **access level**: determines which elements user has a read-access to by the
@@ -42,8 +44,8 @@ Inside **models.py**:
 
 .. code-block:: python
     from django.db import models
-    from pepr.perms.models import Accessible, Context
-    from pepr.perms.roles import MemberRole
+    from pepr.core.models import Accessible, Context
+    from pepr.core.roles import MemberRole
 
 
     class Dashboard(Context):

@@ -28,8 +28,12 @@ class BaseViewMixin:
         css = []
         js = []
 
-    def get_media(self):
-        return self.Media()
+    def get_assets(self):
+        return self.Assets()
+
+    def get_app_data(self):
+        """ Return dict of data to pass to client application. """
+        return {}
 
     def get_context_data(self, **kwargs):
         if not kwargs.get('template_base'):
@@ -39,6 +43,8 @@ class BaseViewMixin:
                 kwargs['template_base'] = self.template_base
         if not kwargs.get('assets'):
             kwargs['assets'] = self.get_assets()
+        if not kwargs.get('app_data'):
+            kwargs['app_data'] = self.get_app_data()
         return super().get_context_data(**kwargs)
 
 
@@ -130,9 +136,12 @@ class PermissionViewMixin(PermissionMixin):
     def get_permissions(self):
         return self.get_action_permissions(self.action)
 
+    def get_context_class(self):
+        return self.context_class
+
     def get_context_queryset(self):
         """ Return context queryset """
-        return self.context_class.objects.identity(self.request.identity)
+        return self.get_context_class().objects.identity(self.request.identity)
 
     def get_context(self, context_pk=None, context_slug=None, **kwargs):
         """ Return context from pk or slug in dispatch kwargs. """

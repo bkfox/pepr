@@ -2,44 +2,29 @@
 Provide settings helpers for Django applications.
 """
 from importlib import import_module
-import glob
-import os.path
 
 from .roles import Role, default_roles
 
-__all__ = ('load_conf', 'Settings')
 
-
-def load_conf(*source_dirs, globals = None, ext='.conf.py'):
-    """
-    Load config files from given directories, returning updated globals.
-    """
-    globals = globals or {}
-    for src in source_dirs:
-        files = glob.glob(os.path.join(src, f'*{ext}'))
-        files.sort()
-        for f in files:
-            try:
-                exec(open(f).read(), globals)
-            except Exception as err:
-                raise RuntimeError(f'{f}: {err}')
-    return globals
+__all__ = ('Settings', 'settings')
 
 
 class Settings:
     """ Settings class helper """
     deprecated = set()
     """ Deprecated items in config. """
+    key = ''
+    """ Config key in django settings. """
 
     def __init__(self, key, default_config=None):
         # load_conf should be accessible BEFORE django loads config
-        from django.conf import settings
+        from django.conf import settings as d_settings
 
         if default_config:
             self.set_config(default_config)
 
-        if key and hasattr(self, key):
-            config = getattr(self, key)
+        if key and hasattr(d_settings, key):
+            config = d_settings.get(key)
             self.set_config(config)
 
     def set_config(self, config):
@@ -81,6 +66,7 @@ class PeprCoreSettings(Settings):
                      for role in config['roles'])
             config['roles'] = { role.access: role for role in roles }
         return config
+
 
 settings = PeprCoreSettings('PEPR', {
     'roles': default_roles

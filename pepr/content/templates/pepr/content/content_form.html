@@ -1,7 +1,7 @@
 {% load i18n %}
 
-<form method="POST" {% if api_url %}data-api="{{ api_url }}"
-        {% if target % }target="{{ target }}"{% endif %}>
+<form method="POST" {% if api_url %}data-api="{{ api_url }}"{% endif %}
+        {% if target %}target="{{ target }}"{% endif %}>
     {% block fields %}
     <div class="field">
         <div class="control">

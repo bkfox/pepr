@@ -1,8 +1,7 @@
 <template>
     <div>
-        <div class="">
-        <div v-for="content in self.content">
-            <slot name="content">{{ content.html }}</slot>
+        <div v-for="(item, index) in items">
+            <slot name="item" :index="index" :item="item" :items="items"></slot>
         </div>
     </div>
 </template>
@@ -10,7 +9,7 @@
 export default {
     props: {
         model: { type: Function },
-        context: { type: String },
+        contextId: { type: String },
         orderBy: { type: String },
     },
 
@@ -20,41 +19,13 @@ export default {
             if(this.orderBy)
                 query = query.orderBy(this.orderBy)
             if(this.context)
-                query = query.where('context', (context) => context == this.context)
+                query = query.where('context_id', (id) => id == this.context.id)
             return query
         },
 
         items() {
+            console.log(this.itemsQuery.get(), this.model.all())
             return this.itemsQuery.get()
-        },
-
-        loadData(data) {
-            for(let entity in data) {
-                let model = this.$store.$db.model(entity);
-                model && model.insert({ data: data[entity] })
-                if(!model)
-                    console.warn(`model ${entity} is not a registered model`)
-            }
-        },
-
-        /// Load data from `data` slot.
-        loadDataSlot() {
-            let slot = self.$slots['data'];
-            if(!slot || !slot.length)
-                return
-
-            for(var item of slot) {
-                item = item.children && item.children[0]
-                if(!item || !item.text)
-                    return
-
-                try {
-                    const data = JSON.parse(item.text)
-                    if(data)
-                        this.loadData(data);
-                }
-                catch(e) { console.error(e); }
-            }
         },
     },
 }

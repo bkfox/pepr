@@ -13,7 +13,7 @@
             {% endfor %}
 
             {% for path in assets.js %}
-            <script src="{% static path %}" />
+            <script src="{% static path %}" /></script>
             {% endfor %}
         {% endif %}
 
@@ -21,7 +21,11 @@
         {% endblock %}
     </head>
     <body>
-        <main id="app" class="">
+        {% if app_data %}
+        {{ app_data|json_script:"app-data" }}
+        {% endif %}
+
+        <main id="app" {% if app_data %}app-data="#app-data"{% endif %} class="">
             <header class="header">
                 <div class="container">
                     {% block header %}

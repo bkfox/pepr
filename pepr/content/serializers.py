@@ -24,9 +24,9 @@ class ContentSerializer(OwnedSerializer):
         model = Content
         fields = OwnedSerializer.Meta.fields + (
             'created', 'modified', 'modifier_id',
-            'access', 'context', 'text', 'html', 'meta'
+            'access', 'text', 'html', 'meta'
         )
-        read_only_fields = OwnedSerializer.Meta.fields + (
+        read_only_fields = OwnedSerializer.Meta.read_only_fields + (
             'api_url', 'created', 'modified', 'modifier_id')
 
     def __init__(self, *args, render=True, **kwargs):

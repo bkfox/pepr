@@ -1,6 +1,7 @@
 from django.utils.translation import ugettext_lazy as _
 
 from ..utils.functional import cached_result
+from .models import Subscription
 
 __all__ = ('consts', 'roles')
 
@@ -15,15 +16,14 @@ def roles():
     }
 
 consts = {
-    'ROLES': roles,
-    'STATUS_INVITE': 1,
-    'STATUS_REQUEST': 2,
-    'STATUS_ACCEPTED': 3,
-}
-consts['STATUS_NAMES'] = {
-        consts['STATUS_INVITE']: _('Invite'),
-        consts['STATUS_REQUEST']: _('Request'),
-        consts['STATUS_ACCEPTED']: _('Accepted'),
+    'roles': roles(),
+    'subscription': {
+        'status': {
+            'invite': Subscription.STATUS_INVITE, Subscription.STATUS_INVITE: _('Invite'),
+            'request': Subscription.STATUS_REQUEST, Subscription.STATUS_REQUEST: _('Request'),
+            'accepted': Subscription.STATUS_ACCEPTED, Subscription.STATUS_ACCEPTED: _('Accepted'),
+        }
+    }
 }
 
 

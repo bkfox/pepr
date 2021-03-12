@@ -192,13 +192,13 @@ class Context(BaseAccessible):
                     'to this role.')
     )
     subscription_default_access = models.SmallIntegerField(
-        verbose_name=_("subscription's default visibility"),
+        verbose_name=_("Subscription's default visibility"),
         choices=subscription_role_choices,
         default=MemberRole.access,
         help_text=_("Default visibility for users' subscriptions."),
     )
     subscription_default_role = models.SmallIntegerField(
-        verbose_name=_("subscription's default role"),
+        verbose_name=_("Subscription's default role"),
         choices=subscription_role_choices,
         default=MemberRole.access,
         help_text=_('Role set by default to new subscribers'),
@@ -212,12 +212,16 @@ class Context(BaseAccessible):
     )
     identity_owner = models.ForeignKey(
         User, on_delete=models.CASCADE,
-        verbose_name=_('Real person behind the identity'),
+        verbose_name=_('Real user behind the identity'),
         blank=True, null=True, db_index=True,
         help_text=_('If user page, set to the actual user.')
     )
     title = models.CharField(
-        _('Title'), max_length=128,
+        _('Title'), max_length=64,
+        blank=True, null=True
+    )
+    headline = models.CharField(
+        _('headline'), max_length=128,
         blank=True, null=True
     )
 
@@ -240,7 +244,7 @@ class Context(BaseAccessible):
         This is used to get special roles as for anonymous users.
         """
         if identity is None:
-            return AnonymousRole
+            return settings.roles.get(AnonymousRole.access)
         return None
 
     def get_role(self, identity, force=False):
@@ -259,16 +263,19 @@ class Context(BaseAccessible):
         subscription = None
 
         if identity is not None:
-            subscription = Subscription.objects.filter(
-                context=self, owner=identity, status=Subscription.STATUS_ACCEPTED,
-            ).first()
+            if self.pk == identity.pk:
+                role = settings.roles.get(AdminRole.access)
+            else:
+                subscription = Subscription.objects.filter(
+                    context=self, owner=identity, status=Subscription.STATUS_ACCEPTED,
+                ).first()
 
-            # get role from subscription or from default only if role is
-            # not yet given
-            if role is None:
-                role = settings.roles.get(subscription.role) \
-                    if subscription and subscription.is_subscribed \
-                    else DefaultRole
+                # get role from subscription or from default only if role is
+                # not yet given
+                if role is None:
+                    role = settings.roles.get(subscription.role) \
+                        if subscription and subscription.is_subscribed \
+                        else DefaultRole
 
         if role is None:
             role = AnonymousRole
@@ -299,7 +306,14 @@ class AccessibleQuerySet(BaseAccessibleQuerySet):
                                         'context__')
 
 
-class Accessible(BaseAccessible):
+class AccessibleMeta(models.base.ModelBase):
+    def __new__(cls, name, bases, attrs):
+        if 'context_class' in attrs:
+            attrs['context'].remote_field.to = attrs['context_class']
+        return super().__new__(cls, name, bases, attrs)
+
+
+class Accessible(BaseAccessible,metaclass=AccessibleMeta):
     """
     Simple abstract class used to define basic access control
     based on access's privilege.
@@ -333,7 +347,14 @@ class OwnedQuerySet(AccessibleQuerySet):
         return self.filter(q).distinct()
 
 
-class Owned(Accessible):
+class OwnedMeta(AccessibleMeta):
+    def __new__(cls, name, bases, attrs):
+        if 'owner_class' in attrs:
+            attrs['owner'].remote_field.to = attrs['owner_class']
+        return super().__new__(cls, name, bases, attrs)
+
+
+class Owned(Accessible,metaclass=OwnedMeta):
     """
     Accessible owned by an end-identity.
 
@@ -362,6 +383,12 @@ class Owned(Accessible):
         return self.is_saved and not role.is_anonymous and \
                self.owner_id == role.identity.pk
 
+
+class SubscriptionQuerySet(OwnedQuerySet):
+    def subscribed(self, context=None):
+        """ Return all accepted subscriptions. """
+        qs = self.filter(status=Subscription.STATUS_ACCEPTED)
+        return qs if context is None else qs.context(context)
 
 class Subscription(Owned):
     """
@@ -398,6 +425,8 @@ class Subscription(Owned):
         help_text=_('Defines the role of the identity and his access level '
                     'to content.')
     )
+
+    objects = SubscriptionQuerySet.as_manager()
 
     class Meta:
         unique_together = ('context', 'owner')

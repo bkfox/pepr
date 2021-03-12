@@ -3,7 +3,7 @@
         <div class="media-content">
             <div>
                 <strong>{{ item.owner && item.owner.title || "Anonymous" }}</strong>
-                <small>{{ item.modifiedDate }}</small>
+                <small> &mdash; {{ modifiedString }}</small>
             </div>
             <div>{{ item.text }}</div>
         </div>
@@ -14,8 +14,15 @@ export default {
     props: {
         messages: { type: Object },
         item: { type: Object },
-    }
+    },
+
+    computed: {
+        modifiedString() {
+            let date = this.item.modifiedDate;
+            return date ? date.toLocaleDateString() + ' ' + date.toLocaleTimeString()
+                        : '';
+        }
+    },
 }
 </script>
-
 

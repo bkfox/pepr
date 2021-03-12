@@ -18,6 +18,7 @@ def discover_apps():
 
 def discover_urls(api_prefix='api/'):
     """ Get url patterns from all registered PeprAppConfig. """
+    from .views import ConstsView
     urls, api_urls = [], []
 
     for app in discover_apps():
@@ -26,7 +27,7 @@ def discover_urls(api_prefix='api/'):
                 urls.append(app.urls)
             if app.api_urls:
                 api_urls.append(app.api_urls)
-    urls.insert(0, path(api_prefix, include(api_urls)))
+    urls.insert(0, path(api_prefix, include((api_urls, app.label), namespace="api")))
     return urls
 
 
@@ -41,14 +42,14 @@ def discover_consumers():
 
 class PeprAppConfig(AppConfig):
     """
-    Provide extra features for Django application:
-    - get urls, api urls, and consumers from ``app.urls`` module.
-    - get assets consts from ``app.consts`` module.
+    Base of Pepr applications. Provides application urls discovery,
+    assets consts view.
+
+    Module discovery and imported items:
+    - ``urls``: ``api_urls``, ``urls``
+    - ``assets``: ``consts`` (generate url to a ConstsView)
     """
     discover_urls = True
-    discover_consumers = True
-    discover_assets = True
-    """ Relative path to assets index. """
     url_prefix = ''
     """ Prefix to urls and api_urls. """
 
@@ -77,7 +78,12 @@ class PeprAppConfig(AppConfig):
         Api url patterns as Django's ``path(self.label + '/')``, or None.
         Taken from ``app.urls.api_urlpatterns``.
         """
-        urls = getattr(self.urls_module, 'api_urls', None)
+        from .views import ConstsView
+        urls = getattr(self.urls_module, 'api_urls', [])
+        consts = getattr(self.assets_module, 'consts', None)
+        if consts:
+            view = ConstsView.as_view(consts=consts)
+            urls.append(path('consts/', view, name=self.label + '-consts'))
         return path(self.url_prefix + '/', include(urls)) if urls else None
 
     @cached_property

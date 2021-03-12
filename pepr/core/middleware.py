@@ -8,7 +8,7 @@ class IdentityMiddleware:
     """
     Provides identities for request's user.
 
-    Current identity id can be specified with ``pepr.perms.identity``
+    Current identity id can be specified with ``pepr.core.identity``
     cookie.
 
     Request will have two extra attributes:
@@ -27,7 +27,7 @@ class IdentityMiddleware:
                 "to be called before this one.")
 
         identity, identities = self.context_class.objects.get_identities(
-            request.user, request.COOKIES.get('pepr.perms.identity')
+            request.user, request.COOKIES.get('pepr.core.identity')
         )
         if identity:
             identity.identity_user = request.user

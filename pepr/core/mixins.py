@@ -4,36 +4,44 @@ from django.http import Http404
 from rest_framework import exceptions
 from rest_framework.views import APIView
 
-from .assets import roles
-from .settings import settings
+from . import assets
 from .permissions import CanAccess, CanCreate, CanUpdate, CanDestroy
 from .models import Context
 
 
-__all__ = ('BaseViewMixin', 'PermissionMixin', 'PermissionViewMixin',
+__all__ = ('BaseViewMixin', 'PermissionMixin', 'ViewMixin',
            'AccessibleViewMixin', 'ContextViewMixin')
 
 
 class BaseViewMixin:
     """
-    Base mixin for views.
+    Provide utilities to work with client side application.
 
-    View can have a Media subclass
+    - embed: render view application content only.
+    - assets managements: include assets in view context.
+    - application data: include application data in script tag ``#app-data``,
+        using ``json_script`` template filter.
     """
     template_base = 'pepr/base.html'
+    """ Extend view's template from it. """
     template_embed = 'pepr/base_embed.html'
+    """ Extend view's template from it when embed. """
+    app_data = {}
+    """ App data merged with provided ones in ``get_app_data``. """
 
-    class Assets:
-        """ Assets to include in rendered view """
-        css = []
-        js = []
+    def get_app_data_consts(self, **kwargs):
+        """ Return consts used by client side application. """
+        for k, v in assets.consts.items():
+            kwargs.setdefault(k, v)
+        return kwargs
 
-    def get_assets(self):
-        return self.Assets()
-
-    def get_app_data(self):
+    def get_app_data(self, extra_consts={}, **kwargs):
         """ Return dict of data to pass to client application. """
-        return {}
+        if not 'consts' in kwargs:
+            kwargs['consts'] = self.get_app_data_consts(**extra_consts)
+        for k, v in self.app_data.items():
+            kwargs.setdefault(k, v)
+        return kwargs
 
     def get_context_data(self, **kwargs):
         if not kwargs.get('template_base'):
@@ -41,8 +49,6 @@ class BaseViewMixin:
                 kwargs['template_base'] = self.template_embed
             else:
                 kwargs['template_base'] = self.template_base
-        if not kwargs.get('assets'):
-            kwargs['assets'] = self.get_assets()
         if not kwargs.get('app_data'):
             kwargs['app_data'] = self.get_app_data()
         return super().get_context_data(**kwargs)
@@ -72,6 +78,10 @@ class PermissionMixin:
 
     FIXME: It can either be a request method or an action (as given by
     ``viewset.action``).
+    """
+    context_model = Context
+    """
+    Model used as context
     """
 
     @classmethod
@@ -121,8 +131,14 @@ class PermissionMixin:
             raise exceptions.PermissionDenied('permission denied')
         return success
 
+    def get_context_model(self):
+        """
+        Return model used as Context (defaults to ``context_model``).
+        """
+        return self.context_model
 
-class PermissionViewMixin(PermissionMixin):
+
+class ViewMixin(PermissionMixin, BaseViewMixin):
     """
     Base mixin for views handling permissions access.
 
@@ -130,42 +146,40 @@ class PermissionViewMixin(PermissionMixin):
     - ``role``: current user's role;
     - ``roles``: all available roles
     """
-    context_class = Context
     role = None
+
+    def get_app_data(self, **kwargs):
+        kwargs.setdefault('context', self.role.context.pk)
+        return super().get_app_data(**kwargs)
 
     def get_permissions(self):
         return self.get_action_permissions(self.action)
 
-    def get_context_class(self):
-        return self.context_class
-
     def get_context_queryset(self):
         """ Return context queryset """
-        return self.get_context_class().objects.identity(self.request.identity)
+        return self.get_context_model().objects.identity(self.request.identity)
 
-    def get_context(self, context_pk=None, context_slug=None, **kwargs):
+    def get_context(self, pk=None):
         """ Return context from pk or slug in dispatch kwargs. """
-        if context_pk:
-            return self.get_context_queryset().get(pk=context_pk)
-        if context_slug:
-            return self.get_context_queryset().get(slug=context_slug)
+        if pk is not None:
+            return self.get_context_queryset().get(pk=pk)
         return None
 
     def get_context_data(self, **kwargs):
         """ Ensure 'role' and 'roles' are in resulting context """
         kwargs.setdefault('role', self.role)
-        kwargs.setdefault('roles', roles() )
+        kwargs.setdefault('roles', assets.roles() )
         return super().get_context_data(**kwargs)
 
-    def dispatch(self, request, *args, **kwargs):
-        context = self.get_context(**kwargs)
+    def dispatch(self, request, *args, context_pk=None, **kwargs):
+        context = self.get_context(context_pk) if context_pk else None
         if context:
             self.role = context.get_role(request.identity)
         # FIXME self.can(self.role, request.method)
         return super().dispatch(request, *args, **kwargs)
 
 
-class ContextViewMixin(PermissionMixin):
+class ContextViewMixin(ViewMixin):
     """
     Mixin handling Accessible objects permission check. Can work with
     PermissionViewMixin
@@ -178,7 +192,7 @@ class ContextViewMixin(PermissionMixin):
         return qs
 
 
-class AccessibleViewMixin(PermissionMixin):
+class AccessibleViewMixin(ViewMixin):
     """
     Mixin handling Accessible objects permission check. Can work with
     PermissionViewMixin

@@ -19,6 +19,7 @@ export class Context extends Base {
 
     static fields() {
         return { ...super.fields(),
+            title: this.string(null),
             role: this.attr(null),
             allow_subscription_request: this.attr(null),
             subscription_default_access: this.number(null),
@@ -26,6 +27,18 @@ export class Context extends Base {
             // subsciption: this.attr(null),
             subsciptions: this.hasMany(Subscription, 'context'),
         }
+    }
+
+    /// Return user's identity
+    get identity() {
+        let identity = this.role && this.role.identity
+        return identity && this.constructor.find(identity)
+    }
+
+    /// Return user's subscription
+    get subscription() {
+        let identity = this.role && this.role.identity
+        return identity && Subscription.query().where('owner_id', identity).first()
     }
 }
 
@@ -48,8 +61,12 @@ export class Owned extends Accessible {
     static fields() {
         return { ...super.fields(),
             owner_id: this.attr(null),
-            owner: this.belongsTo(this.contextModel, 'owner_id'),
+            // owner: this.belongsTo(this.contextModel, 'owner_id'),
         }
+    }
+
+    get owner() {
+        return this.constructor.contextModel.find(this.owner_id)
     }
 }
 

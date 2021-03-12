@@ -36,7 +36,7 @@ class BaseSerializer(serializers.ModelSerializer):
     """
 
     class Meta:
-        fields = ('pk', 'api_url', 'meta')
+        fields = ('pk', 'api_url')
         read_only_fields = ('pk', 'api_url')
 
     def __init__(self, *args, identity, viewset=None,
@@ -78,20 +78,18 @@ class BaseSerializer(serializers.ModelSerializer):
 
 class ContextSerializer(BaseSerializer):
     """ Serializer for Context.  """
-    role = serializers.SerializerMethodField(
-        method_name='get_identity_role',
-    )
+    role = serializers.SerializerMethodField()
     subscription = serializers.SerializerMethodField()
 
     class Meta:
         model = Context
         fields = BaseSerializer.Meta.fields + (
+            'title', 'headline',
             'allow_subscription_request',
             'subscription_default_role',
             'subscription_accept_role',
             'subscription_default_access',
             'role',
-            'title'
         )
 
     view_name = 'context-detail'
@@ -105,21 +103,13 @@ class ContextSerializer(BaseSerializer):
         role = obj.get_role(self.identity)
         if not role or not role.subscription:
             return
+        return role.subscription.pk
 
-        viewset = self.context.get('view')
-        viewset = viewset and viewset.subscription_viewset_class
-        # actions = viewset and viewset.get_api_actions(role, role.subscription)
-        return SubscriptionSerializer(
-            identity=self.identity, instance=role.subscription, context=self.context,
-            # api_actions=actions
-        ).data
+    def get_role(self, obj):
+        if not self.identity:
+            return
 
-    def get_identity_role(self, obj):
-        request = self.context.get('request')
-        if not request:
-            return None
-
-        role = obj.get_role(request.identity)
+        role = obj.get_role(self.identity)
         return RoleSerializer(instance=role, context=self.context).data
 
 
@@ -135,6 +125,10 @@ class RoleSerializer(serializers.Serializer):
 
 
 class AccessibleSerializer(BaseSerializer):
+    context_id = serializers.PrimaryKeyRelatedField(source='context',
+        queryset=Context.objects.all(),
+    )
+
     class Meta:
         fields = BaseSerializer.Meta.fields + ('context_id', 'access')
         read_only_fields = BaseSerializer.Meta.read_only_fields
@@ -147,20 +141,17 @@ class AccessibleSerializer(BaseSerializer):
             field.read_only = self.instance is not None
 
 
+
 class OwnedSerializer(AccessibleSerializer):
+    owner_id = serializers.PrimaryKeyRelatedField(source='owner',read_only=True)
+
     class Meta:
         fields = AccessibleSerializer.Meta.fields + ('owner_id',)
         read_only_fields = AccessibleSerializer.Meta.read_only_fields + \
             ('owner_id',)
 
-    def is_owner_optional(self):
-        """ Return True if model field "owner" can be null """
-        return self.model._meta.get_field('owner_id').null
-
     def validate(self, data):
-        # this should not happen with correct flow. For sugar, we
-        # raise a PermissionDenied instead of RuntimeError.
-        if self.identity is None and not self.is_owner_optional:
+        if self.identity is None:
             raise PermissionDenied(
                 'Anonymous not allowed to edit {}'
                 .format(self.model._meta.verbose_name.lower())
@@ -169,15 +160,13 @@ class OwnedSerializer(AccessibleSerializer):
 
     def create(self, validated):
         owner = validated.get('owner_id')
-        if self.identity is not None and owner is None:
-            # child class can have overwrite validated['owner']
-            # "owner" field can be read only in order to avoid
+        if not 'owner_id' in validated and self.identity is not None:
             validated['owner_id'] = self.identity.pk
         return super().create(validated)
 
     def update(self, instance, validated):
         owner = validated.get('owner_id')
-        if self.identity is not None and owner is None:
+        if not 'owner_id' in validated and self.identity is not None:
             validated['owner_id'] = self.identity.pk
         return super().update(instance, validated)
 

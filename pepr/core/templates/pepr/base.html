@@ -6,17 +6,6 @@
         <link rel="stylesheet" href="{% static "pepr/vendor.css" %}" />
         <script src="{% static "pepr/vendor.js" %}"></script>
         <script src="{% static "pepr/core.js" %}"></script>
-
-        {% if assets %}
-            {% for path in assets.css %}
-            <link rel="stylesheet" href="{% static path %}" />
-            {% endfor %}
-
-            {% for path in assets.js %}
-            <script src="{% static path %}" /></script>
-            {% endfor %}
-        {% endif %}
-
         <title>{% block head_title %}{% endblock %}</title>
         {% endblock %}
     </head>
@@ -25,7 +14,9 @@
         {{ app_data|json_script:"app-data" }}
         {% endif %}
 
-        <main id="app" {% if app_data %}app-data="#app-data"{% endif %} class="">
+        {% block app %}
+        <main id="app" {% if app_data %}app-data="#app-data"{% endif %}
+                init-context-id="{{ role.context.pk }}">
             <header class="header">
                 <div class="container">
                     {% block header %}
@@ -41,5 +32,6 @@
                 </div>
             </div>
         </main>
+        {% endblock %}
     </body>
 </html>

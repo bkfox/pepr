@@ -2,7 +2,7 @@ from django.http import Http404
 from django.shortcuts import render
 from django.views.generic import DetailView, ListView
 
-from ..core.mixins import BaseViewMixin, PermissionViewMixin
+from ..core.mixins import BaseViewMixin, ViewMixin
 from ..core.models import Subscription
 from ..core.serializers import SubscriptionSerializer
 from .components import ContentFormComp
@@ -11,12 +11,15 @@ from .models import Container, Content, StreamService
 from .serializers import ContainerSerializer
 
 
-class BaseServiceMixin(BaseViewMixin, PermissionViewMixin):
+__all__ = ('BaseServiceMixin', 'ContentListView')
+
+
+class BaseServiceMixin(ViewMixin):
     service_class = None
     """ Service model class to be retrieved if not None. """
     service = None
     """ Service instance found. """
-    context_class = Container
+    context_model = Container
 
     def get_service_queryset(self):
         return self.service_class.objects.access(self.role.access) \
@@ -34,34 +37,29 @@ class BaseServiceMixin(BaseViewMixin, PermissionViewMixin):
         return super().get_context_data(service=self.service, **kwargs)
 
 
-class StreamServiceView(BaseServiceMixin, ListView):
+class ContentListView(BaseServiceMixin, ListView):
     model = Content
-    template_name = 'pepr/content/stream_list.html'
+    # TODO: pepr/content to pepr_content/
+    template_name = 'pepr/content/content_list'
     service_class = StreamService
     create_form = ContentForm
 
-    class Assets:
-        css = ('pepr/content.css',)
-        js = ('pepr/content.js',)
-
-    # TODO: move in InContextMixin / AccessibleViewMixin?
-    def get_app_data(self):
-        subscriptions = Subscription.objects.context(self.role.context) \
-                                   .identity(self.request.identity) \
-                                   .filter(status=Subscription.STATUS_ACCEPTED)
-        context_ids = [obj.context_id for obj in self.object_list]
-        contexts = self.get_context_class().objects.filter(pk__in=context_ids)
-        return {
-            'subscriptions': SubscriptionSerializer(subscriptions, many=True,
-                identity=self.request.identity).data,
-            'contexts': ContainerSerializer(contexts, many=True,
-                identity=self.request.identity).data,
-            'contents': [
-                obj.get_serializer(identity=self.request.identity).data
-                for obj in self.object_list
-            ]
-        }
-
+    def get_app_data(self, store=None, **kwargs):
+        store = store or {}
+        identity = self.role.identity
+        if not 'contexts' in store:
+            pks = {obj.context_id for obj in self.object_list}.union({identity.pk})
+            contexts = self.get_context_model().objects.identity(identity) \
+                                               .filter(pk__in=pks)
+            subscriptions = Subscription.objects.identity(identity) \
+                                        .subscribed(self.role.context)
+            store.update({
+                'contexts': ContainerSerializer(contexts, many=True,
+                    identity=self.request.identity).data,
+                'subscriptions': SubscriptionSerializer(subscriptions, many=True,
+                    identity=self.request.identity).data,
+            })
+        return super().get_app_data(store=store, **kwargs)
 
     def get_context_data(self, create_form=None, **kwargs):
         if self.role.is_granted('create', self.model) and \

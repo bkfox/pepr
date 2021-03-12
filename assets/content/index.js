@@ -1,27 +1,19 @@
 import App from 'pepr/core/app'
+import coreComponents from 'pepr/core/components'
 
 import * as models from './models'
-import Content from './content'
+import components from './components'
 
-// TODO: move into app
-const config = {
-    props: {
-        apiUrl: { type: String, default: '/api/' },
-    },
 
-    computed: {
-        context() {
-            return this.context_id
-        }
-    }
-}
-const app = new App(config, {models,
-    components: {
-        'p-content': Content,
-    },
+const app = new App({}, {
+    models,
+    components: { ...coreComponents, ...components },
 });
+const props = {
+    contextModel: models.Container,
+}
 
-app.load({async:true}).then((vm) => {
+app.load({async:true, props}).then((vm) => {
     window.contentVm = vm
 })
 export default app;

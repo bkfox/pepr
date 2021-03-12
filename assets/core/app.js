@@ -4,31 +4,42 @@ import axios from 'axios'
 import VuexORM from '@vuex-orm/core'
 import VuexORMAxios from '@vuex-orm/plugin-axios'
 
+import { Context } from './models'
 
-import List from './list'
 
-export const defaultConfig = {
-    el: '#app',
-    delimiters: ['[[', ']]'],
+/// Mixin for applications components
+export const appMixin = {
+    data() {
+        return {
+            consts: {},
+            contextId: null,
+        }
+    },
 
     props: {
-        /// Selector to script elements with JSON data to add to store.
+        /// loadData from JSON <scripts> data once `mounted()`
         /// For more information, see ``loadData()``.
         appData: String,
-        /// Current context id if any
-        contextId: String,
-        /// Context model
-        contextEntity: Function,
+        /// Context model's entity
+        contextModel: {type: Function, default: Context},
+        /// User's identity's pk if any
+        identity: String,
+        /// Initial context id if any
+        initContextId: String,
     },
 
     computed: {
-        contextModel() {
-            return this.contextEntity && this.$store.$db().model(this.contextEntity)
+        /// Current Context
+        context() {
+            console.log(this.contextId, '---', this.contextModel.query().find(this.contextId))
+            return this.contextId && this.contextModel.query().find(this.contextId)
         },
 
-        context() {
-            return this.contextModel && this.contextId &&
-                    this.contextModel.query().find(this.contextId)
+        /// User's subscription
+        subscription() {
+            return this.identity &&
+                this.$root.Subscription.query().where('owner_id', this.identity)
+                    .first()
         }
     },
 
@@ -47,17 +58,25 @@ export const defaultConfig = {
             }
         },
 
-        /// Load data into store by model entity.
+        /// Load data into application.
         ///
-        /// Data is an object of `modelEntity: [ ...dataList ]`, where
-        /// `dataList` is passed down to `model.insertOrUpdate`.
+        /// Data is an object with:
+        /// - 'models': list of models' data, by model entity;
+        /// - 'consts': application consts
         loadData(data) {
-            for(let entity in data) {
-                let model = this.$store.$db().model(entity)
-                model && model.insertOrUpdate({ data: data[entity] })
-                if(!model)
-                    console.warn(`model ${entity} is not a registered model`)
-            }
+            console.log(data.store)
+            if(data.store)
+                for(let entity in data.store) {
+                    let model = this.$store.$db().model(entity)
+                    model ? model.insertOrUpdate({ data: data.store[entity] })
+                          : console.warn(`model ${entity} is not a registered model`)
+                }
+
+            if(data.consts)
+                this.consts = data.consts
+
+            if(data.context)
+                this.contextId = data.context
         },
     },
 
@@ -67,9 +86,12 @@ export const defaultConfig = {
     },
 }
 
-export const defaultComponents = {
-    'p-list': List,
+export const defaultConfig = {
+    el: '#app',
+    delimiters: ['[[', ']]'],
+    ...appMixin
 }
+
 
 //! Application class used in Pepr.
 //!
@@ -92,10 +114,6 @@ export default class App {
 
     get defaultConfig() {
         return defaultConfig
-    }
-
-    get defaultComponents() {
-        return defaultComponents
     }
 
     get config() {
@@ -161,7 +179,7 @@ export default class App {
                     })
                     this.app = app
                     store && app.use(store)
-                    this._addComponents(app, this.components)
+                    this.components && this._addComponents(app, this.components)
                     let vm = mount && app.mount(config.el)
 
                     window.scroll(0, 0)
@@ -202,13 +220,8 @@ export default class App {
 
     /// Add default components and provided ones (if any) to app.
     _addComponents(app, components={}) {
-        let defaultComponents = this.defaultComponents
-        for(var key in defaultComponents)
-            app.component(key, defaultComponents[key])
-
-        if(components)
-            for(var key in components)
-                app.component(key, components[key])
+        for(var key in components)
+            app.component(key, components[key])
     }
 
     /// Fetch application from server and load.

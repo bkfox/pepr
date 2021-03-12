@@ -9,7 +9,7 @@ router.register('content', viewsets.ContentViewSet, basename='content')
 api_urls = router.urls
 
 services_urls = [
-    path('stream', views.StreamServiceView.as_view()),
+    path('', views.ContentListView.as_view(), name='content-list'),
 ]
 
 urls = [

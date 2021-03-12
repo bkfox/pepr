@@ -20,13 +20,6 @@ __all__ = ('Container', 'ContentQuerySet', 'Content', 'Service', 'StreamService'
 #   - 
 class Container(Context):
     """ Context on which content can be published. """
-    slug = models.SlugField(
-        _('Slug name'),
-        null=True, blank=True,
-        max_length=64,
-        unique=True,
-        help_text=_('Used to generate the url of the page')
-    )
     # TODO: image & cover
     description = models.TextField(
         _('Description'),

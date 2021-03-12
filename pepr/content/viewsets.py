@@ -33,16 +33,7 @@ class ContentViewSet(AccessibleViewSet):
     )
     queryset = Content.objects.select_subclasses()
 
-    @classmethod
-    def register_to(cls, router):
-        """
-        Register this viewset to the given router; it should be used in
-        order to provide consistent interfaces and urls using model's
-        informations (``Content.url_basename`` and ``Content.url_prefix```)
-        """
-        return router.register(cls.model.url_prefix, cls,
-                               cls.model.url_basename)
-
+    # FIXME
     @action(detail=True)
     def form(self, request, pk=None):
         """ Render an edit form for the given object """

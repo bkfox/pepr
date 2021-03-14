@@ -1,4 +1,4 @@
-import { createApp } from 'vue'
+import { createApp, reactive } from 'vue'
 import { createStore } from 'vuex'
 import axios from 'axios'
 import VuexORM from '@vuex-orm/core'
@@ -11,8 +11,21 @@ import { Context } from './models'
 export const appMixin = {
     data() {
         return {
+            // Consts
             consts: {},
+            // API root url
+            apiRoot: null,
+            // Current context id
             contextId: null,
+        }
+    },
+
+    provide() {
+        return {
+            // FIXME: not reactive
+            apiRoot: this.apiRoot,
+            consts: this.consts,
+            context: this.context,
         }
     },
 
@@ -31,7 +44,6 @@ export const appMixin = {
     computed: {
         /// Current Context
         context() {
-            console.log(this.contextId, '---', this.contextModel.query().find(this.contextId))
             return this.contextId && this.contextModel.query().find(this.contextId)
         },
 
@@ -64,7 +76,6 @@ export const appMixin = {
         /// - 'models': list of models' data, by model entity;
         /// - 'consts': application consts
         loadData(data) {
-            console.log(data.store)
             if(data.store)
                 for(let entity in data.store) {
                     let model = this.$store.$db().model(entity)
@@ -72,9 +83,10 @@ export const appMixin = {
                           : console.warn(`model ${entity} is not a registered model`)
                 }
 
+            if(data.api_root)
+                this.apiRoot = data.api_root
             if(data.consts)
-                this.consts = data.consts
-
+                Object.assign(this.consts, data.consts)
             if(data.context)
                 this.contextId = data.context
         },
@@ -102,14 +114,15 @@ export const defaultConfig = {
 //! - Vuex store and Vuex-ORM models
 //
 export default class App {
-    constructor(config={}, {storeConfig=null,models={},components={}}={} ) {
+    constructor(config={}, {components={},models={},storeConfig=null,uses=[]}={} ) {
         this.title = null
         this.app = null
 
         this.config = config
         this.components = components
-        this.storeConfig = storeConfig
         this.models = models
+        this.storeConfig = storeConfig
+        this.uses = uses
     }
 
     get defaultConfig() {
@@ -158,38 +171,51 @@ export default class App {
             let func = () => {
                 try {
                     const config = this.config
-                    el = el || config.el
-                    el = document.querySelector(el)
-                    if(!el)
-                        return reject(`Error: can't get element ${config.el}`)
+                    if(mount || content) {
+                        el = el || config.el
+                        let elm = document.querySelector(el)
+                        if(!elm)
+                            return reject(`Error: can't get element ${el}`)
 
-                    // update content
-                    if(content)
-                        el.innerHTML = content
+                        // update content
+                        if(content)
+                            elm.innerHTML = content
+                    }
 
                     // update title
                     if(title)
                         document.title = title
 
-                    // create app
-                    let store = this._createStore(config, this.storeConfig)
-                    let app = createApp(config, {
-                        appData: el.getAttribute('app-data'),
-                        ...props
-                    })
-                    this.app = app
-                    store && app.use(store)
-                    this.components && this._addComponents(app, this.components)
-                    let vm = mount && app.mount(config.el)
-
                     window.scroll(0, 0)
-                    resolve(vm)
+
+                    let app = this.app = this.createApp(config, props)
+                    if(mount) {
+                        let vm = app.mount(el)
+                        resolve([app, vm])
+                    }
+                    else
+                        resolve(app)
                 } catch(error) {
                     console.error(error)
                     reject(error)
                 }}
             async ? window.addEventListener('load', func) : func()
         })
+    }
+
+    /// Create application using provided config
+    createApp(config, props) {
+        let store = this._createStore(config, this.storeConfig)
+        let app = createApp(config, props)
+
+        // store
+        store && app.use(store)
+        // use
+        for(let use of this.uses)
+            app.use(use[0], use[1])
+        // components
+        this.components && this._addComponents(app, this.components)
+        return app
     }
 
     /// Return Vuex Store config if required (when store config is provided).

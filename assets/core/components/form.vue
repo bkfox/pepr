@@ -11,8 +11,10 @@
 import Cookies from 'js-cookie'
 
 export default {
+    emits: ['done', 'error'],
     props: {
         model: Function,
+        context: Object,
         item: Object,
         apiUrl: String,
         action: String,
@@ -20,6 +22,14 @@ export default {
     },
 
     computed: {
+        currentContext() {
+            return (this.item && this.item.context) || this.context
+        },
+
+        currentModel() {
+            return (this.item && this.item.constructor) || this.model
+        },
+
         targetMethod() {
             return this.item ? 'PUT' : this.method
         },
@@ -31,7 +41,7 @@ export default {
 
     methods: {
         onSubmit(ev) {
-            if(!this.targetUrl || !this.model || ev.target != this.$refs.form)
+            if(!this.targetUrl || !this.currentModel || ev.target != this.$refs.form)
                 return
 
             ev.preventDefault()
@@ -44,11 +54,10 @@ export default {
                     'X-CSRFToken': Cookies.get('csrftoken'),
                 }
             }
-            let method = this.method.toLowerCase()
-            this.model.api()[method](this.targetUrl, data, config)
-                //.reject((err) => console.error(
-                //    `XHR request to ${this.apiUrl} failed (config: ${config}): `,
-                //    error))
+            let method = this.targetMethod.toLowerCase()
+            this.currentModel.api()[method](this.targetUrl, data, config)
+                .then(r => this.$emit('done', r),
+                      r => this.$emit('error', r))
         },
     },
 }

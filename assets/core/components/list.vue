@@ -1,7 +1,7 @@
 <template>
-    <div v-for="(item, index) in items">
+    <template v-for="(item, index) in items">
         <slot name="item" :index="index" :item="item" :items="items"></slot>
-    </div>
+    </template>
 </template>
 <script>
 import { nextTick } from 'vue'
@@ -20,10 +20,9 @@ export default {
         itemsQuery() {
             let query = this.model.query();
             if(this.orderBy) {
-                query = this.orderBy.startsWith('-') ?
-                        query.orderBy(this.orderBy.slice(1), 'desc') :
-                        query.orderBy(this.orderBy)
-
+                let [order, dir] = this.orderBy.startsWith('-') ?
+                    [this.orderBy.slice(1), 'desc'] : [this.orderBy, 'asc'];
+                query = query.orderBy((obj) => obj[order], dir)
             }
             if(this.context)
                 query = query.where('context_id', this.context.pk)

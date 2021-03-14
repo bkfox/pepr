@@ -1,28 +1,20 @@
 <template>
     <form ref="form" :method="targetMethod" :action="action" 
             @submit="onSubmit">
-        <slot :item="item" :context="context" :model="model">
-            <input type="hidden" name="context_id" :value="context && context.pk" />
+        <slot :item="item" :context="currentContext">
+            <input type="hidden" name="context_id" :value="currentContext && currentContext.pk" />
+            <slot name="fields" :item="item" :context="currentContext"></slot>
             <div class="field">
                 <div class="control">
                     <textarea name="text" class="textarea">{{ item && item.text }}</textarea>
                 </div>
             </div>
             <div class="columns">
-                <div class="column">
+                <div class="column" v-if="showAccess">
                     <div class="field is-grouped">
-                        <div class="control has-icons-left">
-                            <div class="select">
-                                <select name="access" title="Visible to">
-                                    <option v-for="role of consts.roles" 
-                                            :value="role.access">
-                                            {{ role.name }}</option>
-                                </select>
-                            </div>
-                            <span class="icon is-left">
-                                <i class="mdi mdi-eye"></i>
-                            </span>
-                        </div>
+                        <p-select-role :name="access" :context="currentContext"
+                            :limit="true" title="Visible to">
+                        </p-select-role>
                     </div>
                 </div>
                 <div class="column">
@@ -31,7 +23,10 @@
                             <button type="submit" class="button is-link">Publish</button>
                         </p>
                         <p class="control">
-                            <button type="reset" class="button is-link is-light">Reset</button>
+                            <button v-if="item" @click="$emit('done')" class="button is-link is-light">
+                                Cancel</button>
+                            <button v-else type="reset" class="button is-link is-light">
+                                Reset</button>
                         </p>
                     </div>
                 </div>
@@ -40,19 +35,17 @@
     </form>
 </template>
 <script>
-import { Form } from 'pepr/core/components'
+import PForm from 'pepr/core/components/form'
+import PSelectRole from 'pepr/core/components/selectRole'
 
 export default {
-    extends: Form,
+    extends: PForm,
+    inject: ['consts'],
     props: {
-        context: Object,
-        item: Object,
+        /// Show access field
+        showAccess: { type: Boolean, default: true },
     },
 
-    computed: {
-        consts() {
-            return this.$root.consts
-        },
-    },
+    components: { PSelectRole },
 }
 </script>

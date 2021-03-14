@@ -1,8 +1,17 @@
+import Cookies from 'js-cookie'
+
 import { Model } from '@vuex-orm/core'
+import Role from './role'
 
 
 export class Base extends Model {
     static get primaryKey() { return 'pk' }
+
+    static get apiConfig() {
+        return {
+            headers: { 'X-CSRFToken': Cookies.get('csrftoken') }
+        }
+    }
 
     static fields() {
         return {
@@ -10,6 +19,14 @@ export class Base extends Model {
             api_url: this.string(null),
             access: this.number(null),
         }
+    }
+
+    /// Delete item from server
+    delete(config) {
+        if(this.api_url)
+            this.constructor.api().delete(this.api_url, config)
+        else
+            throw "no api url for item"
     }
 }
 
@@ -20,7 +37,7 @@ export class Context extends Base {
     static fields() {
         return { ...super.fields(),
             title: this.string(null),
-            role: this.attr(null),
+            role: this.attr(null, (value) => new Role(value)),
             allow_subscription_request: this.attr(null),
             subscription_default_access: this.number(null),
             subscription_default_role: this.number(null),
@@ -45,13 +62,27 @@ export class Context extends Base {
 
 export class Accessible extends Base {
     static get entity() { return 'accessibles' }
-    static get contextModel() { return Context }
 
     static fields() {
         return { ...super.fields(),
             context_id: this.attr(null),
-            context: this.belongsTo(this.contextModel, 'context_id'),
+            // context: this.belongsTo(Context, 'context_id'),
         }
+    }
+
+    get context() {
+        return this.context_id && Context.find(this.context_id)
+    }
+
+    granted(permissions) {
+        let role_perms = context.role.permissions
+        if(!Array.isArray(perms))
+            return !!role_perms[permissions]
+
+        for(var permission of permissions)
+            if(!role_perms[permission])
+                return false
+        return true
     }
 }
 
@@ -66,7 +97,7 @@ export class Owned extends Accessible {
     }
 
     get owner() {
-        return this.constructor.contextModel.find(this.owner_id)
+        return Context.find(this.owner_id)
     }
 }
 

@@ -46,7 +46,7 @@ class BaseSerializer(serializers.ModelSerializer):
         self.viewset = viewset
 
         self.view_name = self.view_name or \
-            self.Meta.model.__name__.lower() + '-detail'
+            'api:' + self.Meta.model.__name__.lower() + '-detail'
 
     def get_api_url(self, obj):
         try:
@@ -89,10 +89,10 @@ class ContextSerializer(BaseSerializer):
             'subscription_default_role',
             'subscription_accept_role',
             'subscription_default_access',
-            'role',
+            'role', 'subscription',
         )
 
-    view_name = 'context-detail'
+    view_name = 'api:context-detail'
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -119,9 +119,11 @@ class RoleSerializer(serializers.Serializer):
     is_anonymous = serializers.BooleanField()
     is_subscribed = serializers.BooleanField()
     is_admin = serializers.BooleanField()
-    identity = serializers.PrimaryKeyRelatedField(
+    identity_id = serializers.PrimaryKeyRelatedField(
+        source='identity',
         queryset=Context.objects.identities(),
     )
+    permissions = serializers.DictField()
 
 
 class AccessibleSerializer(BaseSerializer):
@@ -139,7 +141,6 @@ class AccessibleSerializer(BaseSerializer):
         if 'context_id' in self.fields:
             field = self.fields['context_id']
             field.read_only = self.instance is not None
-
 
 
 class OwnedSerializer(AccessibleSerializer):

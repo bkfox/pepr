@@ -1,0 +1,69 @@
+{% load static %}
+<html>
+    <head>
+        {% block head %}
+        <link rel="stylesheet" href="{% static "pepr/core.css" %}" />
+        <link rel="stylesheet" href="{% static "pepr/vendor.css" %}" />
+        <script src="{% static "pepr/vendor.js" %}"></script>
+        <script src="{% static "pepr/core.js" %}"></script>
+        <title>{% block head_title %}{{ role.context.title }}{% endblock %}</title>
+        {% endblock %}
+    </head>
+    <body>
+        {% if app_data %}
+        {{ app_data|json_script:"app-data" }}
+        {% endif %}
+
+        {% block app %}
+        <main id="app" {% if app_data %}app-data="#app-data"{% endif %}
+                init-context-id="{{ context.pk }}">
+            <header class="header">
+                <div class="container">
+                    {% block header %}
+                    <h1 class="title">{% block title %}{{ context.title }}{% endblock %}</h1>
+                    <h2 class="subtitle">{% block subtitle %}{{ context.headline|default:'' }}{% endblock %}</h2>
+                    {% endblock header %}
+                </div>
+            </header>
+            <section class="section">
+                <div class="container">
+                    <div class="level">
+                        <div class="level-left">
+                            <div class="tabs">
+                                <ul>
+                                    {% block context-nav %}
+                                    {% if services %}
+                                    {% for obj in services %}
+                                    <li {% if obj.pk == service.pk %}class="is-active"{% endif %}>
+                                        <a href="{{ obj.get_absolute_url }}">{{ obj.title }}</a>
+                                    </li>
+                                    {% endfor %}
+                                    {% endif %}
+                                    {% endblock %}
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="level-right">
+                            <p-subscription-button :context="context"></p-subscription-button>
+                            <div class="dropdown is-hoverable is-right">
+                                <div class="dropdown-trigger">
+                                    <button class="button">
+                                        <span class="icon"><i class="mdi mdi-cog"></i></span>
+                                    </button>
+                                </div>
+                                <div class="dropdown-menu" role="menu">
+                                    <div class="dropdown-content">
+                                        <a href="" class="dropdown-item">Settings</a>
+                                        <a href="" class="dropdown-item">Subscriptions</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% block service %}{% endblock %}
+                </div>
+            </section>
+        </main>
+        {% endblock %}
+    </body>
+</html>

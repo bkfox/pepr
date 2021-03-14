@@ -1,8 +1,7 @@
 import App from 'pepr/core/app'
-import coreComponents from 'pepr/core/components'
-
+import * as coreComponents from 'pepr/core/components'
+import * as components from './components'
 import * as models from './models'
-import components from './components'
 
 
 const app = new App({}, {
@@ -10,11 +9,9 @@ const app = new App({}, {
     components: { ...coreComponents, ...components },
 });
 const props = {
-    contextModel: models.Container,
+    appData: '#app-data',
 }
 
-app.load({async:true, props}).then((vm) => {
-    window.contentVm = vm
-})
+app.load({async:true, props});
 export default app;
 

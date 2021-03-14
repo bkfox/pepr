@@ -1,7 +1,7 @@
 from django import forms
 
-from ..core.forms import OwnedForm
-from .models import Content, Container
+from pepr.core.forms import OwnedForm
+from .models import Content
 
 
 class ContentForm(OwnedForm):
@@ -11,14 +11,5 @@ class ContentForm(OwnedForm):
     class Meta:
         model = Content
         fields = ['context', 'access', 'owner', 'text']
-
-
-class ContainerForm(OwnedForm):
-    """
-    Container form creation and edition.
-    """
-    class Meta:
-        model = Container
-        fields = ['title', 'description', 'access']
 
 

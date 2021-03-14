@@ -7,6 +7,7 @@ from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.db.models import F, Q
+from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 
 from ..utils.iter import as_choices
@@ -17,7 +18,7 @@ from .settings import settings
 
 __all__ = ['access_choices',
            'Context', 'Accessible', 'Owned', 'Subscription',
-           'Authorization',
+           'Authorization', 'Service',
            'ContextQuerySet', 'AccessibleQuerySet', 'OwnedQuerySet']
 
 
@@ -95,6 +96,18 @@ class BaseAccessible(models.Model):
         help_text=_('Only people with at least this role can see this.')
     )
     objects = BaseAccessibleQuerySet.as_manager()
+
+    basename = ''
+
+    @property
+    def api_list_url(self):
+        """ Get list url for this object's model """
+        return reverse(f'api:{self.basename}-list')
+
+    @property
+    def api_detail_url(self):
+        """ Get detail url for this object """
+        return reverse(f'api:{self.basename}-detail',  pk=str(self.pk))
 
     @property
     def is_saved(self):
@@ -233,6 +246,7 @@ class Context(BaseAccessible):
     Current identity role (which is the last one get using `get_role`.
     """
     objects = ContextQuerySet.as_manager()
+    basename = 'context'
 
 
     @staticmethod
@@ -295,6 +309,11 @@ class AccessibleQuerySet(BaseAccessibleQuerySet):
     """
     Queryset used by the Accessible model.
     """
+    def role(self, role):
+        """ Filter elements available by this role. """
+        return self.identity(role.identity).access(role.access) \
+                   .context(role.context)
+
     def context(self, context):
         """
         Filter in elements for the given context
@@ -427,6 +446,7 @@ class Subscription(Owned):
     )
 
     objects = SubscriptionQuerySet.as_manager()
+    basename = 'subscription'
 
     class Meta:
         unique_together = ('context', 'owner')
@@ -480,4 +500,29 @@ class Authorization(Accessible):
     granted = models.BooleanField(
         default=False,
     )
+
+    basename = 'authorization'
+
+
+class Service(Accessible):
+    """
+    A Service is an application enabled in a context.
+
+    It can be subclassed to provide settings.
+    """
+    title = models.CharField(_('Title'), max_length=128, blank=True, null=True)
+    url_name = models.CharField(_('Url name'), max_length=64, blank=True)
+
+    service_url_name = ''
+    basename = 'service'
+
+    def get_absolute_url(self):
+        """ Url to service's index """
+        return reverse(self.url_name, kwargs={'context_pk': self.context_id})
+
+    def save(self, *args, **kwargs):
+        if not self.url_name:
+            self.url_name = self.service_url_name
+        super().save(*args, **kwargs)
+
 

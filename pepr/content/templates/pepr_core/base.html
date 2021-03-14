@@ -1,4 +1,4 @@
-{% extends template_base %}
+{% extends "pepr_core/base.html" %}
 {% load static %}
 
 {% block head %}
@@ -6,11 +6,5 @@
 <script src="{% static "pepr/content.js" %}"></script>
 <!-- <link rel="stylesheet" href="{% static "pepr/content.css" %}" /> -->
 {% endblock %}
-
-{% block head_title %}
-{% block title %}{{ role.context.title }}{% endblock %}
-{{ block.super }}
-{% endblock %}
-
 
 

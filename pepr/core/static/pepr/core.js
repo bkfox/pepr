@@ -16,7 +16,7 @@
   \******************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
-eval("__webpack_require__.r(__webpack_exports__);\n/* harmony import */ var _styles_scss__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./styles.scss */ \"./assets/core/styles.scss\");\n\n\n\n\n\n\n\n//# sourceURL=webpack://pepr-assets/./assets/core/index.js?");
+eval("__webpack_require__.r(__webpack_exports__);\n/* harmony import */ var _styles_scss__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./styles.scss */ \"./assets/core/styles.scss\");\n\n\n\n\n\n//# sourceURL=webpack://pepr-assets/./assets/core/index.js?");
 
 /***/ }),
 

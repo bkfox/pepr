@@ -1,4 +1,4 @@
-{% extends "pepr/content/service.html" %}
+{% extends "pepr_core/base.html" %}
 {% load i18n pepr_core pepr_content %}
 
 {% block service %}
@@ -6,12 +6,6 @@
 </p-content-form>
 <p-content-list :context="context" :model="Content" api-url="{% url "api:content-list" %}"
         :show-form="true">
-    <template v-slot:item="{item, items, index}">
-        <div :id="item.pk" class="box">
-            <p-content :item="item"></p-content>
-        </div>
-        <br>
-    </template>
 </p-content-list>
 {% endblock %}
 

@@ -1,4 +1,4 @@
-from ..core.apps import PeprAppConfig
+from pepr.core.apps import PeprAppConfig
 
 
 class PeprContentConfig(PeprAppConfig):

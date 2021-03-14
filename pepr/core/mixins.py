@@ -1,16 +1,14 @@
-from django.core.exceptions import PermissionDenied
-from django.http import Http404
-
+from django.urls import reverse
 from rest_framework import exceptions
 from rest_framework.views import APIView
 
 from . import assets
 from .permissions import CanAccess, CanCreate, CanUpdate, CanDestroy
-from .models import Context
+from .models import Context, Service
 
 
 __all__ = ('BaseViewMixin', 'PermissionMixin', 'ViewMixin',
-           'AccessibleViewMixin', 'ContextViewMixin')
+           'AccessibleViewMixin', 'ContextViewMixin', 'ServiceMixin')
 
 
 class BaseViewMixin:
@@ -18,18 +16,17 @@ class BaseViewMixin:
     Provide utilities to work with client side application.
 
     - embed: render view application content only.
-    - assets managements: include assets in view context.
     - application data: include application data in script tag ``#app-data``,
-        using ``json_script`` template filter.
+        using ``json_script`` template filter. This allows assets' ``pepr.core.App`` to load initial data from page.
     """
-    template_base = 'pepr/base.html'
+    template_base = 'pepr_core/base.html'
     """ Extend view's template from it. """
-    template_embed = 'pepr/base_embed.html'
+    template_embed = 'pepr_core/base_embed.html'
     """ Extend view's template from it when embed. """
     app_data = {}
     """ App data merged with provided ones in ``get_app_data``. """
 
-    def get_app_data_consts(self, **kwargs):
+    def get_app_consts(self, **kwargs):
         """ Return consts used by client side application. """
         for k, v in assets.consts.items():
             kwargs.setdefault(k, v)
@@ -38,7 +35,9 @@ class BaseViewMixin:
     def get_app_data(self, extra_consts={}, **kwargs):
         """ Return dict of data to pass to client application. """
         if not 'consts' in kwargs:
-            kwargs['consts'] = self.get_app_data_consts(**extra_consts)
+            kwargs['consts'] = self.get_app_consts(**extra_consts)
+        if not 'api_root' in kwargs:
+            kwargs['api_root'] = reverse('pepr:api-root')
         for k, v in self.app_data.items():
             kwargs.setdefault(k, v)
         return kwargs
@@ -167,6 +166,7 @@ class ViewMixin(PermissionMixin, BaseViewMixin):
 
     def get_context_data(self, **kwargs):
         """ Ensure 'role' and 'roles' are in resulting context """
+        kwargs.setdefault('context', self.role.context)
         kwargs.setdefault('role', self.role)
         kwargs.setdefault('roles', assets.roles() )
         return super().get_context_data(**kwargs)
@@ -203,5 +203,37 @@ class AccessibleViewMixin(ViewMixin):
         if role and role.context:
             qs = qs.filter(context=role.context)
         return qs
+
+
+class ServiceMixin(ViewMixin):
+    """
+    Fetch a service for current context.
+
+    Provide context data:
+    - 'service': current service object
+    - 'services': current context's services
+    """
+    service_class = None
+    """ Service model class to be retrieved if not None. """
+    service = None
+    """ Service instance found. """
+
+    def get_services(self):
+        """ Return available services for current Context. """
+        return Service.objects.role(self.role)
+
+    def get_service(self):
+        """ Return current service """
+        return self.service_class.objects.role(self.role) \
+                                         .first()
+
+    def get_context_data(self, **kwargs):
+        self.service = kwargs.pop('service', None) or self.get_service()
+        if self.service is None:
+            raise Http404('Service not found')
+        if 'services' not in kwargs:
+            kwargs['services'] = self.get_services()
+        return super().get_context_data(service=self.service, **kwargs)
+
 
 

@@ -3,7 +3,7 @@ from django.core.exceptions import PermissionDenied
 from django.test import Client, TestCase
 
 # tests use `pepr.content` models in order to have concrete classes.
-from ..content.models import Content
+from pepr.content.models import Content
 from .settings import settings
 from .models import Authorization, Context, Subscription
 from .roles import *

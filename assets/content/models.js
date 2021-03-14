@@ -1,24 +1,9 @@
-import { Owned, Context, Subscription as BaseSubscription } from 'pepr/core/models'
+import { Owned } from 'pepr/core/models'
+export { Context, Subscription } from 'pepr/core/models'
 
-
-export class Container extends Context {
-    static get entity() { return 'contexts' }
-    static get contextModel() { return Container }
-
-    static fields() {
-        return { ...super.fields(),
-            description: this.string(null),
-        }
-    }
-}
-
-export class Subscription extends BaseSubscription {
-    static get contextModel() { return Container }
-}
 
 export class Content extends Owned {
     static get entity() { return 'contents' }
-    static get contextModel() { return Container }
 
     static fields() {
         return { ...super.fields(),

@@ -1,11 +1,7 @@
-export { default as Form } from './form'
-export { default as List } from './list'
-
-import Form from './form'
-import List from './list'
-
-export default {
-    'p-form': Form,
-    'p-list': List,
-}
+export { default as PSelectRole } from './selectRole'
+export { default as PForm } from './form'
+export { default as PList } from './list'
+export { default as PModal } from './modal'
+export { default as PRuntimeTemplate } from './runtimeTemplate'
+export { default as PSubscriptionButton } from './subscriptionButton'
 

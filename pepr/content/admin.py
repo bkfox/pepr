@@ -1,7 +1,6 @@
 from django.contrib import admin
 
-from .models import Container, Content, StreamService
+from .models import Content, ContentService
 
-admin.site.register(Container)
 admin.site.register(Content)
-admin.site.register(StreamService)
+admin.site.register(ContentService)

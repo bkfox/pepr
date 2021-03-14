@@ -1,18 +1,10 @@
-from django.contrib.auth import models as auth
-
 from rest_framework import serializers
 
-from ..core.serializers import ContextSerializer, OwnedSerializer
+from pepr.core.serializers import OwnedSerializer
 
-from .models import Container, Content
+from .models import Content
 
-__all__ = ('ContainerSerializer', 'ContentSerializer')
-
-
-class ContainerSerializer(ContextSerializer):
-    class Meta:
-        model = Container
-        fields = ContextSerializer.Meta.fields + ('description',)
+__all__ = ('ContentSerializer',)
 
 
 class ContentSerializer(OwnedSerializer):

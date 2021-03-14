@@ -2,10 +2,10 @@ from django.core.exceptions import ImproperlyConfigured
 from django.template import loader
 from django.views.generic.base import ContextMixin, TemplateResponseMixin
 
-from ..core.assets import roles as roles_info
-from ..core.models import Accessible
-from ..core.mixins import PermissionMixin
-from ..core.settings import settings
+from pepr.core.assets import roles as roles_info
+from pepr.core.models import Accessible
+from pepr.core.mixins import PermissionMixin
+from pepr.core.settings import settings
 from .forms import ContentForm
 
 
@@ -134,6 +134,6 @@ class AccessibleFormComp(FormComp):
 
 class ContentFormComp(AccessibleFormComp):
     form_class = ContentForm
-    template_name = 'pepr/content/content_form.html'
+    template_name = 'pepr_content/content_form.html'
 
 

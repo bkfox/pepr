@@ -1,40 +1,14 @@
 from django.db import models
-from django.contrib.auth import models as auth
-from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 
 from model_utils.managers import InheritanceQuerySetMixin
 from model_utils.models import TimeStampedModel
 from rest_framework.reverse import reverse
 
-
-from ..core.models import Context, Accessible, Owned, OwnedQuerySet
-
-
-__all__ = ('Container', 'ContentQuerySet', 'Content', 'Service', 'StreamService')
+from pepr.core.models import *
 
 
-# TODO:
-# - Container
-#   - unique slug generation
-#   - 
-class Container(Context):
-    """ Context on which content can be published. """
-    # TODO: image & cover
-    description = models.TextField(
-        _('Description'),
-        blank=True, null=True,
-        max_length=256,
-    )
-
-    #@property
-    #def service_set(self):
-    #    return Service.objects.context(self)
-
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.title)
-        return super().save(*args, **kwargs)
+__all__ = ('ContentQuerySet', 'Content', 'ContentService')
 
 
 class ContentQuerySet(InheritanceQuerySetMixin, OwnedQuerySet):
@@ -65,23 +39,8 @@ class Content(Owned, TimeStampedModel):
         ordering = ('-modified',)
 
     api_basename = 'content'
-    template_name = 'pepr/content/content.html'
-    form_template_name = 'pepr/content/content_form.html'
-
-    def get_api_url(self, url_name='', *args, **kwargs):
-        """ Reverse api url for this model """
-        url_name = '{}-{}'.format(self.api_basename, url_name)
-        return reverse(url_name, *args, **kwargs)
-
-    @property
-    def api_list_url(self):
-        """ Get list url for this object's model """
-        return self.get_api_url('list')
-
-    @property
-    def api_detail_url(self):
-        """ Get detail url for this object """
-        return self.get_api_url('detail', kwargs={'pk': str(self.pk)})
+    template_name = 'pepr_content/content.html'
+    form_template_name = 'pepr_content/content_form.html'
 
     def get_component_class(self):
         from .components import Component
@@ -106,7 +65,6 @@ class Content(Owned, TimeStampedModel):
             kwargs['template_name'] = self.form_template_name
         return self.as_component(**kwargs)
 
-
     @classmethod
     def get_serializer_class(cl):
         """
@@ -129,17 +87,8 @@ class Content(Owned, TimeStampedModel):
             self.modifier = role.identity
 
 
-class Service(Accessible):
-    """
-    Service offers end-user level application at context level.
-    """
-    title = models.CharField(_('Title'), max_length=128, blank=True, null=True)
-    enabled = models.BooleanField(_('Enabled'), default=True)
+class ContentService(Service):
+    """ Service handling content (list & detail) display. """
+    service_url_name = 'content-list'
 
-    class Meta:
-        abstract = True
-
-
-class StreamService(Service):
-    pass
 

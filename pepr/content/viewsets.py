@@ -5,19 +5,14 @@ from django_filters import rest_framework as filters_drf
 from rest_framework import viewsets
 from rest_framework.decorators import action
 
-from ..core.viewsets import AccessibleViewSet, ContextViewSet
+from pepr.core.viewsets import AccessibleViewSet
 
 from .components import ContentFormComp
-from .models import Container, Content
-from .serializers import ContentSerializer, ContainerSerializer
+from .models import Content
+from .serializers import ContentSerializer
 
 
 __all__ = ('ContentViewSet', )
-
-
-class ContainerViewSet(ContextViewSet):
-    model = Container
-    serializer_class = ContainerSerializer
 
 
 class ContentViewSet(AccessibleViewSet):
@@ -41,10 +36,4 @@ class ContentViewSet(AccessibleViewSet):
         role = instance.get_role(request.identity)
         content = self.form_comp.render(role, instance)
         return HttpResponse(content=content)
-
-
-# class ContainerViewSet(ContextViewSet):
-#    model = Container
-#    serializer_class = ContainerSerializer
-
 

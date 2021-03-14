@@ -1,60 +1,39 @@
 from django.http import Http404
-from django.shortcuts import render
 from django.views.generic import DetailView, ListView
 
-from ..core.mixins import BaseViewMixin, ViewMixin
-from ..core.models import Subscription
-from ..core.serializers import SubscriptionSerializer
+from pepr.core.mixins import ServiceMixin
+from pepr.core.models import Subscription
+from pepr.core.serializers import ContextSerializer, SubscriptionSerializer
+
 from .components import ContentFormComp
 from .forms import ContentForm
-from .models import Container, Content, StreamService
-from .serializers import ContainerSerializer
+from .models import Content, ContentService
 
 
-__all__ = ('BaseServiceMixin', 'ContentListView')
+__all__ = ('ServiceMixin', 'ContentListView')
 
 
-class BaseServiceMixin(ViewMixin):
-    service_class = None
-    """ Service model class to be retrieved if not None. """
-    service = None
-    """ Service instance found. """
-    context_model = Container
-
-    def get_service_queryset(self):
-        return self.service_class.objects.access(self.role.access) \
-                                         .context(self.role.context) \
-                                         .filter(enabled=True)
-
-    def get_service(self):
-        return self.get_service_queryset().first() if self.service_class else \
-                None
-
-    def get_context_data(self, **kwargs):
-        self.service = kwargs.pop('service', None) or self.get_service()
-        if self.service is None:
-            raise Http404('Service not found')
-        return super().get_context_data(service=self.service, **kwargs)
-
-
-class ContentListView(BaseServiceMixin, ListView):
+class ContentListView(ServiceMixin, ListView):
     model = Content
     # TODO: pepr/content to pepr_content/
-    template_name = 'pepr/content/content_list'
-    service_class = StreamService
+    service_class = ContentService
     create_form = ContentForm
 
     def get_app_data(self, store=None, **kwargs):
         store = store or {}
         identity = self.role.identity
         if not 'contexts' in store:
-            pks = {obj.context_id for obj in self.object_list}.union({identity.pk})
+            pks = {obj.context_id for obj in self.object_list}.union({
+                   obj.owner_id for obj in self.object_list})
+            pks.add(self.role.context.pk)
+            if identity:
+                pks.add(identity.pk)
             contexts = self.get_context_model().objects.identity(identity) \
                                                .filter(pk__in=pks)
             subscriptions = Subscription.objects.identity(identity) \
                                         .subscribed(self.role.context)
             store.update({
-                'contexts': ContainerSerializer(contexts, many=True,
+                'contexts': ContextSerializer(contexts, many=True,
                     identity=self.request.identity).data,
                 'subscriptions': SubscriptionSerializer(subscriptions, many=True,
                     identity=self.request.identity).data,
@@ -71,12 +50,10 @@ class ContentListView(BaseServiceMixin, ListView):
         return super().get_queryset().select_subclasses()
 
 
-class StreamServiceDetailView(BaseServiceMixin, DetailView):
-    template_name = 'pepr/content/stream_detail.html'
-    service_class = StreamService
+class ContentDetailView(ServiceMixin, DetailView):
+    service_class = ContentService
     model = Content
 
     def get_queryset(self):
         return super().get_queryset().select_subclasses()
-
 

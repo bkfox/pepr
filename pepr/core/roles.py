@@ -122,8 +122,8 @@ class Role:
         :param Permission|str perm: permission or permission codename
         :param Model model: if perm is a string, specifies model.
         """
-        from .permissions import Permission
-        perm = perm.label if isinstance(perm, Permission) else perm
+        if hasattr(perm, 'label'):
+            perm = perm.label
         if model:
             model = model if isinstance(model, str) else model._meta.db_table
             return f'{perm}.{model}'

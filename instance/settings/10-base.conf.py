@@ -9,8 +9,8 @@ except NameError: DEBUG = True
 ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
-    'pepr.core',
     'pepr.content',
+    'pepr.core',
 
     'rest_framework',
     'django_filters',

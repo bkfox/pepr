@@ -9,11 +9,18 @@ import { nextTick } from 'vue'
 export default {
     props: {
         model: Function,
+        // FIXME: db query filters
+        filters: Object,
         context: Object,
-        contextUrl: String,
         contextFilter: { type: String, default: 'context' },
         orderBy: String,
-        apiUrl: String
+        url: String,
+    },
+
+    provide() {
+        return {
+            context: this.context
+        }
     },
 
     computed: {
@@ -36,24 +43,41 @@ export default {
     },
 
     methods: {
-        fetchContext(url, {context=null, search={}, ...config}={}) {
-            context = context || this.context
-            if(!context)
-                return
-            let params = new URLSearchParams(search)
-            params.append(this.contextFilter, context.pk)
-            return this.fetch(`${url}?${params.toString()}`, config)
+        /**
+         * Fetch item from list.
+         */
+        fetch(url, {context=null,filters=null, ...config}={}) {
+            if(context || filters) {
+                let params = new URLSearchParams(filters || {})
+                if(context && this.contextFilter)
+                    params.append(this.contextFilter, context.pk)
+                url = `${url}?${params.toString()}`
+            }
+            return this.model.api().get(url, { dataKey: 'results', ...config})
+                // FIXME: Vuex ORM API bug about using local store?
+                .then(r => this.model.insertOrUpdate({data: r.response.data.results}))
         },
 
-        fetch(url, config={}) {
-            return this.model.api().get(url, { dataKey: 'results', ...config})
-        },
+        /**
+         * Load list using components properties as default fetch's
+         * config.
+         */
+        load({url=null, context=null, filters=null, ...config}) {
+            return this.fetch(url || this.url || this.model.baseURL, {
+                filters: filters || this.filters,
+                context: context || this.context,
+            })
+        }
     },
 
     watch: {
-        context(context, oldContext) {
-            this.fetchContext(this.apiUrl, {context});
-        }
+        context(context, old) {
+            this.load({context})
+        },
+
+        filters(filters, old) {
+            this.load({filters})
+        },
     },
 }
 </script>

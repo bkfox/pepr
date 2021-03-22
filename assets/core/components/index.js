@@ -1,7 +1,17 @@
-export { default as PSelectRole } from './selectRole'
-export { default as PForm } from './form'
-export { default as PList } from './list'
-export { default as PModal } from './modal'
-export { default as PRuntimeTemplate } from './runtimeTemplate'
-export { default as PSubscriptionButton } from './subscriptionButton'
+import PList from './list'
+import PModal from './modal'
+import PRuntimeTemplate from './runtimeTemplate'
+import PSelectRole from './selectRole'
+import PSubscriptionButton from './subscriptionButton'
+import PSubscriptionForm from './subscriptionForm'
+
+const defaults = {
+    PList, PModal, PRuntimeTemplate, PSelectRole, PSubscriptionButton,
+    PSubscriptionForm,
+}
+export default defaults
+
+export {
+    PList, PModal, PRuntimeTemplate, PSelectRole, PSubscriptionButton,
+}
 

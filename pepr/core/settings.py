@@ -61,7 +61,7 @@ class PeprCoreSettings(Settings):
 
     def validate(self, config):
         if 'roles' in config:
-            # TODO: check on anonymous and admin role
+            # TODO: check that all role are respected
             roles = (role if issubclass(role, Role) else self.import_item(role)
                      for role in config['roles'])
             config['roles'] = { role.access: role for role in roles }

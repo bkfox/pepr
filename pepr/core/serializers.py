@@ -85,9 +85,10 @@ class ContextSerializer(BaseSerializer):
         model = Context
         fields = BaseSerializer.Meta.fields + (
             'title', 'headline',
+            'default_access',
             'allow_subscription_request',
-            'subscription_default_role',
             'subscription_accept_role',
+            'subscription_default_role',
             'subscription_default_access',
             'role', 'subscription',
         )
@@ -101,16 +102,13 @@ class ContextSerializer(BaseSerializer):
 
     def get_subscription(self, obj):
         role = obj.get_role(self.identity)
-        if not role or not role.subscription:
-            return
-        return role.subscription.pk
+        return role.subscription.pk if role and role.subscription else None
 
     def get_role(self, obj):
         if not self.identity:
             return
-
         role = obj.get_role(self.identity)
-        return RoleSerializer(instance=role, context=self.context).data
+        return RoleSerializer(instance=role, context=obj).data
 
 
 class RoleSerializer(serializers.Serializer):
@@ -118,7 +116,16 @@ class RoleSerializer(serializers.Serializer):
     access = serializers.IntegerField()
     is_anonymous = serializers.BooleanField()
     is_subscribed = serializers.BooleanField()
+    is_moderator = serializers.BooleanField()
     is_admin = serializers.BooleanField()
+    context_id = serializers.PrimaryKeyRelatedField(
+        source='context',
+        queryset=Context.objects.all(),
+    )
+    subscription_id = serializers.PrimaryKeyRelatedField(
+        source='subscription',
+        queryset=Subscription.objects.all(),
+    )
     identity_id = serializers.PrimaryKeyRelatedField(
         source='identity',
         queryset=Context.objects.identities(),
@@ -135,12 +142,11 @@ class AccessibleSerializer(BaseSerializer):
         fields = BaseSerializer.Meta.fields + ('context_id', 'access')
         read_only_fields = BaseSerializer.Meta.read_only_fields
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def validate(self, data):
         # Rule: context can not be changed once assigned
-        if 'context_id' in self.fields:
-            field = self.fields['context_id']
-            field.read_only = self.instance is not None
+        if self.instance and self.instance.context_id != data['context'].pk:
+            raise ValidationError("Can't change item's context")
+        return super().validate(data)
 
 
 class OwnedSerializer(AccessibleSerializer):
@@ -174,29 +180,30 @@ class OwnedSerializer(AccessibleSerializer):
 
 class SubscriptionSerializer(OwnedSerializer):
     """ Serializer class for Subscription instances. """
+
     class Meta:
         model = Subscription
-        fields = OwnedSerializer.Meta.fields + ('access', 'role', 'status')
+        fields = OwnedSerializer.Meta.fields + ('role', 'status')
         read_only_fields = OwnedSerializer.Meta.read_only_fields
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['status'].read_only = self.instance is None
-        # self.fields['owner'].read_only = self.instance is not None
 
     def validate_request(self, role, data):
         if data.get('owner_id') and data['owner_id'] != self.identity.pk:
             raise ValidationError({'owner_id': ['not allowed']})
 
         if data['role'] >= ModeratorRole.access:
-            raise ValidationError({'role': ["must be < than Moderator role"]})
+            raise ValidationError({'role': ["must be less than Moderator"]})
 
-        context = role.context
-        data.setdefault('access', context.subscription_default_access)
+        # access: context.subscription_default_access
+        data.setdefault('access', role.context.subscription_default_access)
         data['access'] = min(data['access'], ModeratorRole.access)
 
-        accept_role = context.subscription_accept_role
-        data['status'] = Subscription.STATUS_ACCEPTED \
+        # status: context.subscription_accept_role
+        accept_role = role.context.subscription_accept_role
+        data['status'] = Subscription.STATUS_SUBSCRIBED \
             if accept_role is not None and data['role'] <= accept_role else \
             Subscription.STATUS_REQUEST
         return data
@@ -217,14 +224,16 @@ class SubscriptionSerializer(OwnedSerializer):
 
         # status validation
         # Rule: a subscription status can update only to the same
-        #       value or accepted.
-        # Rule: Invite can't be accepted by others, while
-        #       request can't be accepted by owner.
+        #       value or subscribed.
+        # Rule: Invite can't be subscribed by others, while
+        #       request can't be subscribed by owner.
         status = data.get('status')
-        if status is Subscription.STATUS_ACCEPTED:
-            test = instance.status is Subscription.STATUS_ACCEPTED or (
+        if status is Subscription.STATUS_SUBSCRIBED:
+            test = instance.status is Subscription.STATUS_SUBSCRIBED or (
+                # owner accepts invite
                 instance.status is Subscription.STATUS_INVITE
                 if instance.is_owner(role) else
+                # moderator accepts request
                 instance.status is Subscription.STATUS_REQUEST
             )
         else:
@@ -234,10 +243,14 @@ class SubscriptionSerializer(OwnedSerializer):
             raise ValidationError("status {} can not become {}"
                                   .format(instance.status, status))
 
+        # owner updates request
+        if instance.status is Subscription.STATUS_REQUEST and instance.is_owner(role):
+            self.validate_request(role, data)
+
         # role validation
         # Rule: can't set role higher than the one attributed to identity.
         # If obj owner is identity, use `obj.role` because role can be
-        # DefaultRole (e.g. when an Invite is accepted).
+        # DefaultRole (e.g. when an Invite is subscribed).
         role_max = instance.role if instance.is_owner(role) else role.access
         data['role'] = min(role_max, data.get('role', instance.role))
         return data
@@ -247,7 +260,7 @@ class SubscriptionSerializer(OwnedSerializer):
             raise PermissionDenied('user must be identitied')
 
         data = super().validate(data)
-        role = Context.objects.get(data['context_id']).get_role(self.ideneity)
+        role = data['context'].get_role(self.identity)
         if self.instance is not None:
             return self.validate_update(role, data)
         elif role.is_subscribed:

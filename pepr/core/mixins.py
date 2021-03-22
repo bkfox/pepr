@@ -2,9 +2,10 @@ from django.urls import reverse
 from rest_framework import exceptions
 from rest_framework.views import APIView
 
-from . import assets
 from .permissions import CanAccess, CanCreate, CanUpdate, CanDestroy
 from .models import Context, Service
+from .settings import settings
+from .roles import display_roles
 
 
 __all__ = ('BaseViewMixin', 'PermissionMixin', 'ViewMixin',
@@ -16,30 +17,19 @@ class BaseViewMixin:
     Provide utilities to work with client side application.
 
     - embed: render view application content only.
-    - application data: include application data in script tag ``#app-data``,
+    - application data: include application data in script tag ``#app-config``,
         using ``json_script`` template filter. This allows assets' ``pepr.core.App`` to load initial data from page.
     """
     template_base = 'pepr_core/base.html'
     """ Extend view's template from it. """
     template_embed = 'pepr_core/base_embed.html'
     """ Extend view's template from it when embed. """
-    app_data = {}
-    """ App data merged with provided ones in ``get_app_data``. """
 
-    def get_app_consts(self, **kwargs):
-        """ Return consts used by client side application. """
-        for k, v in assets.consts.items():
-            kwargs.setdefault(k, v)
-        return kwargs
-
-    def get_app_data(self, extra_consts={}, **kwargs):
+    def get_app_config(self, **kwargs):
         """ Return dict of data to pass to client application. """
-        if not 'consts' in kwargs:
-            kwargs['consts'] = self.get_app_consts(**extra_consts)
-        if not 'api_root' in kwargs:
-            kwargs['api_root'] = reverse('pepr:api-root')
-        for k, v in self.app_data.items():
-            kwargs.setdefault(k, v)
+        if 'base_url' not in kwargs:
+            kwargs['baseUrl'] = reverse('pepr:api-root')
+        kwargs.setdefault('roles', display_roles())
         return kwargs
 
     def get_context_data(self, **kwargs):
@@ -48,8 +38,8 @@ class BaseViewMixin:
                 kwargs['template_base'] = self.template_embed
             else:
                 kwargs['template_base'] = self.template_base
-        if not kwargs.get('app_data'):
-            kwargs['app_data'] = self.get_app_data()
+        if not kwargs.get('app_config'):
+            kwargs['app_config'] = self.get_app_config()
         return super().get_context_data(**kwargs)
 
 
@@ -147,9 +137,9 @@ class ViewMixin(PermissionMixin, BaseViewMixin):
     """
     role = None
 
-    def get_app_data(self, **kwargs):
-        kwargs.setdefault('context', self.role.context.pk)
-        return super().get_app_data(**kwargs)
+    def get_app_config(self, **kwargs):
+        kwargs.setdefault('contextId', self.role.context.pk)
+        return super().get_app_config(**kwargs)
 
     def get_permissions(self):
         return self.get_action_permissions(self.action)
@@ -168,7 +158,7 @@ class ViewMixin(PermissionMixin, BaseViewMixin):
         """ Ensure 'role' and 'roles' are in resulting context """
         kwargs.setdefault('context', self.role.context)
         kwargs.setdefault('role', self.role)
-        kwargs.setdefault('roles', assets.roles() )
+        kwargs.setdefault('roles', settings.roles )
         return super().get_context_data(**kwargs)
 
     def dispatch(self, request, *args, context_pk=None, **kwargs):

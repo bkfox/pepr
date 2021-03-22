@@ -19,10 +19,10 @@ class ContentListView(ServiceMixin, ListView):
     service_class = ContentService
     create_form = ContentForm
 
-    def get_app_data(self, store=None, **kwargs):
+    def get_app_config(self, store=None, **kwargs):
         store = store or {}
         identity = self.role.identity
-        if not 'contexts' in store:
+        if not 'context' in store:
             pks = {obj.context_id for obj in self.object_list}.union({
                    obj.owner_id for obj in self.object_list})
             pks.add(self.role.context.pk)
@@ -30,15 +30,17 @@ class ContentListView(ServiceMixin, ListView):
                 pks.add(identity.pk)
             contexts = self.get_context_model().objects.identity(identity) \
                                                .filter(pk__in=pks)
-            subscriptions = Subscription.objects.identity(identity) \
-                                        .subscribed(self.role.context)
+            subscriptions = list(Subscription.objects.identity(identity) \
+                                             .subscribed(self.role.context))
+            if self.role.subscription:
+                subscriptions.append(self.role.subscription)
             store.update({
-                'contexts': ContextSerializer(contexts, many=True,
+                'context': ContextSerializer(contexts, many=True,
                     identity=self.request.identity).data,
-                'subscriptions': SubscriptionSerializer(subscriptions, many=True,
+                'subscription': SubscriptionSerializer(subscriptions, many=True,
                     identity=self.request.identity).data,
             })
-        return super().get_app_data(store=store, **kwargs)
+        return super().get_app_config(store=store, **kwargs)
 
     def get_context_data(self, create_form=None, **kwargs):
         if self.role.is_granted('create', self.model) and \

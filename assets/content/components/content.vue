@@ -16,7 +16,7 @@
             <div v-if="!edit">{{ item.text }}</div>
             <div v-else @done="edit=false">
                 <slot name="form" :item="item">
-                    <p-content-form :item="item" @done="edit=false">
+                    <p-content-form :context="item.context" :initial="item" @done="edit=false">
                         <template v-if="$slots.formFields" v-slot:fields="{item,context,model}">
                             <slot name="formFields" :item="item" :context="context"></slot>
                         </template>
@@ -50,10 +50,21 @@
     </div>
 </template>
 <script>
+import { Action } from 'pepr/core'
 import PContentForm from './contentForm'
 
+export const actions = [
+    new Action('Edit', ['update'], (item, comp) => {
+        comp.edit = true
+    }),
+    new Action('Delete', ['destroy'], (item, comp) => {
+        if(confirm('Delete?'))
+            item.delete({ delete: 1})
+    }),
+]
+
+
 export default {
-    inject: ['actions'],
     props: {
         item: Object,
     },
@@ -62,6 +73,8 @@ export default {
         return {
             /// If true, show edit form
             edit: false,
+            // TODO: as prop or optional injection?
+            actions,
         }
     },
 
@@ -70,8 +83,8 @@ export default {
             if(!this.item.context)
                 return []
 
-            let role = this.item.context.role;
-            return this.actions.filter((action) => action.isGranted(role, this.item))
+            let role = this.item.context.role
+            return this.actions.filter(action => action.isGranted(role, this.item))
         },
 
         createdString() {
@@ -88,8 +101,8 @@ export default {
     },
 
     methods: {
-        triggerAction(action) {
-            action.trigger(this.item, this)
+        triggerAction(action, ...args) {
+            action.trigger(this.item, this, ...args)
         },
     },
 

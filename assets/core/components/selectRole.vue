@@ -1,12 +1,11 @@
 <template>
     <div class="control has-icons-left">
         <div class="select">
-            <select :name="name" :title="title">
-                <template v-for="role of consts.roles">
-                    <option v-if="!limit || !context || role.access <= context.role.access"
-                        :value="role.access">
-                    {{ role.name }}</option>
-                </template>
+            <select v-bind="$attrs" @change="computedValue=$event.target.value"
+                    :value="computedValue">
+                <option v-for="role of roles" :value="role.access">
+                    {{ role.name }}
+                </option>
             </select>
         </div>
         <span class="icon is-left">
@@ -15,13 +14,38 @@
     </div>
 </template>
 <script>
+import { computed, inject, ref, toRefs } from 'vue'
+
 export default {
-    inject: ['consts'],
+    inheritAttrs: false,
+
+    setup(props, context) {
+        const appRoles = inject('roles')
+        const value = ref(props.value)
+        const roles = computed(() => {
+            let roles = Object.values(appRoles)
+            if(props.filter)
+                roles = roles.filter(props.filter)
+            return roles.sort((a,b) => a.access < b.access)
+        })
+        return { roles, value }
+    },
+
     props: {
-        context: Object,
-        name: String,
-        title: { type: String, default: 'Visible to' },
-        limit: { type: Boolean, default: false },
+        value: [Number,String],
+        filter: { type: Function, default: null },
+    },
+
+    computed: {
+        computedValue: {
+            get() {
+                return this.value
+            },
+            set(value) {
+                this.value = value;
+                this.$emit('update:value', value)
+            }
+        },
     },
 }
 

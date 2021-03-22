@@ -2,10 +2,9 @@
 {% load i18n pepr_core pepr_content %}
 
 {% block service %}
-<p-content-form :model="Content" :context="context" api-url="{% url "api:content-list" %}">
+<p-content-form v-if="context" :context="context" :model="Content">
 </p-content-form>
-<p-content-list :context="context" :model="Content" api-url="{% url "api:content-list" %}"
-        :show-form="true">
+<p-content-list :context="context" :model="Content">
 </p-content-list>
 {% endblock %}
 

@@ -3,11 +3,12 @@ import logging
 from django.utils.functional import cached_property
 from django.utils.translation import ugettext_lazy as _
 
+from pepr.utils.functional import cached_result
 from .permissions import CanAccess, CanCreate, CanUpdate, CanDestroy
 
 __all__ = ('Role', 'AnonymousRole', 'DefaultRole', 'SubscriberRole',
            'MemberRole', 'ModeratorRole', 'AdminRole',
-           'default_roles')
+           'default_roles', 'display_roles')
 
 logger = logging.getLogger('pepr')
 
@@ -19,16 +20,16 @@ class Role:
     """
     access = 0
     """
-    [class] Defines an access level for the role (used as key), that is
-    also used as a unique identifier. Only one role per access level is
-    authorized.
-
+    [class] Access permission level of the role, unique per roles set.
     Lower means less access, higher means more access.
     """
     name = ''
-    """[class] name (displayed to user)"""
+    """[class] name (displayed to user). """
     description = ''
-    """[class] description displayed to user"""
+    """[class] description displayed to user. """
+    status = ''
+    """[class] role status: admin, anonymous, etc. """
+    # FIXME: inheritance & ref passing
     defaults = {}
     """
     [class] default permissions as `{ perm_key: granted }`.
@@ -53,14 +54,19 @@ class Role:
 
     @property
     def is_subscribed(self):
-        """ True if identity is subscribed to related context """
+        """ True if role is subscribed to context """
         return not self.is_anonymous and self.subscription is not None \
             and self.subscription.is_subscribed
 
     @property
     def is_admin(self):
-        """ True if identity is an admin """
+        """ True if role is admin """
         return False
+
+    @property
+    def is_moderator(self):
+        """ True if role is moderator """
+        return self.is_admin
 
     @cached_property
     def permissions(self):
@@ -141,6 +147,7 @@ class Role:
 class AnonymousRole(Role):
     """ Anonymous role: unregistered users. """
     access = -0x10
+    status = 'anonymous'
     name = _('Anonymous')
     description = _('Unregistered user.')
 
@@ -151,6 +158,7 @@ AnonymousRole.register(None, False, CanAccess, CanCreate)
 class DefaultRole(Role):
     """ Default role: Registered but not subscribed people. """
     access = 0x10
+    status = 'registered'
     name = _('Registered')
     description = _('Registered but not subscribed people.')
 
@@ -162,6 +170,7 @@ DefaultRole.register(None, False, CanAccess, CanCreate, CanUpdate, CanDestroy)
 class SubscriberRole(Role):
     """ Subscriber role: subscribe to a context. """
     access = 0x20
+    status = 'subscriber'
     name = _('Subscriber')
     description = _('They only follow what happens.')
 
@@ -173,6 +182,7 @@ SubscriberRole.register(None, False, CanCreate, CanUpdate, CanDestroy)
 class MemberRole(Role):
     """ Member role: participating subscribed people. """
     access = 0x40
+    status = 'member'
     name = _('Member')
     description = _(
         'Subscribed people that can participate.'
@@ -186,18 +196,25 @@ MemberRole.register(None, False, CanUpdate, CanDestroy)
 class ModeratorRole(Role):
     """ Moderator role """
     access = 0x80
+    status = 'moderator'
     name = _('Moderator')
     description = _(
         'People that must moderate the place.'
     )
 
+    @property
+    def is_moderator(self):
+        return True
+
 
 ModeratorRole.register(None, True, CanAccess, CanCreate, CanUpdate, CanDestroy)
+# TODO: register subscription related perms
 
 
 class AdminRole(Role):
     """ Admin role: has rights above everyone else inside a context """
     access = 0x100
+    status = 'admin'
     name = _('Admin')
     description = _(
         'Thoses who have all rights in the place.'
@@ -218,5 +235,16 @@ AdminRole.register(None, True, CanAccess, CanCreate, CanUpdate, CanDestroy)
 
 default_roles = (AnonymousRole, DefaultRole, SubscriberRole, MemberRole,
                  ModeratorRole, AdminRole)
-""" Roles provided by default. """
+""" Roles by default. """
+
+@cached_result
+def display_roles():
+    """ Return available roles as a serializable dictionary """
+    from .settings import settings
+    return {
+        k: {'access': r.access, 'name': r.name, 'description': r.description,
+            'status': r.status }
+        for k, r in settings.roles.items()
+    }
+
 

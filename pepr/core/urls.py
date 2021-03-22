@@ -1,9 +1,10 @@
 from rest_framework.routers import DefaultRouter
 
-from .viewsets import SubscriptionViewSet
+from . import viewsets
 
 router = DefaultRouter()
-router.register('subscription', SubscriptionViewSet, basename='subscription')
+router.register('context', viewsets.ContextViewSet, basename='context')
+router.register('subscription', viewsets.SubscriptionViewSet, basename='subscription')
 api_urls = router.urls
 
 

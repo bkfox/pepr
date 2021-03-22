@@ -1,4 +1,11 @@
-export { default as PContent } from './content'
-export { default as PContentForm } from './contentForm'
-export { default as PContentList } from './contentList'
+import PContent from './content'
+import PContentForm from './contentForm'
+import PContentList from './contentList'
+
+const defaults = { PContentForm, PContentList }
+export default defaults
+
+export {
+    PContentForm, PContentList,
+}
 

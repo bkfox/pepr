@@ -10,7 +10,7 @@ from django.db.models import F, Q
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 
-from ..utils.iter import as_choices
+from pepr.utils.iter import as_choices
 from .permissions import *
 from .roles import *
 from .settings import settings
@@ -31,10 +31,13 @@ def access_choices(pred=None):
         (r for r in settings.roles.values() if pred(r))
     return list(as_choices('access', 'name', roles))
 
-# Rule: Subscription allowed roles are all with access > than default
-#       role.
+# Rule: Subscription's roles must be at least MemberRole
 subscription_role_choices = access_choices(
-    lambda r: r.access > DefaultRole.access
+    lambda r: r.access >= SubscriberRole.access
+)
+# Rule: Subscriptions are not visible to unregistered users
+subscription_access_choices = access_choices(
+    lambda r: r.access >= DefaultRole.access
 )
 """ Available roles for subscription  """
 subscription_request_role_choices = access_choices(
@@ -68,10 +71,10 @@ class BaseAccessibleQuerySet(models.QuerySet):
         return (
             # identity with registered access
             Q(**{ subscription_prefix + 'role__gte': F('access'),
-                  subscription_prefix + 'status': Subscription.STATUS_ACCEPTED,
+                  subscription_prefix + 'status': Subscription.STATUS_SUBSCRIBED,
                   subscription_prefix + 'owner': identity }) |
             # identity with no access, but who is platform member
-            (~Q(**{subscription_prefix + 'status': Subscription.STATUS_ACCEPTED,
+            (~Q(**{subscription_prefix + 'status': Subscription.STATUS_SUBSCRIBED,
                    subscription_prefix + 'owner': identity}) &
              Q(access__lte=DefaultRole.access))
         )
@@ -150,7 +153,7 @@ class ContextQuerySet(BaseAccessibleQuerySet):
         # FIXME/TODO: default user's context
         return self.identities().filter(
             Q(identity_owner=user) |
-            Q(subscription__status=Subscription.STATUS_ACCEPTED,
+            Q(subscription__status=Subscription.STATUS_SUBSCRIBED,
               subscription__role__gte=F('identity_policy'),
               subscription__owner__identity_owner=user)
         ).order_by('-identity_owner')
@@ -190,6 +193,11 @@ class Context(BaseAccessible):
     Each instance of ``Context`` defines a context in which permissions,
     subscriptions and objects' access take place.
     """
+    default_access = models.SmallIntegerField(
+        verbose_name=_("Content's default visibility"),
+        choices=access_choices(),
+        default=MemberRole.access,
+    )
     allow_subscription_request = models.BooleanField(
         verbose_name=_('Allow subscription request'),
         default=False,
@@ -197,24 +205,20 @@ class Context(BaseAccessible):
                     'Invite.')
     )
     subscription_accept_role = models.SmallIntegerField(
-        verbose_name=_('Accept subscription for roles'),
+        verbose_name=_('Accept subscription up to roles'),
         choices=subscription_role_choices,
         default=SubscriberRole.access,
         blank=True, null=True,
-        help_text=_('Automatically accept all subscription requests up '
-                    'to this role.')
     )
     subscription_default_access = models.SmallIntegerField(
         verbose_name=_("Subscription's default visibility"),
         choices=subscription_role_choices,
         default=MemberRole.access,
-        help_text=_("Default visibility for users' subscriptions."),
     )
     subscription_default_role = models.SmallIntegerField(
         verbose_name=_("Subscription's default role"),
         choices=subscription_role_choices,
         default=MemberRole.access,
-        help_text=_('Role set by default to new subscribers'),
     )
     identity_policy = models.SmallIntegerField(
         _('Identity Policy'), choices=subscription_role_choices,
@@ -281,19 +285,13 @@ class Context(BaseAccessible):
                 role = settings.roles.get(AdminRole.access)
             else:
                 subscription = Subscription.objects.filter(
-                    context=self, owner=identity, status=Subscription.STATUS_ACCEPTED,
-                ).first()
-
-                # get role from subscription or from default only if role is
-                # not yet given
-                if role is None:
-                    role = settings.roles.get(subscription.role) \
-                        if subscription and subscription.is_subscribed \
-                        else DefaultRole
-
-        if role is None:
-            role = AnonymousRole
-
+                    context=self, owner=identity).first()
+                if subscription and role is None:
+                    self.role = subscription.get_role()
+                    return self.role
+                role = settings.roles.get(DefaultRole.access)
+        else:
+            role = settings.roles.get(AnonymousRole.access)
         self.role = role(self, identity, subscription)
         return self.role
 
@@ -405,8 +403,8 @@ class Owned(Accessible,metaclass=OwnedMeta):
 
 class SubscriptionQuerySet(OwnedQuerySet):
     def subscribed(self, context=None):
-        """ Return all accepted subscriptions. """
-        qs = self.filter(status=Subscription.STATUS_ACCEPTED)
+        """ Return all subscribed subscriptions. """
+        qs = self.filter(status=Subscription.STATUS_SUBSCRIBED)
         return qs if context is None else qs.context(context)
 
 class Subscription(Owned):
@@ -425,12 +423,12 @@ class Subscription(Owned):
     """
     STATUS_INVITE = 1
     STATUS_REQUEST = 2
-    STATUS_ACCEPTED = 3
+    STATUS_SUBSCRIBED = 3
 
     STATUS_CHOICES = (
         (STATUS_INVITE, _('Invite')),
         (STATUS_REQUEST, _('Request')),
-        (STATUS_ACCEPTED, _('Accepted')),
+        (STATUS_SUBSCRIBED, _('Subscribed')),
     )
 
     status = models.SmallIntegerField(
@@ -461,22 +459,18 @@ class Subscription(Owned):
 
     @property
     def is_subscribed(self):
-        return self.status == self.STATUS_ACCEPTED
+        return self.status == self.STATUS_SUBSCRIBED
 
-    def get_role(self, access=None):
-        """
-        Return an instance of Role for this subscription. If ``access``
-        is given, it overrides ``self.access``.
-        """
-        if access is None:
-            access = self.role
-        cls = settings.roles.get(access) or AnonymousRole
-        return cls(self.context, self.owner, self)
+    def get_role(self, identity=None, force=False):
+        # role for subscription owner
+        if not identity or identity.pk == self.owner_id:
+            role = self.role if self.is_subscribed else DefaultRole.access
+            cls = settings.roles.get(role) or AnonymousRole
+            return cls(self.context, self.owner, self)
+        return super().get_role(identity, *args)
 
 
-# identity must at least been subscribed in order to have a access to
-# subscriptions.
-Subscription._meta.get_field('access').choices=subscription_role_choices
+Subscription._meta.get_field('access').choices=subscription_access_choices
 
 MemberRole.register(Subscription, False, CanSubscribe)
 ModeratorRole.register(Subscription, True, CanSubscribe,

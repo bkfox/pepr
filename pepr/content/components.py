@@ -2,9 +2,9 @@ from django.core.exceptions import ImproperlyConfigured
 from django.template import loader
 from django.views.generic.base import ContextMixin, TemplateResponseMixin
 
-from pepr.core.assets import roles as roles_info
 from pepr.core.models import Accessible
 from pepr.core.mixins import PermissionMixin
+from pepr.core.roles import display_roles
 from pepr.core.settings import settings
 from .forms import ContentForm
 
@@ -128,7 +128,7 @@ class FormComp(Component):
 class AccessibleFormComp(FormComp):
     def get_context_data(self, roles=None, **kwargs):
         if roles is None:
-            roles = roles_info()
+            roles = display_roles()
         return super().get_context_data(roles=roles, **kwargs)
 
 

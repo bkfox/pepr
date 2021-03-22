@@ -9,7 +9,42 @@ __all__ = ['Permission',
            'CanSubscribe', 'CanInvite', 'CanAcceptSubscription',
            'CanUnsubscribe']
 
-class Permission(permissions.BasePermission):
+class AND(permissions.AND):
+    def can(self, *args, **kwargs):
+        return (self.op1.can(*args, **kwargs) &
+                self.op2.can(*args, **kwargs))
+
+    def can_obj(self, *args, **kwargs):
+        return (self.op1.can_obj(*args, **kwargs) &
+                self.op2.can_obj(*args, **kwargs))
+
+
+class OR(permissions.OR):
+    def can(self, *args, **kwargs):
+        return (self.op1.can(*args, **kwargs) |
+                self.op2.can(*args, **kwargs))
+
+    def can_obj(self, *args, **kwargs):
+        return (self.op1.can_obj(*args, **kwargs) |
+                self.op2.can_obj(*args, **kwargs))
+
+
+class PermissionMeta(permissions.BasePermissionMetaclass):
+    """ Register class for permissions """
+    def __and__(self, other):
+        return permissions.OperandHolder(AND, self, other)
+
+    def __or__(self, other):
+        return permissions.OperandHolder(OR, self, other)
+
+    def __rand__(self, other):
+        return permissions.OperandHolder(AND, other, self)
+
+    def __ror__(self, other):
+        return permissions.OperandHolder(OR, other, self)
+
+
+class Permission(permissions.BasePermission, metaclass=PermissionMeta):
     """
     Base Permission class handling Accessible and Owned object
     permissions. Class methods ``can`` and  ``can_obj`` are where the
@@ -58,10 +93,7 @@ class Permission(permissions.BasePermission):
         """
         Test wether role has access to object.
         """
-        from .models import Accessible
-        if not isinstance(obj, Accessible) or role.has_access(obj.access):
-            return None
-        return False
+        return role.is_granted(cls, type(obj)) if role.has_access(obj.access) else False
 
     @classmethod
     def test_owned(cls, role, obj):
@@ -72,10 +104,6 @@ class Permission(permissions.BasePermission):
 
         Do not use this function unless you've understood how it works.
         """
-        from .models import Owned
-        if not isinstance(obj, Owned):
-            return None
-
         # Rule: Owner always has control over its content
         if obj.is_owner(role):
             return True
@@ -84,12 +112,16 @@ class Permission(permissions.BasePermission):
         #       lower privilege level; EXCEPT when both are admin.
         if obj.is_saved and not role.is_anonymous and \
                 obj.owner is not None and obj.owner != role.identity:
-            owner_role = obj.get_role(obj.owner)
+            owner_role = obj.context.get_role(obj.owner)
             strict = role.is_admin and owner_role.is_admin
-            test = role.has_access(owner_role.access, strict)
-            # if role has access, further permissions tests must be
-            # done (role has Permission, etc.).
-            return None if test else False
+            if not role.has_access(owner_role.access, strict):
+                return False
+        return cls.test_accessible(role, obj)
+
+    @classmethod
+    def test_context(cls, role, obj):
+        return role.is_granted(cls, type(obj)) if role.has_access(obj.access) else \
+                False
 
     @classmethod
     def can(cls, role, model=None):
@@ -110,18 +142,17 @@ class Permission(permissions.BasePermission):
         objects, tests role ``is_granted`` for ``obj``.
         """
         from .models import Accessible, Context, Owned
+        # Rule: action allowed only for role in same context as object
         if obj.context_id is not None and obj.context_id != role.context.pk:
             raise ValueError('Role and obj context are different')
 
-        test_owned = cls.test_owned(role, obj)
-        if test_owned is not None:
-            return test_owned
-
-        test_accessible = cls.test_accessible(role, obj)
-        if test_accessible is not None:
-            return test_accessible
-
-        return role.is_admin or role.is_granted(cls, obj)
+        if isinstance(obj, Context):
+            return cls.test_context(role, obj)
+        if isinstance(obj, Owned):
+            return cls.test_owned(role, obj)
+        if isinstance(obj, Accessible):
+            return cls.test_accessible(role, obj)
+        return role.is_granted(cls, type(obj))
 
     def has_permission(self, request, view):
         """
@@ -138,7 +169,7 @@ class Permission(permissions.BasePermission):
         return role and self.can(role, self.model)
 
     def has_object_permission(self, request, view, obj):
-        role = obj.context.get_role(request.identity)
+        role = obj.get_role(request.identity)
         return role and self.can_obj(role, obj)
 
     @classmethod
@@ -178,8 +209,8 @@ class CanAccess(Permission):
 
     @classmethod
     def can_obj(cls, role, obj):
-        from .models import Accessible
-        if isinstance(obj, Accessible) and role.has_access(obj.access):
+        from .models import BaseAccessible
+        if isinstance(obj, BaseAccessible) and role.has_access(obj.access):
             return True
 
 

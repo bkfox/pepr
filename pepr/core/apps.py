@@ -81,12 +81,7 @@ class PeprAppConfig(AppConfig):
         Api url patterns as Django's ``path(self.label + '/')``, or None.
         Taken from ``app.urls.api_urlpatterns``.
         """
-        from .views import ConstsView
         urls = getattr(self.urls_module, 'api_urls', [])
-        consts = getattr(self.assets_module, 'consts', None)
-        if consts:
-            view = ConstsView.as_view(consts=consts)
-            urls.append(path('consts/', view, name=self.label + '-consts'))
         return path(self.url_prefix + '/', include(urls)) if urls else None
 
     @cached_property

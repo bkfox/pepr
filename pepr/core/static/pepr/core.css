@@ -10216,6 +10216,10 @@ body {
   float: left;
 }
 
+.navbar {
+  margin-bottom: 1em;
+}
+
 .app-header {
   margin-bottom: 1em;
 }

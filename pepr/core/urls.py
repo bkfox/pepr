@@ -9,7 +9,6 @@ router.register('subscription', viewsets.SubscriptionViewSet, basename='subscrip
 api_urls = router.urls
 
 urls = [
-    path('<uuid:pk>/settings/', views.ContextSettingsView.as_view(), name='context-settings'),
 ]
 
 

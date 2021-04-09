@@ -14,6 +14,39 @@
         {{ app_props|json_script:"app-props" }}
         {% endif %}
 
+        <nav class="navbar is-dark" role="navigation" aria-label="main navigation">
+            <div class="navbar-brand">{% block nav-brand %}{% endblock %}</div>
+            <div class="navbar-menu">
+                {% block nav-menu %}
+                <div class="navbar-start">
+                {% block nav-menu-start %}
+                {% endblock %}
+                </div>
+                <div class="navbar-end">
+                {% block nav-menu-end %}
+                <div class="navbar-item has-dropdown is-hoverable">
+                    <a class="navbar-link" href="">
+                        <span class="icon">
+                            <i class="mdi mdi-account"></i>
+                        </span>
+                        <span>
+                            {% if role.identity %}
+                            {{ role.identity.title }}
+                            {% else %}
+                            {{ request.user.username }}
+                            {% endif %}
+                        </span>
+                    </a>
+                    <div class="navbar-dropdown is-boxed">
+                        <a class="navbar-item" href="">Logout</a>
+                    </div>
+                </div>
+                {% endblock %}
+                </div>
+                {% endblock %}
+            </div>
+        </nav>
+
         {% block app %}
         <main id="app">
             <p-context :context="context">

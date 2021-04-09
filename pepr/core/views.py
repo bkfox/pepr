@@ -18,13 +18,3 @@ class ConstsView(views.View):
         return HttpResponse(json.dumps(consts, cls=DjangoJSONEncoder))
 
 
-class ContextSettingsView(ViewMixin, DetailView):
-    template_name = 'pepr_core/context_settings.html'
-
-    def get_object(self):
-        return self.role.context
-
-    def dispatch(self, request, *args, pk=None, **kwargs):
-        kwargs.setdefault('context_pk', pk)
-        return super().dispatch(request, *args, **kwargs)
-

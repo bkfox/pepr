@@ -79,5 +79,10 @@ export default {
             this.load({filters})
         },
     },
+
+    mounted() {
+        if(this.context)
+            this.load({context: this.context})
+    },
 }
 </script>

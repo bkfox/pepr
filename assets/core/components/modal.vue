@@ -18,8 +18,7 @@
 
 <script>
 /* TODO:
-    - ok, cancel button
-    - fire events
+    - modal-card & slots for headers & footers
  */
 import PRuntimeTemplate from './runtimeTemplate'
 

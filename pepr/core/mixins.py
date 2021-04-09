@@ -17,7 +17,7 @@ class BaseViewMixin:
     Provide utilities to work with client side application.
 
     - embed: render view application content only.
-    - application data: include application data in script tag ``#app-config``,
+    - application data: include application data in script tag ``#app-props``,
         using ``json_script`` template filter. This allows assets' ``pepr.core.App`` to load initial data from page.
     """
     template_base = 'pepr_core/base.html'
@@ -25,10 +25,10 @@ class BaseViewMixin:
     template_embed = 'pepr_core/base_embed.html'
     """ Extend view's template from it when embed. """
 
-    def get_app_config(self, **kwargs):
+    def get_app_props(self, **kwargs):
         """ Return dict of data to pass to client application. """
-        if 'base_url' not in kwargs:
-            kwargs['baseUrl'] = reverse('pepr:api-root')
+        if 'baseURL' not in kwargs:
+            kwargs['baseURL'] = reverse('api-base-url')
         kwargs.setdefault('roles', display_roles())
         return kwargs
 
@@ -38,8 +38,8 @@ class BaseViewMixin:
                 kwargs['template_base'] = self.template_embed
             else:
                 kwargs['template_base'] = self.template_base
-        if not kwargs.get('app_config'):
-            kwargs['app_config'] = self.get_app_config()
+        if not kwargs.get('app_props'):
+            kwargs['app_props'] = self.get_app_props()
         return super().get_context_data(**kwargs)
 
 
@@ -129,7 +129,8 @@ class PermissionMixin:
 
 class ViewMixin(PermissionMixin, BaseViewMixin):
     """
-    Base mixin for views handling permissions access.
+    Base mixin for views handling permissions access inside a context.
+    Context is specified using view's kwargs ``context_pk``.
 
     Provide template context variables:
     - ``role``: current user's role;
@@ -137,9 +138,19 @@ class ViewMixin(PermissionMixin, BaseViewMixin):
     """
     role = None
 
-    def get_app_config(self, **kwargs):
+    def get_app_props(self, **kwargs):
+        from .serializers import ContextSerializer, SubscriptionSerializer
         kwargs.setdefault('contextId', self.role.context.pk)
-        return super().get_app_config(**kwargs)
+        store = kwargs.setdefault('store', {})
+        if self.role.context:
+            ser = ContextSerializer(self.role.context,
+                    identity=self.request.identity)
+            store.setdefault('context', []).append(ser.data)
+        if self.role.subscription:
+            ser = SubscriptionSerializer(self.role.subscription,
+                    identity=self.request.identity)
+            store.setdefault('subscription', []).append(ser.data)
+        return super().get_app_props(**kwargs)
 
     def get_permissions(self):
         return self.get_action_permissions(self.action)
@@ -153,6 +164,9 @@ class ViewMixin(PermissionMixin, BaseViewMixin):
         if pk is not None:
             return self.get_context_queryset().get(pk=pk)
         return None
+
+    def get_queryset(self):
+        return super().get_queryset().identity(self.request.identity)
 
     def get_context_data(self, **kwargs):
         """ Ensure 'role' and 'roles' are in resulting context """
@@ -174,12 +188,7 @@ class ContextViewMixin(ViewMixin):
     Mixin handling Accessible objects permission check. Can work with
     PermissionViewMixin
     """
-    def get_queryset(self):
-        qs = super().get_queryset().identity(self.request.identity)
-        role = getattr(self, 'role', None)
-        if role and role.context:
-            qs = qs.filter(context=role.context)
-        return qs
+    pass
 
 
 class AccessibleViewMixin(ViewMixin):
@@ -188,11 +197,9 @@ class AccessibleViewMixin(ViewMixin):
     PermissionViewMixin
     """
     def get_queryset(self):
-        qs = super().get_queryset().identity(self.request.identity)
-        role = getattr(self, 'role', None)
-        if role and role.context:
-            qs = qs.filter(context=role.context)
-        return qs
+        if self.role:
+            return super().get_queryset().filter(context=self.role.context)
+        return super().get_queryset()
 
 
 class ServiceMixin(ViewMixin):

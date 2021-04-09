@@ -19,7 +19,7 @@ class ContentListView(ServiceMixin, ListView):
     service_class = ContentService
     create_form = ContentForm
 
-    def get_app_config(self, store=None, **kwargs):
+    def get_app_props(self, store=None, **kwargs):
         store = store or {}
         identity = self.role.identity
         if not 'context' in store:
@@ -32,15 +32,13 @@ class ContentListView(ServiceMixin, ListView):
                                                .filter(pk__in=pks)
             subscriptions = list(Subscription.objects.identity(identity) \
                                              .subscribed(self.role.context))
-            if self.role.subscription:
-                subscriptions.append(self.role.subscription)
             store.update({
                 'context': ContextSerializer(contexts, many=True,
                     identity=self.request.identity).data,
                 'subscription': SubscriptionSerializer(subscriptions, many=True,
                     identity=self.request.identity).data,
             })
-        return super().get_app_config(store=store, **kwargs)
+        return super().get_app_props(store=store, **kwargs)
 
     def get_context_data(self, create_form=None, **kwargs):
         if self.role.is_granted('create', self.model) and \

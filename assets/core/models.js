@@ -50,14 +50,21 @@ export class Base extends Model {
     }
 
     /**
-     * Return other model using the same database a this.
+     * Return other model in the same database.
      */
     $model(model) {
         model = model.prototype instanceof Model ? model.entity : model
         return this.$store().$db().model(model)
     }
 
-    /// Reload item from the server
+    // TODO: many=True, getOrFetch
+    static fetch(id, config={}) {
+        return this.api().get(`${this.baseURL}/${id}/`, config)
+    }
+
+    /**
+     * Reload item from the server
+     */
     fetch(config) {
         if(!this.$id)
             throw "item is not on server"
@@ -68,7 +75,9 @@ export class Base extends Model {
             })
     }
 
-    /// Save item to server and return promise
+    /**
+     * Save item to server and return promise
+     */
     save({form=null, ...config}= {}) {
         config.headers = {...(config.headers || {}),
             'Content-Type': 'multipart/form-data',
@@ -76,7 +85,8 @@ export class Base extends Model {
         }
         const data = form ? new FormData(form) : new FormData()
         if(!form)
-            Object.keys(this).forEach(key => data.append(this[key]))
+            // FIXME: exclude relations / use data
+            Object.keys(this.constructor.fields()).forEach(key => this[key] !== null && data.append(key, this[key]))
 
         if(this.$url)
             return (this.$id ? this.constructor.api().put(this.$url, data, config)
@@ -89,7 +99,9 @@ export class Base extends Model {
             throw "no api url for item"
     }
 
-    /// Delete item from server and return promise
+    /**
+     * Delete item from server and return promise
+     */
     delete(config) {
         if(this.$url)
             return this.constructor.api().delete(this.$url, config).then(r => {
@@ -121,10 +133,13 @@ export class Role {
         data && Object.assign(this, data)
     }
 
-    isGranted(permissions, item) {
+    /**
+     * True if all permissions are granted for this role
+     */
+    isGranted(permissions, item=null) {
         if(!this.permissions)
             return false
-        if(item instanceof Owned && this.identity == item.owner)
+        if(item && item instanceof Owned && this.identity == item.owner)
             return true
 
         for(var name of permissions)
@@ -143,6 +158,7 @@ export class Context extends Base {
     static fields() {
         return { ...super.fields(),
             title: this.string(''),
+            headline: this.string(''),
             default_access: this.number(null),
             allow_subscription_request: this.attr(null),
             subscription_accept_role: this.number(null),
@@ -150,17 +166,22 @@ export class Context extends Base {
             subscription_default_role: this.number(null),
             // subsciption: this.attr(null),
             subsciptions: this.hasMany(Subscription, 'context'),
+            n_subscriptions: this.number(0),
             role: this.attr(null, value => new Role(value))
         }
     }
 
-    /// Return user's identity
+    /**
+     * Return user's identity
+     */
     get identity() {
         let id = this.role && this.role.identity_id
         return id && this.$model('context').find(id)
     }
 
-    /// Return user's subscription
+    /**
+     * Return user's subscription
+     */
     get subscription() {
         let id = this.role && this.role.identity_id
         return id && this.$model('subscription').query()
@@ -181,10 +202,23 @@ export class Accessible extends Base {
         }
     }
 
+    /**
+     * Available choices for 'access' attribute.
+     */
+    static accessChoices(roles, role=null) {
+        if(!Array.isArray(roles))
+            roles = Object.values(roles)
+        return role ? roles.filter((r) => r.access <= role.access) : roles
+    }
+
+    /**
+     * Parent context object.
+     */
     get context() {
         return this.context_id && this.constructor.contextModel.find(this.context_id)
     }
 
+    // FIXME: wtf
     granted(permissions) {
         let role_perms = this.context.role.permissions
         if(!Array.isArray(perms))
@@ -207,6 +241,9 @@ export class Owned extends Accessible {
         }
     }
 
+    /**
+     * Related owner object
+     */
     get owner() {
         return Context.find(this.owner_id)
     }
@@ -222,6 +259,20 @@ export class Subscription extends Owned {
             access: this.number(),
             role: this.number(),
         }
+    }
+
+    static accessChoices(roles, role=null) {
+        return super.accessChoices(roles, role)
+                    .filter(role => role.status != 'moderator' && role.status != 'admin')
+    }
+
+    /**
+     * Available choices for the 'role' attribute
+     */
+    static roleChoices(roles, role=null) {
+        return this.accessChoices(roles, role)
+                   .filter(role => role.status != 'anonymous' &&
+                                   role.status != 'registered')
     }
 
     save(config) {
@@ -243,9 +294,19 @@ export class Subscription extends Owned {
         )
     }
 
-
+    /**
+     * Subscription is an invitation
+     */
     get isInvite() { return this.status == Subscription.INVITE }
+
+    /**
+     * Subscription is a request
+     */
     get isRequest() { return this.status == Subscription.REQUEST }
+
+    /**
+     * Subscription is validated
+     */
     get isSubscribed() { return this.status == Subscription.SUBSCRIBED }
 }
 Subscription.INVITE = 1

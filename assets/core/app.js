@@ -1,11 +1,9 @@
 import { createApp, ref, reactive } from 'vue'
 import { createStore } from 'vuex'
-import axios from 'axios'
-import VuexORM from '@vuex-orm/core'
-import VuexORMAxios from '@vuex-orm/plugin-axios'
 
-import components from './components'
-import {loadStore, Context} from './models'
+import * as components from './components'
+import { loadStore } from './models'
+import { ormPlugin } from './plugins'
 
 
 /// Base Pepr's Vue applications
@@ -25,7 +23,7 @@ const App = {
         roles: Object,
         // FIXME: should be updatable -> setup?
         contextId: String,
-        baseUrl: String,
+        baseURL: String,
         /// User's identity's pk if any
         identity: String,
     },
@@ -48,6 +46,23 @@ const App = {
 
 export default App;
 
+function inPromise(func, onLoad) {
+    return new Promise((resolve, reject) => {
+        let wrapper = () => {
+            try {
+                func(resolve, reject)
+            }
+            catch(error) {
+                reject(error)
+            }
+        }
+
+        if(onLoad)
+            window.addEventListener('load', wrapper, { once: true })
+        else
+            wrapper()
+    })
+}
 
 /**
  * Load application config from json script element (using querySelector).
@@ -55,55 +70,43 @@ export default App;
  *
  * If `async` is true, resolve on document `load` event.
  */
-export function loadConfig(el, {async=true}={}) {
-    return new Promise((resolve, reject) => {
-        let func = () => {
-            try {
-                let elm = document.querySelector(el)
-                if(elm.text) {
-                    const data = JSON.parse(elm.text)
-                    if(data)
-                        resolve(data)
-                }
-                reject(null)
-            } catch(error) {
-                reject(error)
-            }
+export function loadProps(el, {onLoad=true}={}) {
+    return inPromise((resolve, reject) => {
+        let elm = document.querySelector(el)
+        if(elm.text) {
+            const data = JSON.parse(elm.text)
+            if(data)
+                return resolve(data)
         }
-        async ? window.addEventListener('load', func, { once: true }) : func()
-    })
+        reject(null)
+    }, onLoad)
 }
 
 
-/// Mount Vue application (if async, mount when document is loaded).
-/// Returns a Promise resolving to vm.
-export function mount(app, el, {async=true,content=null,title=null}={}) {
-    return new Promise((resolve, reject) => {
-        let func = () => {
-            try {
-                let elm = document.querySelector(el)
-                if(!elm)
-                    return reject(`Error: can't get element ${el}`)
+/**
+ * Load application config on load 
+ */
+export function loadApp(app, {el='#app',propsEl='#app-props',props=null,models=null,onLoad=true}={}) {
+    function init(props) {
+        app = createApp(app, props)
+        app.use(ormPlugin, {baseURL: props.baseURL || '/api', models})
+        return [app, app.mount(el)]
+    }
 
-                // update content
-                if(content)
-                    elm.innerHTML = content
-
-                // update title
-                if(title)
-                    document.title = title
-
-                window.scroll(0, 0)
-
-                let vm = app.mount(el)
-                resolve(vm)
-            } catch(error) {
-                reject(error)
-            }
-        }
-        async ? window.addEventListener('load', func, { once: true }) : func()
-    })
+    if(props !== null)
+        return inPromise((resolve, reject) => {
+            resolve(init(props))
+        }, onLoad)
+    else
+        return loadProps(propsEl, {onLoad}).then(props => {
+            let store = props.store
+            delete props.store
+            let [app, vm] = init(props);
+            store && loadStore(vm.$store, store)
+            return [app, vm]
+        })
 }
+
 
 /**
     /// Fetch application from server and load.

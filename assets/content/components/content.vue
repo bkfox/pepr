@@ -1,17 +1,15 @@
 <template>
     <div class="media">
         <div class="media-content">
-            <div class="level">
-                <div class="level-left">
-                    <strong>{{ item.owner && item.owner.title || "Anonymous" }}</strong>
-                    <small :title="modifiedString">
-                        &mdash; {{ modifiedString }}
-                        <span v-if="item && item.created != item.modified" class="icon"
-                           :title="'Created on ' + createdString + ', edited on ' + modifiedString">
-                            <i class="mdi mdi-pencil-outline"></i>
-                        </span>
-                    </small>
-                </div>
+            <div>
+                <strong>{{ item.owner && item.owner.title || "Anonymous" }}</strong>
+                <small :title="modifiedString">
+                    &mdash; {{ modifiedString }}
+                    <span v-if="item && item.created != item.modified" class="icon"
+                       :title="'Created on ' + createdString + ', edited on ' + modifiedString">
+                        <i class="mdi mdi-pencil-outline"></i>
+                    </span>
+                </small>
             </div>
             <div v-if="!edit">{{ item.text }}</div>
             <div v-else @done="edit=false">
@@ -31,7 +29,7 @@
             <!-- TODO: access selector here -->
             <div class="dropdown is-hoverable is-right" aria-role="menu">
                 <div class="dropdown-trigger">
-                    <button class="button" ref="menu">
+                    <button class="button is-white" ref="menu">
                         <span class="icon">
                             <i class="mdi mdi-dots-vertical"></i>
                         </span>

@@ -1,11 +1,14 @@
-{% extends "pepr_core/base.html" %}
-{% load i18n pepr_core pepr_content %}
+{% extends "pepr_core/base_context.html" %}
+{% load static i18n pepr_core pepr_content %}
+
+{% block head %}
+{{ block.super }}
+<script src="{% static "pepr/content_app.js" %}"></script>
+{% endblock %}
 
 {% block service %}
-<p-content-form v-if="context" :context="context" :model="Content">
-</p-content-form>
-<p-content-list :context="context" :model="Content">
-</p-content-list>
+<p-content-form :context="context" :model="Content"></p-content-form>
+<p-content-list :context="context" :model="Content"></p-content-list>
 {% endblock %}
 
 

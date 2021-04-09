@@ -10197,3 +10197,30 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
   background-color: #fafafa;
   padding: 3rem 1.5rem 6rem;
 }
+
+html {
+  height: 100%;
+  background-color: #f0f0f0;
+}
+
+body {
+  height: 100%;
+  background-color: #f0f0f0;
+}
+
+.float-right {
+  float: right;
+}
+
+.float-left {
+  float: left;
+}
+
+.app-header {
+  margin-bottom: 1em;
+}
+
+.app-menu {
+  float: left;
+  padding: 1.25rem;
+}

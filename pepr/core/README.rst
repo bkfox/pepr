@@ -1,101 +1,40 @@
 Pepr Core
 ==========
-Provide Pepr core functionalities: permission management and core class (AppConfig, etc.).
+Core libraries for Pepr, handling permissions and application management.
 
-In Pepr, permissions management is done using a system composed of two mains
-aspects:
-
-- **access level**: determines which elements user has a read-access to by the
-  comparison of access. It also is used to determine the role of a user;
-- **permission**: determines if user can do an action (for a specific model or
-  not);
-
-
-Thoses are always defined inside a Context, which is used to regroup subscriptions,
-permissions, and elements than can be accessed by users (``Accessible``).
-
-``Role`` is the link between an access level and a set of permissions (only one role
-per access level is allowed), It is used to check over permissions and access
-grants inside a given context. Role is retrieved for the user directly from the related
-``Context`` instance, allowing to override user's role based on its subscription (done by default for anonymous and super users).
-
-Different models are related to a ``Context``:
-
-- ``Accessible``: abstract model providing basic access filtering for
-    elements inside a context based on user, etc;
-- ``OwnedAccessible``: abstract Accessible with ownership management.
-   Its attribute ``owner`` targets a Django User.
-- ``Subscription``: assigns a Role to a user, can be extended to define
-    more subscription informations;
-- ``Authorization``: used to override default permissions set for a specific
-    role;
-
-This system can respond to many use case while keeping it simple: subscriptions,
-invitations, sharing, container visibility/publicity, external-users, etc.
+Features:
+- ACL and role based permission system:
+    - Per object access level;
+    - Multiple identities for a single user;
+    - Invitation, subscription request, and automatic approval;
+    - middleware, views, mixins, and template;
+    - consumer (not implemented);
+- Vue applications integration and components;
+- Application urls, api urls and consumers discovery;
+- Django settings utilities;
 
 
-Example
--------
+Permissions
+-----------
+Users are assigned to ``Role``-s based on current ``Context`` and their
+subscriptions.
 
-Setup
-.....
+Context is the container of other objects subjects to permissions.
+It aims to be generic enough to be used over multiple use cases: group
+discussion, user profile (as identity), public page, pictures galery, etc.
 
-Inside **models.py**:
+For each role there is:
 
-.. code-block:: python
-    from django.db import models
-    from pepr.core.models import Accessible, Context
-    from pepr.core.roles import MemberRole
+- **access level**: visibility level to read elements inside a level;
+- **permissions**: set of granted or forbidden actions;
 
+For each ``Context``, there are:
 
-    class Dashboard(Context):
-       title = models.CharField(max_length=64)
-
-    class Note(OwnedAccessible):
-       content = models.TextField()
-
-Simple setup:
-
-.. code-block:: python
-    # user is retrieved from view's request.user
-
-    from django.auth.models import User
-    from pepr.perms.models import Context, Accessible, Subscription
-    from pepr.perms.roles import MemberRole, ModeratorRole
-
-    from .models import Dashboard, Note
-
-    # create a context
-    dashboard = Dashboard(title="my dashboard")
-    dashboard.save()
-
-
-    # set user's subscription
-    subscription = Subscription(context = dashboard,
-                                owner = user,
-                                access = MemberRole.access)
-    subscription.save()
-
-    # create multiple notes with different access levels
-    for i in range(0, 10):
-       note = Note(context = context
-                   access = MemberRole.access if i % 2 else
-                            ModeratorRole.access,
-                   content = 'this is note number {}'.format(i))
-       note.save()
-
-Accessibles
-...........
-
-.. code-block:: python
-    # get all notes user has access to
-    notes = Notes.objects.user(user)
-
-    # for a given context
-    notes = notes.context(dashboard)
-
-    # user's role
-    role = dashboard.get_role(user)
+- ``Subscription``: assign role to users' identities;
+- ``Accessible``: base abstract model adding access control to objects;
+- ``Owned``: add ownership to accessibles;
+- ``Authorization``: override default permission of a role;
+- ``Service``: end-user application (as accessible);
 
 
 Design considerations
@@ -120,19 +59,13 @@ good set of principle:
 - **The only implicit privilege given by sufficient access level is to read**;
 
 
-Others:
-- because Context is an Accessible, permissions related to the current one
-are not linked to a ``model``;
-
-
 Authorization
 .............
 
 ``Authorization`` are the stored version of a ``Permission``, allowing end-users to
 configure permissions for each role of a given Context. In respect of access
 hierarchy , users with lower access level don't have access to Authorization
-of higher access level (this keeps control over unwanted permission changes).
-Note that "having access" does not means "having the permission to change".
+of higher read access level (this keeps control over unwanted permission changes).
 
 Subscription
 ............
@@ -150,20 +83,11 @@ role gives the user accesses and permissions.
 Subscriptions aims to be used as common base for a membership system: invitation,
 following, subscribing.
 
-Usage in Pepr
-.............
-
-In Pepr the permission system is the backbone of the project: it ensures permissions
-management while providing base models for most applications content.
-Views mostly inherit from ``AccessibleView`` in order to enforce the idea that there
-always is a permission context user acts in..
-
 TODO & FIXME
 ------------
 
 - settings: validation of admin role and anonymous' role, expose as attribute.
 - set of basic/common Permissions + add example
-
 - role ``has_perm()`` calling a method on Permission: this allows more control
   from ``Permission`` object and makes it interesting to use subclassing; what
   about side-effects and code coherence etc.

@@ -212,7 +212,7 @@ class Context(BaseAccessible):
     )
     subscription_default_access = models.SmallIntegerField(
         verbose_name=_("Subscription's default visibility"),
-        choices=subscription_role_choices,
+        choices=subscription_access_choices,
         default=MemberRole.access,
     )
     subscription_default_role = models.SmallIntegerField(
@@ -338,7 +338,7 @@ class Accessible(BaseAccessible,metaclass=AccessibleMeta):
     context = models.ForeignKey(
         Context, on_delete=models.CASCADE,
         # we do this because context related_name clashes
-        related_name='%(class)s'
+        # related_name='%(class)s_set'
     )
     objects = AccessibleQuerySet.as_manager()
 

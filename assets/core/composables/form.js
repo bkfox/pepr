@@ -1,6 +1,8 @@
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, inject, reactive, ref, watch } from 'vue'
 import { useStore } from 'vuex'
 import Cookies from 'js-cookie'
+
+import { Context } from '../models'
 
 
 /**
@@ -11,12 +13,13 @@ import Cookies from 'js-cookie'
  */
 export function modelForm(defaultItem, props, { emit }) {
     const initial = computed(() => props.initial || defaultItem.value)
-    const itemModel = computed(() => initial.constructor)
+    const itemModel = computed(() => initial.value.constructor)
     const item = reactive(new itemModel.value())
 
     const method = computed(() => initial.value.$id ? 'PUT' : 'POST')
     const url = computed(() => initial.value.$url)
-    const context = computed(() => initial.value.context)
+    const context = computed(() => initial.value instanceof Context ? initial.value
+                                        : initial.value.context)
     const role = computed(() => context.value.role)
 
     function reset(value=null, form=null) {
@@ -25,7 +28,7 @@ export function modelForm(defaultItem, props, { emit }) {
     }
 
     reset()
-    watch(initial, reset, {deep: true})
+    watch(initial, reset)
 
     function submit(ev, form=null) {
         if(ev) {
@@ -34,10 +37,9 @@ export function modelForm(defaultItem, props, { emit }) {
         }
 
         form = form || ev.target
-        return initial.value.save({form}).then(
+        return item.save({form}).then(
             r => {
                 reset()
-                form && form.reset()
                 emit('done', r);
                 return r
             },

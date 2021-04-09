@@ -19,9 +19,9 @@ def discover_apps():
 def discover_urls(api_prefix='api/'):
     """ Get url patterns from all registered PeprAppConfig. """
     from .views import ConstsView
-    urls, api_urls = [], [
-        path('', ConstsView.as_view(), name='api-root'),
-    ]
+    urls, api_urls = [
+        path(api_prefix, ConstsView.as_view(), name='api-base-url'),
+    ], []
 
     for app in discover_apps():
         if app.discover_urls:
@@ -29,7 +29,7 @@ def discover_urls(api_prefix='api/'):
                 urls.append(app.urls)
             if app.api_urls:
                 api_urls.append(app.api_urls)
-    urls.insert(0, path(api_prefix,
+    urls.insert(1, path(api_prefix,
                         include((api_urls, 'pepr'), namespace="api")))
     return urls
 

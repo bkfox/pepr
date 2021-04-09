@@ -20,19 +20,13 @@ export default {
     inheritAttrs: false,
 
     setup(props, context) {
-        const appRoles = inject('roles')
         const value = ref(props.value)
-        const roles = computed(() => {
-            let roles = Object.values(appRoles)
-            if(props.filter)
-                roles = roles.filter(props.filter)
-            return roles.sort((a,b) => a.access < b.access)
-        })
-        return { roles, value }
+        return { value }
     },
 
     props: {
         value: [Number,String],
+        roles: { type: [Array,Object], default: [] },
         filter: { type: Function, default: null },
     },
 

@@ -1,4 +1,4 @@
-{% load static %}
+{% load static i18n %}
 <html>
     <head>
         {% block head %}
@@ -10,58 +10,44 @@
         {% endblock %}
     </head>
     <body>
-        {% if app_config %}
-        {{ app_config|json_script:"app-config" }}
+        {% if app_props %}
+        {{ app_props|json_script:"app-props" }}
         {% endif %}
 
         {% block app %}
         <main id="app">
-            <header class="header">
-                <div class="container">
-                    {% block header %}
-                    <h1 class="title">{% block title %}{{ context.title }}{% endblock %}</h1>
-                    <h2 class="subtitle">{% block subtitle %}{{ context.headline|default:'' }}{% endblock %}</h2>
-                    {% endblock header %}
-                </div>
-            </header>
-            <section class="section">
-                <div class="container">
-                    <div class="level">
-                        <div class="level-left">
-                            <div class="tabs">
-                                <ul>
-                                    {% block context-nav %}
-                                    {% if services %}
-                                    {% for obj in services %}
-                                    <li {% if obj.pk == service.pk %}class="is-active"{% endif %}>
-                                        <a href="{{ obj.get_absolute_url }}">{{ obj.title }}</a>
-                                    </li>
-                                    {% endfor %}
-                                    {% endif %}
-                                    {% endblock %}
-                                </ul>
-                            </div>
+            <p-context :context="context">
+                <header class="app-header header">
+                    <div class="columns">
+                        <div class="column"></div>
+                        <div class="column is-three-quarters">
+                            {% block app-header %}
+                            <h1 class="title">{% block title %}{{ context.title }}{% endblock %}</h1>
+                            <h2 class="subtitle">{% block subtitle %}{{ context.headline|default:'' }}{% endblock %}</h2>
+                            {% endblock app-header %}
+                            {% block app-actions %}{% endblock %}
                         </div>
-                        <div class="level-right">
-                            <p-subscription-button v-if="context" :context="context"></p-subscription-button>
-                            <div class="dropdown is-hoverable is-right">
-                                <div class="dropdown-trigger">
-                                    <button class="button">
-                                        <span class="icon"><i class="mdi mdi-cog"></i></span>
-                                    </button>
-                                </div>
-                                <div class="dropdown-menu" role="menu">
-                                    <div class="dropdown-content">
-                                        <a href="#" class="dropdown-item">Settings</a>
-                                        <a href="#" class="dropdown-item">Subscriptions</a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <div class="column"></div>
                     </div>
-                    {% block service %}{% endblock %}
+                </header>
+                <div class="columns">
+                    <div class="column app-menu">
+                        <p-nav ref="appNav" class="menu" @select='$refs.appDeck.select($event)'>
+                            {% block app-menu %}{% endblock %}
+                        </p-nav>
+                    </div>
+                    <div class="column is-three-quarters app-body">
+                        {% block app-body %}
+                        <div class="box">
+                            <p-deck ref="appDeck" @select='$refs.appNav.select($event)'>
+                                {% block app-deck %}{% endblock %}
+                            </p-deck>
+                        </div>
+                        {% endblock %}
+                    </div>
+                    <div class="column"></div>
                 </div>
-            </section>
+            </p-context>
         </main>
         {% endblock %}
     </body>

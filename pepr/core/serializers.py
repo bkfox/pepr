@@ -80,6 +80,7 @@ class ContextSerializer(BaseSerializer):
     """ Serializer for Context.  """
     role = serializers.SerializerMethodField()
     subscription = serializers.SerializerMethodField()
+    n_subscriptions = serializers.SerializerMethodField()
 
     class Meta:
         model = Context
@@ -91,6 +92,7 @@ class ContextSerializer(BaseSerializer):
             'subscription_default_role',
             'subscription_default_access',
             'role', 'subscription',
+            'n_subscriptions',
         )
 
     view_name = 'api:context-detail'
@@ -99,6 +101,9 @@ class ContextSerializer(BaseSerializer):
         super().__init__(*args, **kwargs)
         # field = self.fields['subscription']
         # field.user, field.role = self.user, self.role
+
+    def get_n_subscriptions(self, obj):
+        return obj.subscription_set.identity(self.identity).subscribed().count()
 
     def get_subscription(self, obj):
         role = obj.get_role(self.identity)

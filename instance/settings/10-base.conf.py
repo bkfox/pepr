@@ -6,9 +6,13 @@ try: a = DEBUG
 except NameError: DEBUG = True
 
 
+SITE_ID = 1
+
 ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
+    'django.contrib.sites',
+
     'pepr.content',
     'pepr.core',
 
@@ -32,6 +36,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'django.contrib.sites.middleware.CurrentSiteMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
     'pepr.core.middleware.IdentityMiddleware',

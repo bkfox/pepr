@@ -5,7 +5,7 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 from rest_framework.reverse import reverse
 
-from .mixins import PermissionMixin
+from .views.generic import PermissionMixin
 from .models import Context, Subscription
 from .roles import ModeratorRole
 
@@ -85,7 +85,6 @@ class ContextSerializer(BaseSerializer):
     class Meta:
         model = Context
         fields = BaseSerializer.Meta.fields + (
-            'title', 'headline',
             'default_access',
             'allow_subscription_request',
             'subscription_accept_role',

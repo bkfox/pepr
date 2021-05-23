@@ -104,7 +104,7 @@
 /******/ 		};
 /******/ 		
 /******/ 		var deferredModules = [
-/******/ 			["./assets/core/main.js","vendor","core"]
+/******/ 			["./assets/core/main.js","core","vendor"]
 /******/ 		];
 /******/ 		// no chunk on demand loading
 /******/ 		

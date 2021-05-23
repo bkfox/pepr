@@ -92,6 +92,11 @@ class Role:
             perms[key] = p.granted
         return perms
 
+    @cached_property
+    def services(self):
+        """ Context's services available to current role. """
+        return self.context.service_set.role(self)
+
     def has_access(self, access, strict=False):
         """ Return True if role sufficient access level. If strict is
         used, role access must be strictly bigger than access. """
@@ -140,6 +145,24 @@ class Role:
         self.identity = identity
         self.subscription = subscription
 
+
+# TODO
+#class BannedRole(Role):
+#    access = -0x20
+#    status = 'banned'
+#    name =_('Banned')
+#    description = _('Banned user'
+#
+#    @property
+#    def permissions(self):
+#        return tuple()
+#
+#    def has_access(self, *a, **kw):
+#        return False
+#
+#    def is_granted(self, *a, **kw):
+#        return False
+#
 
 # Define a set of default roles. They can still be removed using
 # ``Roles.remove()``.

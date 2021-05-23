@@ -6,16 +6,17 @@ import VuexORM from '@vuex-orm/core'
 import VuexORMAxios from '@vuex-orm/plugin-axios'
 
 /**
- * Create Vuex database using provided models, and use created store for app.
+ * Create Vuex ORM database using provided models. Add model getters to
+ * application global properties.
  */
-export const ormPlugin = {
+export const modelsPlugin = {
     install(app, {models={}, baseURL='', storeConfig={}}={}) {
         VuexORM.use(VuexORMAxios, { axios, baseURL })
 
         // store
         const database = new VuexORM.Database()
-        for(let key in models)
-            database.register(models[key])
+        for(let model of models)
+            database.register(model)
 
         storeConfig.plugins = [ ...(storeConfig.plugins || []), VuexORM.install(database) ]
         app.use(createStore(storeConfig))

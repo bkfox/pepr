@@ -1,111 +1,68 @@
-import { createApp, ref, reactive } from 'vue'
+import { createApp as vCreateApp, provide, ref, reactive, toRefs } from 'vue'
 import { createStore } from 'vuex'
 
 import * as components from './components'
-import { loadStore } from './models'
-import { ormPlugin } from './plugins'
+import * as composables from './composables'
+import { importDatabase } from './models'
+import { modelsPlugin } from './plugins'
 
 
-/// Base Pepr's Vue applications
-const App = {
+/**
+ * Base Pepr's application configuration.
+ *
+ * Context:
+ * - useContext
+ *
+ * Provide:
+ * - baseUrl
+ * - roles
+ */
+export default {
+    // Django already uses "{{" and "}}" delimiters for template rendering
     delimiters: ['[[', ']]'],
     components,
 
-    provide() {
-        return {
-            baseURL: this.baseURL,
-            roles: this.roles,
-            context: this.context,
-        }
-    },
-
     props: {
+        ...composables.useContextById.props,
         roles: Object,
-        // FIXME: should be updatable -> setup?
-        contextId: String,
-        baseURL: String,
-        /// User's identity's pk if any
-        identity: String,
     },
 
-    computed: {
-        /// Current Context
-        context() {
-            let model = this.$store.$db().model('context')
-            return this.contextId && model.query().with('subscription').find(this.contextId)
-        },
+    setup(props, context_) {
+        const propsRefs = toRefs(props)
+        const contextComp = composables.useContextById(propsRefs.contextId, propsRefs.contextEntity)
 
-        /// User's subscription
-        subscription() {
-            return this.identity &&
-                this.$root.Subscription.query().where('owner_id', this.identity)
-                    .first()
-        }
+        provide('roles', propsRefs.roles)
+
+        return {...contextComp}
     },
 }
 
-export default App;
 
-function inPromise(func, onLoad) {
-    return new Promise((resolve, reject) => {
-        let wrapper = () => {
-            try {
-                func(resolve, reject)
-            }
-            catch(error) {
-                reject(error)
-            }
-        }
-
-        if(onLoad)
-            window.addEventListener('load', wrapper, { once: true })
-        else
-            wrapper()
-    })
+/**
+ * Create application setting up plugins etc.
+ */
+export function createApp(app, {baseURL='/api', models=null, storeConfig={}}={}) {
+    app = createApp(app)
+    if(models !== null)
+        app.use(modelsPlugin, {baseURL, models, storeConfig})
+    return app
 }
 
 /**
- * Load application config from json script element (using querySelector).
+ * Load data from JSON <script> element, matching provided querySelector.
  * Return a promise resolving to the config object.
  *
  * If `async` is true, resolve on document `load` event.
  */
-export function loadProps(el, {onLoad=true}={}) {
-    return inPromise((resolve, reject) => {
-        let elm = document.querySelector(el)
-        if(elm.text) {
-            const data = JSON.parse(elm.text)
-            if(data)
-                return resolve(data)
-        }
-        reject(null)
-    }, onLoad)
-}
-
-
-/**
- * Load application config on load 
- */
-export function loadApp(app, {el='#app',propsEl='#app-props',props=null,models=null,onLoad=true}={}) {
-    function init(props) {
-        app = createApp(app, props)
-        app.use(ormPlugin, {baseURL: props.baseURL || '/api', models})
-        return [app, app.mount(el)]
+export function getScriptData(el) {
+    let elm = document.querySelector(el)
+    if(elm.text) {
+        const data = JSON.parse(elm.text)
+        if(data)
+            return data
     }
-
-    if(props !== null)
-        return inPromise((resolve, reject) => {
-            resolve(init(props))
-        }, onLoad)
-    else
-        return loadProps(propsEl, {onLoad}).then(props => {
-            let store = props.store
-            delete props.store
-            let [app, vm] = init(props);
-            store && loadStore(vm.$store, store)
-            return [app, vm]
-        })
 }
+
 
 
 /**

@@ -7,18 +7,18 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .mixins import AccessibleViewMixin, ContextViewMixin
 from .models import Context, Subscription
 from .permissions import *
 from .serializers import AccessibleSerializer, OwnedSerializer, \
         ContextSerializer, SubscriptionSerializer
+from .views import generic
 
 
 __all__ = ('ContextViewSet', 'AccessibleViewSet', 'OwnedViewSet',
            'SubscriptionViewSet')
 
 
-class ContextViewSet(ContextViewMixin, viewsets.ModelViewSet):
+class ContextViewSet(generic.ContextMixin, viewsets.ModelViewSet):
     action_permissions = {
         'retrieve': (CanAccess,),
         # 'create': (CanCreate,),
@@ -46,8 +46,7 @@ class ContextViewSet(ContextViewMixin, viewsets.ModelViewSet):
         return super().get_serializer(*args, **kwargs)
 
 
-
-class AccessibleViewSet(AccessibleViewMixin, viewsets.ModelViewSet):
+class AccessibleViewSet(generic.AccessibleMixin, viewsets.ModelViewSet):
     """
     This mixin enforce permissions checks on the accessible elements.
     It uses a``.serializer.AccessibleSerializer`` (sub-)class.

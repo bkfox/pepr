@@ -1,23 +1,23 @@
-from django.http import Http404
-from django.views.generic import DetailView, ListView
+from django.views.generic import DetailView
 
-from pepr.core.mixins import ServiceMixin
+from pepr.core.views.generic import AccessibleListView, ServiceMixin
 from pepr.core.models import Subscription
 from pepr.core.serializers import ContextSerializer, SubscriptionSerializer
 
+from . import forms, models, serializers
 from .components import ContentFormComp
 from .forms import ContentForm
-from .models import Content, ContentService
 
 
-__all__ = ('ServiceMixin', 'ContentListView')
+__all__ = ('ContentListView', 'ContentDetailView')
 
 
-class ContentListView(ServiceMixin, ListView):
-    model = Content
-    # TODO: pepr/content to pepr_content/
-    service_class = ContentService
-    create_form = ContentForm
+class ContentListView(ServiceMixin, AccessibleListView):
+    """ Display a container's content list """
+    model = models.Content
+    context_model = models.Container
+    service_class = models.ContentService
+    create_form = forms.ContentForm
 
     def get_app_props(self, store=None, **kwargs):
         store = store or {}
@@ -51,9 +51,12 @@ class ContentListView(ServiceMixin, ListView):
 
 
 class ContentDetailView(ServiceMixin, DetailView):
-    service_class = ContentService
-    model = Content
+    """ Content detail view. """
+    service_class = models.ContentService
+    context_model = models.Container
+    model = models.Content
 
     def get_queryset(self):
         return super().get_queryset().select_subclasses()
+
 

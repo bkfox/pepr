@@ -1,9 +1,17 @@
-{% extends "pepr_core/base_context.html" %}
+{% extends "pepr_content/container.html" %}
 {% load static i18n pepr_core pepr_content %}
 
 {% block head %}
 {{ block.super }}
-<script src="{% static "pepr/content_app.js" %}"></script>
+<script src="{% static "pepr/content.js" %}"></script>
+{% endblock %}
+
+{% block init-script %}
+{{ block.super }}
+var app = pepr.content.createApp({
+    baseURL: "{% url "api-base-url" %}",
+})
+var vm = app.mount('#app')
 {% endblock %}
 
 {% block service %}

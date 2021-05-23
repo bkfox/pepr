@@ -2,86 +2,75 @@
     <form ref="form" @submit="submit" @reset="reset">
         <h4 class="subtitle is-4">Main settings</h4>
 
-        <p-field label="Title" horizontal>
-            <div class="field">
-                <div class="control">
-                    <component is="input" name="headline" type="text" v-model:value="item.title"
-                        placeholder="Title" />
-                </div>
-            </div>
-        </p-field>
-        <p-field horizontal>
-            <div class="field">
-                <div class="control">
-                    <component is="input" name="headline" type="text" v-model:value="item.headline"
-                        placeholder="Headline" />
-                </div>
-            </div>
-        </p-field>
+        <p-field-row label="Title">
+            <p-field name="title">
+                <component is="input" name="title" type="text" v-model:value="data.title"
+                    placeholder="Title" />
+            </p-field>
+        </p-field-row>
 
-        <p-field label="Publications' default visibility" horizontal>
-            <div class="field">
-                <div class="control">
-                    <p-select-role :roles="roles" v-model:value="item.default_access" />
-                </div>
-            </div>
-        </p-field>
+        <slot name="main"></slot>
+
+        <p-field-row label="Publications' default visibility">
+            <p-field name="default_access">
+                <p-select-role :roles="roles" v-model:value="data.default_access" />
+            </p-field>
+        </p-field-row>
+
+        <slot name="main" :data="data"></slot>
 
         <h4 class="subtitle is-4">Subscriptions</h4>
 
-        <p-field label="Allow subscription request" horizontal>
-            <component is="input" type="checkbox" name="allow_subscription_request"
-                v-model:value="item.allow_subscription_request" />
-        </p-field>
+        <p-field-row label="Allow subscription request">
+            <p-field name="allow_subscription_request">
+                <component is="input" type="checkbox" name="allow_subscription_request"
+                    v-model:value="data.allow_subscription_request" />
+            </p-field>
+        </p-field-row>
 
         <!-- subscription_accept_role -->
-        <p-field label="Accept Subscriptions" horizontal>
-            <div class="field">
-                <div class="control">
-                    <p-select-role
-                        :roles="subscriptionRoleChoices"
-                        v-model:value="item.subscription_accept_role" />
-                </div>
-                <div class="help">
+        <p-field-row label="Accept subscriptions">
+            <p-field name="subscription_accept_role">
+                <p-select-role
+                    :roles="subscriptionRoleChoices"
+                    v-model:value="data.subscription_accept_role" />
+                <template #help>
                 Subscription requests will not need moderator approval for
-                    <i><template v-for="role of subscriptionRoleChoices">
-                        <template v-if="role.access <= item.subscription_accept_role">
-                            {{ role.name }}
+                <i><template v-for="role of subscriptionRoleChoices">
+                        <template v-if="role.access <= data.subscription_accept_role">
+                        {{ role.name }}
                         </template>
                     </template></i>
-                </div>
-            </div>
-        </p-field>
+                </template>
+            </p-field>
+        </p-field-row>
 
         <!-- subscription_default_role -->
-        <p-field label="Default role" horizontal>
-            <div class="field">
-                <div class="control">
-                    <p-select-role
-                        :roles="subscriptionRoleChoices"
-                        v-model:value="item.subscription_default_role" />
-                </div>
-            </div>
-        </p-field>
+        <p-field-row label="Default role">
+            <p-field name="subscription_default_role">
+                <p-select-role
+                    :roles="subscriptionRoleChoices"
+                    v-model:value="data.subscription_default_role" />
+            </p-field>
+        </p-field-row>
 
         <!-- subscription_default_role -->
-        <p-field label="Default visibility" horizontal>
-            <div class="field">
-                <div class="control">
-                    <p-select-role
-                        :roles="subscriptionAccessChoices"
-                        v-model:value="item.subscription_default_access" />
-                </div>
-            </div>
-        </p-field>
+        <p-field-row label="Default visibility">
+            <p-field name="subscription_default_access">
+                <p-select-role
+                    :roles="subscriptionAccessChoices"
+                    v-model:value="data.subscription_default_access" />
+            </p-field>
+        </p-field-row>
 
+        <slot :data="data"></slot>
 
         <div class="field is-grouped is-grouped-right">
             <p class="control">
                 <button class="button is-link">Save</button>
             </p>
             <p class="control">
-                <button v-if="item" type="button" @click="reset() || $emit('done')" class="button is-link is-light">
+                <button v-if="data" type="button" @click="reset() || $emit('done')" class="button is-link is-light">
                     Cancel</button>
             </p>
         </div>
@@ -89,30 +78,34 @@
 </template>
 <script>
 import { computed, inject, toRefs } from 'vue'
-import { useStore } from 'vuex'
 import { Subscription } from '../models'
-import { modelForm } from '../composables'
+import * as composables from '../composables'
 import PField from './field'
+import PFieldRow from './fieldRow'
 import PSelectRole from './selectRole'
 
 export default {
-    props: { 
-        initial: Object,
+    props: {
+        ...composables.form.props({commit:true, constructor: 'context'}),
     },
 
-    setup(props, context) {
-        const model = useStore().$db().model('context')
-        const item = computed(() => new model({}))
-        const form = modelForm(item, props, context)
+    setup(props, context_) {
+        const propsRefs = toRefs(props)
+        const formComp  = composables.form(propsRef, context_)
+        const contextComp = composables.useContext(form.data)
 
-        const roles = computed(() => Object.values(inject('roles')))
-        const subscriptionRoleChoices = computed(() => form.context.value && Subscription.roleChoices(roles.value, form.context.value.role))
-        const subscriptionAccessChoices = computed(() => form.context.value && Subscription.accessChoices(roles.value, form.context.value.role))
+        const {role, roles} = contextComp;
+        const subscriptionRoleChoices = computed(() =>
+            role.value && Subscription.roleChoices(Object.values(roles.value), role.value)
+        )
+        const subscriptionAccessChoices = computed(() =>
+            role.value && Subscription.accessChoices(Object.values(roles.value), role.value)
+        )
 
-        return {...form, roles, subscriptionRoleChoices, subscriptionAccessChoices }
+        return {...formComp, ...contextComp, subscriptionRoleChoices, subscriptionAccessChoices }
     },
 
-    components: { PField, PSelectRole },
+    components: { PField, PFieldRow, PSelectRole },
 }
 
 

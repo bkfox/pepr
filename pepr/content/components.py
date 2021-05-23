@@ -3,9 +3,9 @@ from django.template import loader
 from django.views.generic.base import ContextMixin, TemplateResponseMixin
 
 from pepr.core.models import Accessible
-from pepr.core.mixins import PermissionMixin
 from pepr.core.roles import display_roles
 from pepr.core.settings import settings
+from pepr.core.views.generic import PermissionMixin
 from .forms import ContentForm
 
 

@@ -5,6 +5,8 @@ import uuid
 
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.sites.models import Site
+from django.contrib.sites.managers import CurrentSiteManager
 from django.db import models
 from django.db.models import F, Q
 from django.urls import reverse
@@ -17,7 +19,8 @@ from .settings import settings
 
 
 __all__ = ['access_choices',
-           'Context', 'Accessible', 'Owned', 'Subscription',
+           'Context', 'SiteContext',
+           'Accessible', 'Owned', 'Subscription',
            'Authorization', 'Service',
            'ContextQuerySet', 'AccessibleQuerySet', 'OwnedQuerySet']
 
@@ -110,7 +113,7 @@ class BaseAccessible(models.Model):
     @property
     def api_detail_url(self):
         """ Get detail url for this object """
-        return reverse(f'api:{self.basename}-detail',  pk=str(self.pk))
+        return reverse(f'api:{self.basename}-detail', kwargs={'pk': str(self.pk)})
 
     @property
     def is_saved(self):
@@ -119,7 +122,7 @@ class BaseAccessible(models.Model):
 
     def get_role(self, identity, force=False):
         """ Return role for identity on accessible. """
-        raise NotImplemented('Not implemented')
+        raise NotImplementedError('Not implemented')
 
     def save(self, *args, **kwargs):
         if self.pk is None:
@@ -133,12 +136,14 @@ class BaseAccessible(models.Model):
 class ContextQuerySet(BaseAccessibleQuerySet):
     @classmethod
     def get_identities_q(cls):
-        return (Q(identity_policy__isnull=False) |
+        """ Return Q object filter for identities. """
+        return Q(is_identity=True) & (Q(identity_policy__isnull=False) |
                 Q(identity_owner__isnull=False))
 
-    def identities(self):
-        """ Filter identities only contexts. """
-        return self.filter(self.get_identities_q())
+    def identities(self, is_identity=True):
+        """ Filter only contexts that are or not identities. """
+        identities = self.get_identities_q()
+        return self.filter(identities if is_identity else ~identities)
 
     def user_identities(self, user, strict=False):
         """
@@ -150,7 +155,9 @@ class ContextQuerySet(BaseAccessibleQuerySet):
         if strict:
             return self.filter(identity_owner=user)
 
-        # FIXME/TODO: default user's context
+        # FIXME/TODO: default user's
+        # FIXME: owner can be someone else falsifying sort
+        #           => use annotation
         return self.identities().filter(
             Q(identity_owner=user) |
             Q(subscription__status=Subscription.STATUS_SUBSCRIBED,
@@ -187,12 +194,25 @@ class ContextQuerySet(BaseAccessibleQuerySet):
             filters['subscription_set__status'] = status
         return self.filter(subscription_set__owner=identity)
 
+    def site(self, site):
+        """ Filter by site (or its id). """
+        site = site.pk if isinstance(site, Site) else site
+        return self.filter(site_id=site)
+
 
 class Context(BaseAccessible):
     """
     Each instance of ``Context`` defines a context in which permissions,
     subscriptions and objects' access take place.
     """
+    site = models.ForeignKey(
+        Site, models.CASCADE,
+        verbose_name=_('Site'),
+    )
+    title = models.CharField(
+        _('Title'), max_length=64,
+        blank=True, null=True
+    )
     default_access = models.SmallIntegerField(
         verbose_name=_("Content's default visibility"),
         choices=access_choices(),
@@ -220,6 +240,10 @@ class Context(BaseAccessible):
         choices=subscription_role_choices,
         default=MemberRole.access,
     )
+    is_identity = models.BooleanField(
+        verbose_name=_('Is identity'), default=False,
+        help_text=_('If true, user can use this as identity'),
+    )
     identity_policy = models.SmallIntegerField(
         _('Identity Policy'), choices=subscription_role_choices,
         blank=True, null=True,
@@ -232,14 +256,6 @@ class Context(BaseAccessible):
         verbose_name=_('Real user behind the identity'),
         blank=True, null=True, db_index=True,
         help_text=_('If user page, set to the actual user.')
-    )
-    title = models.CharField(
-        _('Title'), max_length=64,
-        blank=True, null=True
-    )
-    headline = models.CharField(
-        _('headline'), max_length=128,
-        blank=True, null=True
     )
 
     identity_user = None
@@ -303,43 +319,52 @@ class Context(BaseAccessible):
         return super().save(*args, **kwargs)
 
 
+class SiteContext(Context):
+    """ Context for a django site. """
+    head_title = models.CharField(
+        verbose_name=_('Page title'),
+        help_text=_("Text displayed in the browser's title bar."),
+        max_length=128, blank=True)
+
+    def save(self, *args, **kwargs):
+        if self.head_title is None:
+            self.head_title = self.site.name
+
+
 class AccessibleQuerySet(BaseAccessibleQuerySet):
     """
     Queryset used by the Accessible model.
     """
+    def site(self, site):
+        """ Filter by site (or its id). """
+        site = site.pk if isinstance(site, Site) else site
+        return self.filter(context__site_id=site)
+
     def role(self, role):
         """ Filter elements available by this role. """
         return self.identity(role.identity).access(role.access) \
                    .context(role.context)
 
     def context(self, context):
-        """
-        Filter in elements for the given context
-        """
-        return self.filter(context=context)
+        """ Filter in elements for the given context (or id). """
+        context = context.pk if isinstance(context, Context) else context
+        return self.filter(context_id=context)
 
     def get_identity_q(self, identity, subscription_prefix=''):
         return super().get_identity_q(identity, subscription_prefix or
                                         'context__')
 
 
-class AccessibleMeta(models.base.ModelBase):
-    def __new__(cls, name, bases, attrs):
-        if 'context_class' in attrs:
-            attrs['context'].remote_field.to = attrs['context_class']
-        return super().__new__(cls, name, bases, attrs)
-
-
-class Accessible(BaseAccessible,metaclass=AccessibleMeta):
+class Accessible(BaseAccessible):
     """
     Simple abstract class used to define basic access control
     based on access's privilege.
+
+    The ForeignKey to Context is generated at model class initialization,
+    in order to allow target sub-classes of Context directly. It is only
+    done on non-abstract classes.
     """
-    context = models.ForeignKey(
-        Context, on_delete=models.CASCADE,
-        # we do this because context related_name clashes
-        # related_name='%(class)s_set'
-    )
+    context = models.ForeignKey(Context, on_delete=models.CASCADE)
     objects = AccessibleQuerySet.as_manager()
 
     def get_role(self, identity, force=False):
@@ -364,14 +389,7 @@ class OwnedQuerySet(AccessibleQuerySet):
         return self.filter(q).distinct()
 
 
-class OwnedMeta(AccessibleMeta):
-    def __new__(cls, name, bases, attrs):
-        if 'owner_class' in attrs:
-            attrs['owner'].remote_field.to = attrs['owner_class']
-        return super().__new__(cls, name, bases, attrs)
-
-
-class Owned(Accessible,metaclass=OwnedMeta):
+class Owned(Accessible):
     """
     Accessible owned by an end-identity.
 
@@ -406,6 +424,7 @@ class SubscriptionQuerySet(OwnedQuerySet):
         """ Return all subscribed subscriptions. """
         qs = self.filter(status=Subscription.STATUS_SUBSCRIBED)
         return qs if context is None else qs.context(context)
+
 
 class Subscription(Owned):
     """
@@ -504,19 +523,21 @@ class Service(Accessible):
 
     It can be subclassed to provide settings.
     """
-    title = models.CharField(_('Title'), max_length=128, blank=True, null=True)
-    url_name = models.CharField(_('Url name'), max_length=64, blank=True)
+    title = models.CharField(_('Title'), max_length=128)
+    """ Service title. """
+    url_name = models.CharField(_('Reverse url name'), max_length=64, blank=True)
+    """ Reverse name of service's url. """
+    order = models.PositiveIntegerField()
+    """
+    Service position in menus. Home page use it to select the first
+    accessible service.
+    """
 
-    service_url_name = ''
     basename = 'service'
 
-    def get_absolute_url(self):
+    def get_absolute_url(self, **kwargs):
         """ Url to service's index """
-        return reverse(self.url_name, kwargs={'context_pk': self.context_id})
-
-    def save(self, *args, **kwargs):
-        if not self.url_name:
-            self.url_name = self.service_url_name
-        super().save(*args, **kwargs)
+        kwargs.setdefault('service_pk', self.pk)
+        return reverse(self.url_name, kwargs=kwargs)
 
 

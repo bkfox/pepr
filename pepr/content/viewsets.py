@@ -5,28 +5,31 @@ from django_filters import rest_framework as filters_drf
 from rest_framework import viewsets
 from rest_framework.decorators import action
 
-from pepr.core.viewsets import AccessibleViewSet
+from pepr.core import viewsets as core
 
+from . import models, serializers
 from .components import ContentFormComp
-from .models import Content
-from .serializers import ContentSerializer
 
 
 __all__ = ('ContentViewSet', )
 
 
-class ContentViewSet(AccessibleViewSet):
-    """
-    Model ViewSet for Content elements.
-    """
-    model = Content
-    serializer_class = ContentSerializer
+class ContainerViewSet(core.ContextViewSet):
+    """ Viewset for Container """
+    model = models.Container
+    serializer_class = serializers.ContainerSerializer
+
+
+class ContentViewSet(core.AccessibleViewSet):
+    """ ViewSet for Content. """
+    model = models.Content
+    serializer_class = serializers.ContentSerializer
     form_comp = ContentFormComp()
     filter_backends = (filters_drf.DjangoFilterBackend,)
     filterset_fields = (
         'modified', 'created', 'context', 'modifier', 'owner', 'text'
     )
-    queryset = Content.objects.select_subclasses()
+    queryset = models.Content.objects.select_subclasses()
 
     # FIXME
     @action(detail=True)

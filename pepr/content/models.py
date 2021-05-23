@@ -5,24 +5,34 @@ from model_utils.managers import InheritanceQuerySetMixin
 from model_utils.models import TimeStampedModel
 from rest_framework.reverse import reverse
 
-from pepr.core.models import *
+from pepr.core import models as core
 
 
-__all__ = ('ContentQuerySet', 'Content', 'ContentService')
+__all__ = ('Container', 'ContentQuerySet', 'Content', 'ContentService')
 
 
-class ContentQuerySet(InheritanceQuerySetMixin, OwnedQuerySet):
+class Container(core.Context):
+    """ Context for content. """
+    headline = models.CharField(
+        _('Headline'), max_length=128,
+        blank=True, null=True
+    )
+
+
+class ContentQuerySet(InheritanceQuerySetMixin, core.OwnedQuerySet):
     def get_identity_q(self, identity):
         if identity:
             return super().get_identity_q(identity) | models.Q(modifier=identity)
         return super().get_identity_q(identity)
 
 
-class Content(Owned, TimeStampedModel):
+class Content(core.Owned, TimeStampedModel):
     """ Content published by users. """
     # modifier read-only field
     modifier = models.ForeignKey(
-        Context,
+        # TODO: filter is_identity
+        core.Context,
+        limit_choices_to=core.ContextQuerySet.get_identities_q(),
         on_delete=models.SET_NULL,
         verbose_name=_('modified by'),
         null=True, blank=True,
@@ -87,7 +97,7 @@ class Content(Owned, TimeStampedModel):
             self.modifier = role.identity
 
 
-class ContentService(Service):
+class ContentService(core.Service):
     """ Service handling content (list & detail) display. """
     service_url_name = 'content-list'
 

@@ -6,13 +6,32 @@
         <link rel="stylesheet" href="{% static "pepr/vendor.css" %}" />
         <script src="{% static "pepr/vendor.js" %}"></script>
         <script src="{% static "pepr/core.js" %}"></script>
-        <title>{% block head_title %}{{ role.context.title }}{% endblock %}</title>
+        <title>
+            {% block head_title %}
+            {% if role %}
+                {{ role.context.title }}
+                {% if site_role %}
+                &mdash; {{ site_role.context.head_title }}
+                {% endif %}
+            {% elif site_role %}
+                {{ site_role.context.head_title }}
+            {% endif %}
+            {% endblock %}
+        </title>
         {% endblock %}
     </head>
-    <body>
+    <body onload="peprInitScript()">
+        {% block body-script %}
         {% if app_props %}
         {{ app_props|json_script:"app-props" }}
         {% endif %}
+
+        <script>
+            function peprInitScript() {
+                {% block init-script %}{% endblock %}
+            }
+        </script>
+        {% endblock %}
 
         <nav class="navbar is-dark" role="navigation" aria-label="main navigation">
             <div class="navbar-brand">{% block nav-brand %}{% endblock %}</div>
@@ -47,41 +66,38 @@
             </div>
         </nav>
 
-        {% block app %}
         <main id="app">
-            <p-context :context="context">
-                <header class="app-header header">
-                    <div class="columns">
-                        <div class="column"></div>
-                        <div class="column is-three-quarters">
-                            {% block app-header %}
-                            <h1 class="title">{% block title %}{{ context.title }}{% endblock %}</h1>
-                            <h2 class="subtitle">{% block subtitle %}{{ context.headline|default:'' }}{% endblock %}</h2>
-                            {% endblock app-header %}
-                            {% block app-actions %}{% endblock %}
-                        </div>
-                        <div class="column"></div>
-                    </div>
-                </header>
+            {% block app %}
+            <header class="app-header header">
                 <div class="columns">
-                    <div class="column app-menu">
-                        <p-nav ref="appNav" class="menu" @select='$refs.appDeck.select($event)'>
-                            {% block app-menu %}{% endblock %}
-                        </p-nav>
-                    </div>
-                    <div class="column is-three-quarters app-body">
-                        {% block app-body %}
-                        <div class="box">
-                            <p-deck ref="appDeck" @select='$refs.appNav.select($event)'>
-                                {% block app-deck %}{% endblock %}
-                            </p-deck>
-                        </div>
-                        {% endblock %}
+                    <div class="column"></div>
+                    <div class="column is-three-quarters">
+                        {% block app-header %}
+                        <h1 class="title">{% block title %}{{ context.title }}{% endblock %}</h1>
+                        {% endblock app-header %}
+                        {% block app-actions %}{% endblock %}
                     </div>
                     <div class="column"></div>
                 </div>
-            </p-context>
+            </header>
+            <div class="columns">
+                <div class="column app-menu">
+                    <p-nav ref="appNav" class="menu" @select='$refs.appDeck.select($event)'>
+                        {% block app-menu %}{% endblock %}
+                    </p-nav>
+                </div>
+                <div class="column is-three-quarters app-body">
+                    {% block app-body %}
+                    <div class="box">
+                        <p-deck ref="appDeck" @select='$refs.appNav.select($event)'>
+                            {% block app-deck %}{% endblock %}
+                        </p-deck>
+                    </div>
+                    {% endblock %}
+                </div>
+                <div class="column"></div>
+            </div>
+            {% endblock %}
         </main>
-        {% endblock %}
     </body>
 </html>

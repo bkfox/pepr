@@ -1,6 +1,12 @@
 {% extends template_base %}
 {% load i18n %}
 
+{% block app %}
+<p-context :context-id="{{ role.context.pk }}" :context-entity="">
+    {{ block.super }}
+</p-context>
+{% endblock %}
+
 {% block app-actions %}
 <div class="level app-actions">
     <div class="level-left">
@@ -18,7 +24,7 @@
 {% block app-menu %}
 <ul class="menu-list">
     {% block app-menu-services %}
-    {% for obj in context.service_set.all %}
+    {% for obj in role.services %}
     {% if service and obj.pk == service.pk %}
     <li>
         <p-nav-item target="default">{{ obj.title }}</p-nav-item>

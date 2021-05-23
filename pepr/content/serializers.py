@@ -1,24 +1,29 @@
 from rest_framework import serializers
 
-from pepr.core.serializers import OwnedSerializer
+from pepr.core import serializers as core
 
-from .models import Content
+from . import models
 
-__all__ = ('ContentSerializer',)
+__all__ = ('ContainerSerializer', 'ContentSerializer',)
 
 
-class ContentSerializer(OwnedSerializer):
+class ContainerSerializer(core.ContextSerializer):
+    class Meta:
+        model = models.Container
+        fields = core.ContextSerializer.Meta.fields + ('title', 'headline')
+
+class ContentSerializer(core.OwnedSerializer):
     html = serializers.SerializerMethodField(required=False)
     # owner = serializers.HyperlinkedIdentityField(view_name = 'user')
     # modifier = ContentAuthorSerializer(required=False)
 
     class Meta:
-        model = Content
-        fields = OwnedSerializer.Meta.fields + (
+        model = models.Content
+        fields = core.OwnedSerializer.Meta.fields + (
             'created', 'modified', 'modifier_id',
             'access', 'text', 'html', 'meta'
         )
-        read_only_fields = OwnedSerializer.Meta.read_only_fields + (
+        read_only_fields = core.OwnedSerializer.Meta.read_only_fields + (
             'api_url', 'created', 'modified', 'modifier_id')
 
     def __init__(self, *args, render=True, **kwargs):

@@ -1,4 +1,5 @@
 import PField from './field'
+import PFieldRow from './field'
 import PDeck from './deck'
 import PList from './list'
 import PModal from './modal'
@@ -14,8 +15,23 @@ import PSubscriptionButton from './subscriptionButton'
 import PSubscriptionForm from './subscriptionForm'
 import PSubscriptionList from './subscriptionList'
 
+
+export function copyProps(source, override) {
+    const props = {}
+    for(const key in source) {
+        const value = source[key]
+        const ovalue = override[key]
+        if(ovalue instanceof Object && value instanceof Object)
+            props[key] = { ...value, ...ovalue }
+        else
+            props[key] = ovalue
+    }
+    return props
+}
+
+
 export {
-    PField, PDeck,
+    PField, PFieldRow, PDeck,
     PList, PModal, PNav, PNavItem, PRuntimeTemplate,
 
     PContext, PContextForm,  PSelectRole,

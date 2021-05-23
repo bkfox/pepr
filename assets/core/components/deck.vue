@@ -2,7 +2,7 @@
 // TODO:
 // - history stack of deck
 import { h, ref } from 'vue'
-import { singleSelect } from '../composables/select'
+import { singleSelect } from '../composables'
 
 export default {
     props: {

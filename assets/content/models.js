@@ -1,6 +1,19 @@
 import { Context, Owned, Subscription } from 'pepr/core/models'
 
 
+export class Container extends Context {
+    static get entity() { return 'container' }
+    static get baseURL() { return '/pepr/core/container/' }
+
+    static fields() {
+        return { ...super.fields(),
+            title: this.string(''),
+            headline: this.string(''),
+        }
+    }
+}
+
+
 export class Content extends Owned {
     static get entity() { return 'content' }
     static get baseURL() { return '/pepr/content/content/' }
@@ -26,7 +39,5 @@ export class Content extends Owned {
 }
 
 
-const defaults = { Content }
-export default defaults
-
+export default { Subscription, Container, Content }
 

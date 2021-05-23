@@ -9,8 +9,8 @@ const { VueLoaderPlugin } = require('vue-loader');
 module.exports = (env, argv) => Object({
     context: __dirname,
     entry: {
-        core_app: './assets/core/main',
-        content_app: './assets/content/main',
+        core: './assets/core/index',
+        content: './assets/content/index',
     },
 
     output: {
@@ -25,14 +25,14 @@ module.exports = (env, argv) => Object({
 
         splitChunks: {
             cacheGroups: {
-                core: {
+                /*core: {
                     name: 'core', chunks: 'initial', enforce: true,
                     test: /[\\/]assets[\\/]core[\\/]/,
                 },
                 content: {
                     name: 'content', chunks: 'initial', enforce: true,
                     test: /[\\/]assets[\\/]content[\\/]/,
-                },
+                },*/
                 vendor: {
                     name: 'vendor', chunks: 'initial', enforce: true,
 

@@ -5,7 +5,7 @@
 </template>
 <script>
 import { computed, provide, watch } from 'vue'
-import { singleSelect } from '../composables/select'
+import { singleSelect } from '../composables'
 
 export default {
     props: {

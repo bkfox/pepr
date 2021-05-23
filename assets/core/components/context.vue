@@ -2,31 +2,24 @@
     <slot v-if="context"></slot>
 </template>
 <script>
-import { computed, provide, ref } from 'vue'
+import { computed, provide, ref, toRefs, watch } from 'vue'
 import { useStore } from 'vuex'
 import { Context } from '../models'
+import * as composables from '../composables'
 
 export default {
     props: {
-        context: Object,
-        contextId: String,
+        ...composables.useContextById.props,
     },
 
-    setup(props) {
-        const model = useStore().$db().model('context');
-        const contextId = ref(props.contextId)
-        const context = computed(() => props.context || model.find(props.contextId))
-        const role = computed(() => context.value && context.value.role)
-        const subscription = computed(() => context.value.subscription);
+    setup(props, context) {
+        const propsRefs = toRefs(props)
+        const contextId = ref(propsRefs.contextId && propsRefs.contextId.value)
+        const contextComp = composables.useContextById({...propsRefs, contextId, fetch: true})
 
-        provide('context', context)
-        provide('role', role)
-        provide('subscription', subscription)
+        watch(propsRefs.contextId, (id) => { contextId.value = id })
 
-        //watch(contextId, (value) => {
-        //})
-
-        return { model, contextId, context, role, subscription }
+        return {...contextComp, contextId}
     },
 }
 </script>

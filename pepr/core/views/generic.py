@@ -1,24 +1,30 @@
+""" Generic views and mixins. """
 from django.urls import reverse
+from django.http import Http404
+from django.views.generic import DetailView, ListView
+
 from rest_framework import exceptions
-from rest_framework.views import APIView
 
-from .permissions import CanAccess, CanCreate, CanUpdate, CanDestroy
-from .models import Context, Service
-from .settings import settings
-from .roles import display_roles
-
-
-__all__ = ('BaseViewMixin', 'PermissionMixin', 'ViewMixin',
-           'AccessibleViewMixin', 'ContextViewMixin', 'ServiceMixin')
+from .. import models
+from ..permissions import CanAccess, CanCreate, CanUpdate, CanDestroy
+from ..settings import settings
+from ..roles import display_roles
 
 
-class BaseViewMixin:
+__all__ = ('ApplicationMixin', 'PermissionMixin',
+    'AccessibleMixin', 'AccessibleListView', 'AccessibleDetailView',
+    'ContextMixin', 'ContextListView', 'ContextDetailView',
+    'BaseServiceMixin', 'ServiceMixin')
+
+
+class ApplicationMixin:
     """
     Provide utilities to work with client side application.
 
     - embed: render view application content only.
     - application data: include application data in script tag ``#app-props``,
-        using ``json_script`` template filter. This allows assets' ``pepr.core.App`` to load initial data from page.
+        using ``json_script`` template filter. This allows assets'
+        ``pepr.core.App`` to load initial data from page.
     """
     template_base = 'pepr_core/base.html'
     """ Extend view's template from it. """
@@ -30,6 +36,25 @@ class BaseViewMixin:
         if 'baseURL' not in kwargs:
             kwargs['baseURL'] = reverse('api-base-url')
         kwargs.setdefault('roles', display_roles())
+
+        return self.get_perms_app_props(**kwargs) \
+                if isinstance(self, PermissionMixin) else kwargs
+
+    def get_perms_app_props(self, **kwargs):
+        """
+        Return application properties for PermissionMixin subclasses.
+        """
+        from ..serializers import ContextSerializer, SubscriptionSerializer
+        kwargs.setdefault('contextId', self.role.context.pk)
+        store = kwargs.setdefault('store', {})
+        if self.role.context:
+            ser = ContextSerializer(self.role.context,
+                    identity=self.request.identity)
+            store.setdefault('context', []).append(ser.data)
+        if self.role.subscription:
+            ser = SubscriptionSerializer(self.role.subscription,
+                    identity=self.request.identity)
+            store.setdefault('subscription', []).append(ser.data)
         return kwargs
 
     def get_context_data(self, **kwargs):
@@ -41,6 +66,7 @@ class BaseViewMixin:
         if not kwargs.get('app_props'):
             kwargs['app_props'] = self.get_app_props()
         return super().get_context_data(**kwargs)
+
 
 
 class PermissionMixin:
@@ -68,10 +94,16 @@ class PermissionMixin:
     FIXME: It can either be a request method or an action (as given by
     ``viewset.action``).
     """
-    context_model = Context
+    context_model = models.Context
     """
     Model used as context
     """
+    role = None
+    """ Current user role on current context. """
+
+    @property
+    def context(self):
+        return self.role.context
 
     @classmethod
     def get_action_permissions(cls, action=None):
@@ -120,89 +152,90 @@ class PermissionMixin:
             raise exceptions.PermissionDenied('permission denied')
         return success
 
+    def get_permissions(self):
+        """ Return permissions for the current action """
+        return self.get_action_permissions(self.action)
+
     def get_context_model(self):
         """
         Return model used as Context (defaults to ``context_model``).
         """
         return self.context_model
 
-
-class ViewMixin(PermissionMixin, BaseViewMixin):
-    """
-    Base mixin for views handling permissions access inside a context.
-    Context is specified using view's kwargs ``context_pk``.
-
-    Provide template context variables:
-    - ``role``: current user's role;
-    - ``roles``: all available roles
-    """
-    role = None
-
-    def get_app_props(self, **kwargs):
-        from .serializers import ContextSerializer, SubscriptionSerializer
-        kwargs.setdefault('contextId', self.role.context.pk)
-        store = kwargs.setdefault('store', {})
-        if self.role.context:
-            ser = ContextSerializer(self.role.context,
-                    identity=self.request.identity)
-            store.setdefault('context', []).append(ser.data)
-        if self.role.subscription:
-            ser = SubscriptionSerializer(self.role.subscription,
-                    identity=self.request.identity)
-            store.setdefault('subscription', []).append(ser.data)
-        return super().get_app_props(**kwargs)
-
-    def get_permissions(self):
-        return self.get_action_permissions(self.action)
-
-    def get_context_queryset(self):
+    def get_context_queryset(self, identity):
         """ Return context queryset """
-        return self.get_context_model().objects.identity(self.request.identity)
+        return self.get_context_model().objects.site(self.request.site) \
+                                       .identity(identity)
 
-    def get_context(self, pk=None):
+    def get_context(self, identity, pk=None):
         """ Return context from pk or slug in dispatch kwargs. """
         if pk is not None:
-            return self.get_context_queryset().get(pk=pk)
+            return self.get_context_queryset(identity).get(pk=pk)
         return None
 
-    def get_queryset(self):
-        return super().get_queryset().identity(self.request.identity)
-
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, site_role=None, **kwargs):
         """ Ensure 'role' and 'roles' are in resulting context """
-        kwargs.setdefault('context', self.role.context)
         kwargs.setdefault('role', self.role)
+        kwargs.setdefault('context', self.role.context)
         kwargs.setdefault('roles', settings.roles )
+        kwargs.setdefault('site_role', self.request.role)
         return super().get_context_data(**kwargs)
 
-    def dispatch(self, request, *args, context_pk=None, **kwargs):
-        context = self.get_context(context_pk) if context_pk else None
+    def dispatch(self, request, *args, context=None, context_pk=None, **kwargs):
+        if context is None:
+            context = self.get_context(request.identity, context_pk) \
+                        if context_pk else None
         if context:
             self.role = context.get_role(request.identity)
-        # FIXME self.can(self.role, request.method)
-        return super().dispatch(request, *args, **kwargs)
+        return super().dispatch(request, *args, context=context, role=self.role, **kwargs)
 
 
-class ContextViewMixin(ViewMixin):
-    """
-    Mixin handling Accessible objects permission check. Can work with
-    PermissionViewMixin
-    """
-    pass
-
-
-class AccessibleViewMixin(ViewMixin):
+class ContextMixin(PermissionMixin):
     """
     Mixin handling Accessible objects permission check. Can work with
     PermissionViewMixin
     """
     def get_queryset(self):
-        if self.role:
-            return super().get_queryset().filter(context=self.role.context)
-        return super().get_queryset()
+        return super().get_queryset().site(self.request.site) \
+                                     .identity(self.request.identity)
 
 
-class ServiceMixin(ViewMixin):
+class ContextListView(ContextMixin, ApplicationMixin, ListView):
+    """ Context list view. """
+    model = models.Context
+
+
+class ContextDetailView(ContextMixin, ApplicationMixin, DetailView):
+    """ Context detail view. """
+    model = models.Context
+
+    def get_object(self):
+        return self.context or super().get_object()
+
+
+
+class AccessibleMixin(PermissionMixin):
+    """
+    Mixin handling Accessible objects permission check. Can work with
+    PermissionViewMixin
+    """
+    def get_queryset(self):
+        qs = super().get_queryset().site(self.request.site) \
+                                   .identity(self.request.identity)
+        role = getattr(self, 'role', None)
+        return qs.context(role.context) if role else qs
+
+
+class AccessibleListView(AccessibleMixin, ApplicationMixin, ListView):
+    """ Accessible list view. """
+
+
+class AccessibleDetailView(AccessibleMixin, ApplicationMixin, DetailView):
+    """ Accessible detail view. """
+
+
+
+class BaseServiceMixin:
     """
     Fetch a service for current context.
 
@@ -210,27 +243,42 @@ class ServiceMixin(ViewMixin):
     - 'service': current service object
     - 'services': current context's services
     """
-    service_class = None
+    service_class = models.Service
     """ Service model class to be retrieved if not None. """
     service = None
     """ Service instance found. """
 
-    def get_services(self):
-        """ Return available services for current Context. """
-        return Service.objects.role(self.role)
+    def get_service_queryset(self, role=None):
+        """ Return services' queryset. """
+        return self.service_class.objects.site(self.request.site) \
+                   .role(role if role is not None else self.role)
 
-    def get_service(self):
+    def get_service(self, pk=None, slug=None, role=None, throw=False):
         """ Return current service """
-        return self.service_class.objects.role(self.role) \
-                                         .first()
-
-    def get_context_data(self, **kwargs):
-        self.service = kwargs.pop('service', None) or self.get_service()
-        if self.service is None:
+        qs = self.get_service_queryset(role).order_by('order')
+        if pk is not None:
+            qs = qs.filter(pk=pk)
+        elif slug is not None:
+            qs = qs.filter(slug=slug)
+        q = qs.first()
+        if q is None and throw:
             raise Http404('Service not found')
-        if 'services' not in kwargs:
-            kwargs['services'] = self.get_services()
-        return super().get_context_data(service=self.service, **kwargs)
+        return q
+
+    # should be executed after PermissionMixin.dispatch in MRO order
+    def dispatch(self, request, *args, service=None, service_pk=None,
+            service_slug=None, **kwargs):
+        if service is None:
+            service = self.get_service(service_pk, service_slug, throw=True)
+        self.service = service
+        return super().dispatch(request, *args, service=service, **kwargs)
+
+
+class ServiceMixin(PermissionMixin, BaseServiceMixin):
+    """
+    This mixin get current service inside a context, and store it into
+    ``self.service``.
+    """
 
 
 

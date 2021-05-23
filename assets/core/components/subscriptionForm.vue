@@ -1,40 +1,42 @@
 <template>
     <form ref="form" @submit="submit" @reset="reset">
         <input type="hidden" name="context_id" :value="context && context.pk" />
-        <input v-if="item.owner_id" type="hidden" name="owner_id" :value="item.owner_id" />
-        <div class="notification is-info" v-if="item.isRequest">
+        <input v-if="data.owner_id" type="hidden" name="owner_id" :value="data.owner_id" />
+        <div class="notification is-info" v-if="data.isRequest">
             <span>
                 Your subscription request is awaiting for approval (you still can update it).
             </span>
         </div>
 
-        <p-field label="Role" horizontal>
-            <div class="field">
-                <p-select-role name="role" v-model:value="item.role"
+        <p-field-row label="Role">
+            <p-field name="role">
+                <p-select-role name="role" v-model:value="data.role"
                     :roles="roleChoices" title="Role">
                 </p-select-role>
-                <span class="help is-info" v-if="item.role > context.subscription_accept_role">
-                    This role requires approval from moderation
-                </span>
-            </div>
-        </p-field>
-        <p-field label="Visibility" horizontal>
-            <div class="field">
-                <p-select-role name="access" v-model:value="item.access"
+                <template #help>
+                    <span class="help is-info" v-if="data.role > context.subscription_accept_role">
+                        This role requires approval from moderation
+                    </span>
+                </template>
+            </p-field>
+        </p-field-row>
+        <p-field-row label="Visibility">
+            <p-field name="access">
+                <p-select-role name="access" v-model:value="data.access"
                     :roles="accessChoices"
                     title="People being able to see you are subscribed.">
                 </p-select-role>
-            </div>
-        </p-field>
+            </p-field>
+        </p-field-row>
         <div class="field is-grouped is-grouped-right">
             <p class="control">
                 <button class="button is-link">
-                    <template v-if="item">Save</template>
+                    <template v-if="data">Save</template>
                     <template v-else>Subscribe</template>
                 </button>
             </p>
             <p class="control">
-                <button v-if="item" type="button" @click="reset() || $emit('done')" class="button is-link is-light">
+                <button v-if="data" type="button" @click="reset() || $emit('done')" class="button is-link is-light">
                     Cancel</button>
             </p>
         </div>
@@ -43,37 +45,34 @@
 <script>
 import { computed, inject, toRefs } from 'vue'
 import { useStore } from 'vuex'
-import { modelForm } from '../composables'
+import * as composables from 'pepr/core/composables'
 import PField from './field'
+import PFieldRow from './fieldRow'
 import PSelectRole from './selectRole'
 
 export default {
     props: {
-        context: { type: Object, required: true },
-        initial: Object,
+        ...composables.form.props({commit:true, constructor:'subscription'}),
     },
 
     setup(props, context) {
-        const model = useStore().$db().model('subscription')
-        const item = computed(() => new model({
-            context_id: props.context && props.context.pk,
-            access: props.context && props.context.subscription_default_access,
-            role: props.context && props.context.subscription_default_role,
-        }))
-        const form = modelForm(item, props, context)
+        const propsRefs = toRefs(props)
+        const formComp = composables.form(propsRef, context_)
+        const contextComp = composables.useParentContext(form.data)
 
-        const roles = computed(() => Object.values(inject('roles')))
+        const model = formComp.constructor
+        const {role, roles} = contextComp;
         const accessChoices = computed(
-            () => model.accessChoices(form.context.value.role, roles.value)
+            () => role.value && model.value.accessChoices(role.value, roles.value)
         )
         const roleChoices = computed(
-            () => model.roleChoices(form.context.value.role, roles.value)
+            () => role.value && model.value.roleChoices(role.value, roles.value)
         )
 
-        return {...form, accessChoices, roleChoices }
+        return {...formComp, ...contextComp, accessChoices, roleChoices }
     },
 
-    components: { PField, PSelectRole },
+    components: { PField, PFieldRow, PSelectRole },
 }
 
 </script>

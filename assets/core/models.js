@@ -1,13 +1,45 @@
 import { computed } from 'vue'
 import Cookies from 'js-cookie'
 
-import { Model } from '@vuex-orm/core'
+import * as orm from '@vuex-orm/core'
+
+
+/**
+ * Submit data to server.
+ */
+export function submit(url, {data={}, form=null, bodyType='json', ...config}) {
+    url = url || form && form.getAttribute('action')
+
+    if(!data)
+        data = new FormData(form)
+    else if(!(data instanceof FormData)) {
+        const formData = new FormData()
+        for(let key in data)
+            formData.append(key, data[key])
+        data = formData
+    }
+
+    config.method = config.method || form.getAttribute('method') || 'POST'
+    config.headers = {...(config.headers || {}),
+        'Content-Type': 'multipart/form-data',
+        'X-CSRFToken': Cookies.get('csrftoken'),
+    }
+
+    return fetch(url, {data, ...config }).then(
+        r => r[bodyType]().then(d => {
+            d = { status: r.status, data: d, response: r }
+            if(400 <= d.status)
+                throw(d)
+            return d
+        })
+    )
+}
 
 
 /**
  * Load models from data, as an Object of `{ entity: insertOrUpdateData }`
  */
-export function loadStore(store, data) {
+export function importDatabase(store, data) {
     let db = store.$db();
     for(var entity in data) {
         let model = db.model(entity)
@@ -20,7 +52,7 @@ export function loadStore(store, data) {
 /**
  * Base model class
  */
-export class Base extends Model {
+export class Model extends orm.Model {
     /**
      * Default model's api entry point
      */
@@ -78,25 +110,24 @@ export class Base extends Model {
     /**
      * Save item to server and return promise
      */
-    save({form=null, ...config}= {}) {
-        config.headers = {...(config.headers || {}),
-            'Content-Type': 'multipart/form-data',
-            'X-CSRFToken': Cookies.get('csrftoken'),
-        }
-        const data = form ? new FormData(form) : new FormData()
-        if(!form)
+    save({data=null, form=null, url=null, method=null, ...config}= {}) {
+        if(!data && !form) {
             // FIXME: exclude relations / use data
-            Object.keys(this.constructor.fields()).forEach(key => this[key] !== null && data.append(key, this[key]))
+            data = {}
+            const fields = this.constructor.fields()
+            for(var key in fields)
+                if(this[key] !== undefined)
+                    data[key] = this[key]
+        }
 
-        if(this.$url)
-            return (this.$id ? this.constructor.api().put(this.$url, data, config)
-                            : this.constructor.api().post(this.$url, data, config))
-                .then(r => {
-                    this.constructor.insertOrUpdate({data: r.response.data})
-                    return r
-                })
-        else
-            throw "no api url for item"
+        if(!method)
+            method = self.$id ? 'PUT': 'POST'
+
+        url = url || this.$url
+        return submit(url, {data, method, ...config}).then(r => {
+            this.constructor.insertOrUpdate({data: r.data})
+            return r
+        })
     }
 
     /**
@@ -150,15 +181,13 @@ export class Role {
 }
 
 
-export class Context extends Base {
+export class Context extends Model {
     static get entity() { return 'context' }
     static get baseURL() { return '/pepr/core/context/' }
 
 
     static fields() {
         return { ...super.fields(),
-            title: this.string(''),
-            headline: this.string(''),
             default_access: this.number(null),
             allow_subscription_request: this.attr(null),
             subscription_accept_role: this.number(null),
@@ -191,7 +220,7 @@ export class Context extends Base {
 
 
 
-export class Accessible extends Base {
+export class Accessible extends Model {
     static get entity() { return 'accessible' }
     static get contextModel() { return Context }
 

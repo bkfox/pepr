@@ -17,6 +17,28 @@ __all__ = (
 )
 
 
+class RoleSerializer(serializers.Serializer):
+    """ Serializer for role. """
+    access = serializers.IntegerField()
+    is_anonymous = serializers.BooleanField()
+    is_subscribed = serializers.BooleanField()
+    is_moderator = serializers.BooleanField()
+    is_admin = serializers.BooleanField()
+    context_id = serializers.PrimaryKeyRelatedField(
+        source='context',
+        queryset=Context.objects.all(),
+    )
+    subscription_id = serializers.PrimaryKeyRelatedField(
+        source='subscription',
+        queryset=Subscription.objects.all(),
+    )
+    identity_id = serializers.PrimaryKeyRelatedField(
+        source='identity',
+        queryset=Context.objects.identities(),
+    )
+    permissions = serializers.DictField()
+
+
 class BaseSerializer(serializers.ModelSerializer):
     api_url = serializers.SerializerMethodField(read_only=True)
     """ API url to object """
@@ -76,11 +98,19 @@ class BaseSerializer(serializers.ModelSerializer):
         }
 
 
+class RoleDescriptionSerializer(serializers.Serializer):
+    access = serializers.IntegerField()
+    status = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField
+
+
 class ContextSerializer(BaseSerializer):
     """ Serializer for Context.  """
     role = serializers.SerializerMethodField()
     subscription = serializers.SerializerMethodField()
     n_subscriptions = serializers.SerializerMethodField()
+    roles = serializers.DictField(child=RoleDescriptionSerializer())
 
     class Meta:
         model = Context
@@ -92,6 +122,7 @@ class ContextSerializer(BaseSerializer):
             'subscription_default_access',
             'role', 'subscription',
             'n_subscriptions',
+            'roles',
         )
 
     view_name = 'api:context-detail'
@@ -113,28 +144,6 @@ class ContextSerializer(BaseSerializer):
             return
         role = obj.get_role(self.identity)
         return RoleSerializer(instance=role, context=obj).data
-
-
-class RoleSerializer(serializers.Serializer):
-    """ Serializer for role. """
-    access = serializers.IntegerField()
-    is_anonymous = serializers.BooleanField()
-    is_subscribed = serializers.BooleanField()
-    is_moderator = serializers.BooleanField()
-    is_admin = serializers.BooleanField()
-    context_id = serializers.PrimaryKeyRelatedField(
-        source='context',
-        queryset=Context.objects.all(),
-    )
-    subscription_id = serializers.PrimaryKeyRelatedField(
-        source='subscription',
-        queryset=Subscription.objects.all(),
-    )
-    identity_id = serializers.PrimaryKeyRelatedField(
-        source='identity',
-        queryset=Context.objects.identities(),
-    )
-    permissions = serializers.DictField()
 
 
 class AccessibleSerializer(BaseSerializer):

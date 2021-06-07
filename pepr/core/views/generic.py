@@ -235,7 +235,7 @@ class AccessibleDetailView(AccessibleMixin, ApplicationMixin, DetailView):
 
 
 
-class BaseServiceMixin:
+class ServiceMixin(PermissionMixin):
     """
     Fetch a service for current context.
 
@@ -248,14 +248,14 @@ class BaseServiceMixin:
     service = None
     """ Service instance found. """
 
-    def get_service_queryset(self, role=None):
+    def get_service_queryset(self):
         """ Return services' queryset. """
         return self.service_class.objects.site(self.request.site) \
-                   .role(role if role is not None else self.role)
+                                 .identity(self.request.identity)
 
-    def get_service(self, pk=None, slug=None, role=None, throw=False):
+    def get_service(self, pk=None, slug=None, throw=False):
         """ Return current service """
-        qs = self.get_service_queryset(role).order_by('order')
+        qs = self.get_service_queryset().order_by('order')
         if pk is not None:
             qs = qs.filter(pk=pk)
         elif slug is not None:
@@ -271,14 +271,6 @@ class BaseServiceMixin:
         if service is None:
             service = self.get_service(service_pk, service_slug, throw=True)
         self.service = service
-        return super().dispatch(request, *args, service=service, **kwargs)
-
-
-class ServiceMixin(PermissionMixin, BaseServiceMixin):
-    """
-    This mixin get current service inside a context, and store it into
-    ``self.service``.
-    """
-
+        return super().dispatch(request, *args, service=service, context_pk=service.context_id, **kwargs)
 
 

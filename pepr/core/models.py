@@ -268,6 +268,7 @@ class Context(BaseAccessible):
     objects = ContextQuerySet.as_manager()
     basename = 'context'
 
+    roles = {role.access: role for role in default_roles}
 
     @staticmethod
     def get_special_role(identity):
@@ -317,6 +318,10 @@ class Context(BaseAccessible):
                 self.subscription_accept_role, self.subscription_default_role
             )
         return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return '{} ({}): {}'.format(type(self).__name__,
+                                    self.pk, self.title)
 
 
 class SiteContext(Context):

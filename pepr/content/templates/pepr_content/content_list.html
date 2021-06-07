@@ -15,8 +15,14 @@ var vm = app.mount('#app')
 {% endblock %}
 
 {% block service %}
-<p-content-form :context="context" :model="Content"></p-content-form>
-<p-content-list :context="context" :model="Content"></p-content-list>
+<p-content-form constructor="content"></p-content-form>
+<p-list entity="content"
+        :filters="{ context_pk: '{{ context.pk }}'}"
+        url="{% url "api:content-list" %}">
+    <template v-slot:item="{index,item}">
+        <p-content :id="item.pk" :item="item"></p-content>
+    </template>
+</p-content-list>
 {% endblock %}
 
 

@@ -1,15 +1,15 @@
 <template>
-    <p-modal ref="modal">
+    <p-modal ref="modal" v-if="context">
         <div class="box">
             <h2 class="title is-2">
                 <span v-if="subscription">Edit subscription</span>
                 <span v-else>Subscribe to {{ context && context.title }}</span>
             </h2>
-            <p-subscription-form @done="$refs.modal.hide()" :context="context"
+            <p-subscription-form @done="$refs.modal.hide()" 
                 :initial="subscription"></p-subscription-form>
         </div>
     </p-modal>
-    <div class="dropdown is-hoverable is-right">
+    <div class="dropdown is-hoverable is-right" v-if="roles">
         <div class="dropdown-trigger">
             <div class="field has-addons">
                 <div class="control">
@@ -47,24 +47,16 @@
 <script>
 import PSubscriptionForm from './subscriptionForm'
 import PSubscriptionList from './subscriptionList'
+import * as composables from '../composables'
 import PModal from './modal'
 
 
 export default {
-    inject: ['roles'],
-    props: {
-        context: Object,
+    setup() {
+        const contextComp = composables.useContext()
+        return { ...contextComp }
     },
 
-    computed: {
-        role() {
-            return this.context && this.context.role
-        },
-
-        subscription() {
-            return this.context && this.context.subscription
-        },
-    },
     methods: {
         edit() {
             this.$refs.modal.show()
@@ -78,7 +70,7 @@ export default {
             }).save()
         },
 
-        unsubscribe() {
+        unsubscribe() {http://127.0.0.1:8000/default/payment_failed?ref=B2C2105-000066
             confirm(`Unsubscribe from ${this.context.title}?`) &&
                 this.subscription.delete()
         },

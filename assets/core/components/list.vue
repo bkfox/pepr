@@ -1,88 +1,36 @@
 <template>
-    <template v-for="(item, index) in items">
-        <slot name="item" :index="index" :item="item" :items="items"></slot>
+    <template v-if="list">
+        <template v-for="(item, index) in list">
+            <slot name="item" :index="index" :item="item" :list="list"></slot>
+        </template>
     </template>
 </template>
 <script>
-import { nextTick } from 'vue'
+import { toRefs, watch } from 'vue'
+import * as composables from '../composables'
 
 export default {
     props: {
-        model: Function,
-        // FIXME: db query filters
-        filters: Object,
-        context: Object,
-        contextFilter: { type: String, default: 'context' },
-        orderBy: String,
-        url: String,
+        ...composables.useModel.props(),
+        ...composables.getList.props(),
+        ...composables.fetchList.props(),
+        fetchAuto: { type: Boolean, default: true },
     },
 
-    provide() {
-        return {
-            context: this.context
-        }
-    },
+    setup(props) {
+        let propsRefs = toRefs(props)
+        let modelComp = composables.useModel(propsRefs)
+        let listComp = composables.getList({...props, ...modelComp})
+        let fetchComp = composables.fetchList(listComp)
 
-    computed: {
-        itemsQuery() {
-            let query = this.model.query();
-            if(this.orderBy) {
-                let [order, dir] = this.orderBy.startsWith('-') ?
-                    [this.orderBy.slice(1), 'desc'] : [this.orderBy, 'asc'];
-                query = query.orderBy((obj) => obj[order], dir)
-            }
-            if(this.context)
-                query = query.where('context_id', this.context.pk)
-            return query
-        },
-
-        items() {
-            let items = this.itemsQuery.get()
-            return items
-        },
-    },
-
-    methods: {
-        /**
-         * Fetch item from list.
-         */
-        fetch(url, {context=null,filters=null, ...config}={}) {
-            if(context || filters) {
-                let params = new URLSearchParams(filters || {})
-                if(context && this.contextFilter)
-                    params.append(this.contextFilter, context.pk)
-                url = `${url}?${params.toString()}`
-            }
-            return this.model.api().get(url, { dataKey: 'results', ...config})
-                // FIXME: Vuex ORM API bug about using local store?
-                .then(r => this.model.insertOrUpdate({data: r.response.data.results}))
-        },
-
-        /**
-         * Load list using components properties as default fetch's
-         * config.
-         */
-        load({url=null, context=null, filters=null, ...config}) {
-            return this.fetch(url || this.url || this.model.baseURL, {
-                filters: filters || this.filters,
-                context: context || this.context,
-            })
-        }
-    },
-
-    watch: {
-        context(context, old) {
-            this.load({context})
-        },
-
-        filters(filters, old) {
-            this.load({filters})
-        },
+        watch(propsRefs.url, (url) => propsRefs.fetchAuto.value && fetchComp.fetch({url}))
+        watch(propsRefs.filters, (filters) => propsRefs.fetchAuto.value && fetchComp.fetch({filters}))
+        return {...listComp, ...fetchComp}
     },
 
     mounted() {
-        if(this.context)
-            this.load({context: this.context})
+        if(this.fetchAuto && (this.url || this.model))
+            this.fetch()
     },
 }
 </script>

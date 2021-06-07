@@ -14,19 +14,20 @@
     </div>
 </template>
 <script>
-import { computed, inject, ref, toRefs } from 'vue'
+import { ref } from 'vue'
+import * as composables from '../composables'
 
 export default {
     inheritAttrs: false,
 
-    setup(props, context) {
+    setup(props) {
+        const contextComp = composables.useContext()
         const value = ref(props.value)
-        return { value }
+        return { ...contextComp, value }
     },
 
     props: {
-        value: [Number,String],
-        roles: { type: [Array,Object], default: [] },
+        // value: [Number,String],
         filter: { type: Function, default: null },
     },
 

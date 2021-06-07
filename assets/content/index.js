@@ -10,7 +10,7 @@ export { components, models }
 
 addGlobals('content', {
     createApp(props) {
-        props.models = [...models, ...(props.models || [])]
+        props.models = [...Object.values(models), ...(props.models || [])]
         return createApp(App, props)
     }
 })

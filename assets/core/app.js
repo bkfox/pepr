@@ -27,7 +27,7 @@ export default {
         roles: Object,
     },
 
-    setup(props, context_) {
+    setup(props) {
         const propsRefs = toRefs(props)
         const contextComp = composables.useContextById(propsRefs.contextId, propsRefs.contextEntity)
 
@@ -42,7 +42,7 @@ export default {
  * Create application setting up plugins etc.
  */
 export function createApp(app, {baseURL='/api', models=null, storeConfig={}}={}) {
-    app = createApp(app)
+    app = vCreateApp(app)
     if(models !== null)
         app.use(modelsPlugin, {baseURL, models, storeConfig})
     return app

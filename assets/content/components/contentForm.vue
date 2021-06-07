@@ -1,7 +1,7 @@
 <template>
     <form ref="form" @submit="submit">
         <slot :data="data" :context="context">
-            <input type="hidden" name="context_id" :value="context && context.pk" />
+            <input type="hidden" name="context_id" :value="context && context.$id" />
             <div class="field">
                 <div class="control">
                     <textarea name="text" class="textarea">{{ data.text }}</textarea>
@@ -12,8 +12,7 @@
                 <div class="level-left" v-if="showAccess">
                     <div class="field is-grouped">
                         <p-select-role name="access" v-model:value="data.access"
-                            title="Visible to"
-                            :filter="accessFilter">
+                            title="Visible to" :filter="accessFilter">
                         </p-select-role>
                     </div>
                 </div>
@@ -36,7 +35,6 @@
 </template>
 <script>
 import {computed, toRefs} from 'vue'
-import {Content} from '../models'
 import * as composables from 'pepr/core/composables'
 import { PField, PFieldRow, PSelectRole} from 'pepr/core/components'
 
@@ -44,7 +42,6 @@ export default {
     inject: ['roles'],
     props: {
         ...composables.form.props({commit:true, constructor: 'content'}),
-        ...composables.useContext.props(),
 
         /// Show access field
         showAccess: { type: Boolean, default: true },
@@ -52,12 +49,12 @@ export default {
 
     setup(props, context_) {
         const propsRefs = toRefs(props)
-        const contextComp = composables.useContext(propsRefs.context)
-        const defaults = computed(() => {
+        const contextComp = composables.useContext()
+        const defaults = computed(() => ({
             context_id: contextComp.context.value && contextComp.context.value.$id
-        })
+        }))
         const formComp = composables.form({...propsRefs, defaults}, context_)
-        return { ...formComp, ...contextComp }
+        return { ...contextComp, ...formComp }
     },
 
     methods: {

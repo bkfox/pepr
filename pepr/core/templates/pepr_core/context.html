@@ -2,8 +2,10 @@
 {% load i18n %}
 
 {% block app %}
-<p-context :context-id="{{ role.context.pk }}" :context-entity="">
-    {{ block.super }}
+<p-context context-id="{{ role.context.pk }}" context-entity="{{ role.context.basename }}">
+    <template v-slot:default="{context,role,roles,subscription}">
+        {{ block.super }}
+    </template>
 </p-context>
 {% endblock %}
 
@@ -14,7 +16,7 @@
     <div class="level-right">
         {% block app-actions-buttons %}
         <div class="level-item">
-            <p-subscription-button :context="context"></p-subscription-button>
+            {# <p-subscription-button></p-subscription-button> #}:
         </div>
         {% endblock %}
     </div>
@@ -60,13 +62,13 @@
 <template #settings>
     <button class="delete float-right" @click="$refs.appDeck.select()"></button>
     <h2 class="title is-3">{% trans "Settings" %}</h2>
-    <p-context-form :initial="context" @done="$refs.appDeck.select()"></p-context-form>
+    {# <p-context-form :initial="context" @done="$refs.appDeck.select()"></p-context-form> #}
 </template>
 
 <template #subscriptions>
     <button class="delete float-right" @click="$refs.appDeck.select()"></button>
     <h2 class="title is-3">{% trans "Subscriptions" %}</h2>
-    <p-subscription-list :context="context" />
+    {# <p-subscription-list :context="context" /> #}
 </template>
 {% endblock %}
 

@@ -1,16 +1,12 @@
-import { computed } from 'vue'
 import Cookies from 'js-cookie'
 
 import * as orm from '@vuex-orm/core'
 
 
-/**
- * Submit data to server.
- */
-export function submit(url, {data={}, form=null, bodyType='json', ...config}) {
+export function getSubmitConfig({url=null, data={}, form=null, ...config}) {
     url = url || form && form.getAttribute('action')
 
-    if(!data)
+    if(!Object.keys(data).length)
         data = new FormData(form)
     else if(!(data instanceof FormData)) {
         const formData = new FormData()
@@ -24,8 +20,17 @@ export function submit(url, {data={}, form=null, bodyType='json', ...config}) {
         'Content-Type': 'multipart/form-data',
         'X-CSRFToken': Cookies.get('csrftoken'),
     }
+    return {...config, url, data}
+}
 
-    return fetch(url, {data, ...config }).then(
+
+
+/**
+ * Submit data to server.
+ */
+export function submit({bodyType='json', ...config}) {
+    const { url, ...config_ } = getSubmitConfig(config)
+    return fetch(url, config_).then(
         r => r[bodyType]().then(d => {
             d = { status: r.status, data: d, response: r }
             if(400 <= d.status)
@@ -89,9 +94,24 @@ export class Model extends orm.Model {
         return this.$store().$db().model(model)
     }
 
-    // TODO: many=True, getOrFetch
-    static fetch(id, config={}) {
-        return this.api().get(`${this.baseURL}/${id}/`, config)
+    /**
+     * Fetch one or more entities from server.
+     */
+    static fetch({id='', url=null, urlParams=null, ...config}={}) {
+        if(!url)
+            url = id ? `${this.baseURL}${id}/` : this.baseURL
+        if(urlParams)
+            url = `${url}?${urlParams.toString()}`
+
+        // django drf results
+        if(!id && config.dataKey === undefined)
+            config.dataKey = 'results'
+
+        return this.api().get(url, config).then(r => {
+            if(200 <= r < 400 && !r.entities)
+                this.insertOrUpdate({data: r.response.data})
+            return r
+        })
     }
 
     /**
@@ -102,7 +122,8 @@ export class Model extends orm.Model {
             throw "item is not on server"
         return this.$id && this.constructor.api().get(this.$url, config)
             .then(r => {
-                this.constructor.insertOrUpdate({data: r.response.data})
+                if(200 <= r < 400)
+                    this.constructor.insertOrUpdate({data: r.response.data})
                 return r
             })
     }
@@ -110,22 +131,26 @@ export class Model extends orm.Model {
     /**
      * Save item to server and return promise
      */
-    save({data=null, form=null, url=null, method=null, ...config}= {}) {
-        if(!data && !form) {
+    save(config = {}) {
+        if(!config.data && !config.form) {
             // FIXME: exclude relations / use data
-            data = {}
+            config.data = {}
             const fields = this.constructor.fields()
             for(var key in fields)
                 if(this[key] !== undefined)
-                    data[key] = this[key]
+                    config.data[key] = this[key]
         }
+        if(!config.method)
+            config.method = self.$id ? 'PUT': 'POST'
+        config.url = config.url || this.$url
 
-        if(!method)
-            method = self.$id ? 'PUT': 'POST'
+        let {data, method, url, ...config_} = getSubmitConfig(config)
+        method = method.toLowerCase()
 
-        url = url || this.$url
-        return submit(url, {data, method, ...config}).then(r => {
-            this.constructor.insertOrUpdate({data: r.data})
+        return this.constructor.api()[method](url, data, config_).then(r => {
+            let db = this.$db()
+            for(let entity in r.entities)
+                db.model(entity).insertOrUpdate({ data: r.entities[entity] })
             return r
         })
     }
@@ -196,8 +221,18 @@ export class Context extends Model {
             // subsciption: this.attr(null),
             subsciptions: this.hasMany(Subscription, 'context'),
             n_subscriptions: this.number(0),
-            role: this.attr(null, value => new Role(value))
+            role: this.attr(null, value => new Role(value)),
+            roles: this.attr(null, this._validate_roles),
         }
+    }
+
+    static _validate_roles(value) {
+        for(var k in value)
+            if(typeof k == 'string') {
+                value[parseInt(k)] = value[k]
+                delete value[k]
+            }
+        return value
     }
 
     /**

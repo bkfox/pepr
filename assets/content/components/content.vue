@@ -14,9 +14,9 @@
             <div v-if="!edit">{{ item.text }}</div>
             <div v-else @done="edit=false">
                 <slot name="form" :item="item">
-                    <p-content-form :context="item.context" :initial="item" @done="edit=false">
-                        <template v-if="$slots.formFields" v-slot:fields="{item,context,model}">
-                            <slot name="formFields" :item="item" :context="context"></slot>
+                    <p-content-form :initial="item" @done="edit=false">
+                        <template v-if="$slots.formFields" v-slot:fields="{item,model}">
+                            <slot name="formFields" :item="item"></slot>
                         </template>
                         <template v-if="$slots.formDefault" v-slot:default="{item,context}">
                             <slot name="formDefault" :item="item" :context="context"></slot>

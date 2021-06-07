@@ -77,7 +77,7 @@
     </form>
 </template>
 <script>
-import { computed, inject, toRefs } from 'vue'
+import { computed, toRefs } from 'vue'
 import { Subscription } from '../models'
 import * as composables from '../composables'
 import PField from './field'
@@ -91,8 +91,8 @@ export default {
 
     setup(props, context_) {
         const propsRefs = toRefs(props)
-        const formComp  = composables.form(propsRef, context_)
-        const contextComp = composables.useContext(form.data)
+        const formComp  = composables.form(propsRefs, context_)
+        const contextComp = composables.useContext(formComp.data)
 
         const {role, roles} = contextComp;
         const subscriptionRoleChoices = computed(() =>

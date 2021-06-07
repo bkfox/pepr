@@ -18,6 +18,8 @@ class Container(core.Context):
         blank=True, null=True
     )
 
+    basename = 'container'
+
 
 class ContentQuerySet(InheritanceQuerySetMixin, core.OwnedQuerySet):
     def get_identity_q(self, identity):
@@ -43,6 +45,7 @@ class Content(core.Owned, TimeStampedModel):
         null=True, blank=True,
     )
 
+    basename = 'content'
     objects = ContentQuerySet.as_manager()
 
     class Meta:
@@ -100,5 +103,6 @@ class Content(core.Owned, TimeStampedModel):
 class ContentService(core.Service):
     """ Service handling content (list & detail) display. """
     service_url_name = 'content-list'
+    # basename='content_list'
 
 

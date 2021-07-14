@@ -1,5 +1,5 @@
 <template>
-    <form ref="form" @submit="submit">
+    <form ref="form" @submit="submit" :action="data.$url" :method="data.$id ? 'PUT' : 'POST'">
         <slot :data="data" :context="context">
             <input type="hidden" name="context_id" :value="context && context.$id" />
             <div class="field">
@@ -39,9 +39,9 @@ import * as composables from 'pepr/core/composables'
 import { PField, PFieldRow, PSelectRole} from 'pepr/core/components'
 
 export default {
-    inject: ['roles'],
     props: {
-        ...composables.form.props({commit:true, constructor: 'content'}),
+        ...composables.useModel.props({entity:'content'}),
+        ...composables.form.props({commit:true}),
 
         /// Show access field
         showAccess: { type: Boolean, default: true },
@@ -50,17 +50,19 @@ export default {
     setup(props, context_) {
         const propsRefs = toRefs(props)
         const contextComp = composables.useContext()
+        const modelComp = composables.useModel(propsRefs);
         const defaults = computed(() => ({
+            access: contextComp.role.value && contextComp.role.value.access,
             context_id: contextComp.context.value && contextComp.context.value.$id
         }))
-        const formComp = composables.form({...propsRefs, defaults}, context_)
+        const formComp = composables.form({...propsRefs, ...modelComp, defaults}, context_)
         return { ...contextComp, ...formComp }
     },
 
     methods: {
         // TODO: in composable
         accessFilter(role) {
-            return this.context && role.access <= this.role.access
+            return this.context && !role || role.access <= this.role.access
         },
     },
 

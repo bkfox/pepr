@@ -43,8 +43,6 @@ export class Filter {
 
 export class Filters {
     constructor(filters=null) {
-        this.all = {}
-        this._length = 0
         this.set(filters, true)
     }
 
@@ -67,8 +65,8 @@ export class Filters {
     }
 
     set(filters, reset=false) {
-        if(reset)
-            this.all, this._length = {}, 0
+        if(!this.all || reset)
+            [this.all, this._length] = [{}, 0]
 
         if(filters)
             for(let [key, filter] of Object.entries(filters))
@@ -87,7 +85,7 @@ export class Filters {
 
 
 export function getList({model, filters, orderBy=null}) {
-    const listFilters = new Filters(filters)
+    const listFilters = new Filters(filters.value)
     const listQuery = computed(() => {
         if(!model.value)
             return null
@@ -133,7 +131,7 @@ export function fetchList({model, listFilters, url=null}) {
             config.url = url.value
 
         return model.value.fetch({ ...config }).then(r => {
-            let data = r.response.data
+            const data = r.response.data
             pagination.count = data.count
             pagination.next = data.next
             pagination.prev = data.prev

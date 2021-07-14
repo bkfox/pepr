@@ -24,15 +24,11 @@ export default {
 
     props: {
         ...composables.useContextById.props,
-        roles: Object,
     },
 
     setup(props) {
         const propsRefs = toRefs(props)
         const contextComp = composables.useContextById(propsRefs.contextId, propsRefs.contextEntity)
-
-        provide('roles', propsRefs.roles)
-
         return {...contextComp}
     },
 }

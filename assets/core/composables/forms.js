@@ -21,16 +21,11 @@ import { makeProps } from './utils'
  *
  */
 export function form({initial: initial_, defaults = null,
-                      constructor: constructor_ = null, commit=false,
+                      model = null, commit=false,
                       submitConfig={}, ...ctx}, { emit })
 {
     const initial = computed(() => initial_.value || (defaults && defaults.value) || {})
-    const constructor = computed(() =>
-        constructor_.value ? typeof(constructor_.value) == 'string'
-                           ? useStore().$db().model(constructor_.value)
-                           : constructor_.value
-                           : initial.value.constructor
-    )
+    const constructor = computed(() => model && model.value ? model.value : initial.value.constructor)
     const data = reactive(new constructor.value({...initial.value}))
     const errors = reactive({})
     provide('errors', errors)
@@ -63,10 +58,8 @@ export function form({initial: initial_, defaults = null,
         }
 
         form = form || ev.target
-        const url = form.getAttribute('action')
-        const method = form.getAttribute('method')
-
-        const res = (commit && data instanceof Model) ?
+        const [url, method] = [form.action, form.getAttribute('method')]
+        const res = (commit.value && model && model.value) ?
             data.save({form, url, method, ...submitConfig}) :
             submit({form, url, method, ...submitConfig})
 
@@ -94,7 +87,6 @@ export function form({initial: initial_, defaults = null,
  */
 form.props = makeProps({
     action: { type: String, default: '' },
-    constructor: [Function,String],
     initial: { type: Object, default: null },
     commit: { type: Boolean, default: true },
 })

@@ -49,16 +49,16 @@
 </template>
 <script>
 import { Action } from 'pepr/core'
+import * as composables from 'pepr/core/composables'
+
 import PContentForm from './contentForm'
 
 export const actions = [
     new Action('Edit', ['update'], (item, comp) => {
         comp.edit = true
     }),
-    new Action('Delete', ['destroy'], (item, comp) => {
-        if(confirm('Delete?'))
-            item.delete({ delete: 1})
-    }),
+    new Action('Delete', ['destroy'],
+               (item) => confirm('Delete?') && item.delete({ delete: 1})),
 ]
 
 
@@ -76,12 +76,17 @@ export default {
         }
     },
 
+    setup() {
+        const contextComp = composables.useContext()
+        return { ...contextComp }
+    },
+
     computed: {
         allowedActions() {
-            if(!this.item.context)
+            if(!this.context)
                 return []
 
-            let role = this.item.context.role
+            let role = this.context.role
             return this.actions.filter(action => action.isGranted(role, this.item))
         },
 
@@ -100,7 +105,7 @@ export default {
 
     methods: {
         triggerAction(action, ...args) {
-            action.trigger(this.item, this, ...args)
+            action.trigger(this.context, this.item, this, ...args)
         },
     },
 

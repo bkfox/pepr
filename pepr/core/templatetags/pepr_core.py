@@ -12,6 +12,6 @@ def do_role(context, user):
     return context.get_role(user)
 
 @register.filter(name="is_granted")
-def do_is_granted(role, perm):
-    return role.is_granted(perm)
+def do_is_granted(role, perm, model=None):
+    return role.is_granted(perm, model)
 

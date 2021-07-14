@@ -3,9 +3,11 @@
         <div class="select">
             <select v-bind="$attrs" @change="computedValue=$event.target.value"
                     :value="computedValue">
-                <option v-for="role of roles" :value="role.access">
-                    {{ role.name }}
-                </option>
+                <template v-for="role of options">
+                    <option :value="role.access">
+                        {{ role.name }}
+                    </option>
+                </template>
             </select>
         </div>
         <span class="icon is-left">
@@ -14,16 +16,32 @@
     </div>
 </template>
 <script>
-import { ref } from 'vue'
+import { computed, ref, toRefs } from 'vue'
 import * as composables from '../composables'
 
 export default {
     inheritAttrs: false,
 
     setup(props) {
+        const {filter} = toRefs(props)
         const contextComp = composables.useContext()
         const value = ref(props.value)
-        return { ...contextComp, value }
+        const options = computed(() => {
+            if(!filter.value)
+                return contextComp.roles.value
+
+            const roles = contextComp.roles.value
+            const options = []
+            if(roles) {
+                for(var role of Object.values(roles)) {
+                    if(filter.value(role))
+                        options.push(role)
+                }
+                options.sort((x, y) => x.access < y.access)
+            }
+            return options
+        })
+        return { ...contextComp, value, options }
     },
 
     props: {

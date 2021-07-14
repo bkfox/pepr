@@ -19,7 +19,8 @@ export const modelsPlugin = {
             database.register(model)
 
         storeConfig.plugins = [ ...(storeConfig.plugins || []), VuexORM.install(database) ]
-        app.use(createStore(storeConfig))
+        const store = createStore(storeConfig)
+        app.use(store)
 
         // getters
         const target = app.config.globalProperties;

@@ -20,7 +20,7 @@ export function getSubmitConfig({url=null, data={}, form=null, ...config}) {
         'Content-Type': 'multipart/form-data',
         'X-CSRFToken': Cookies.get('csrftoken'),
     }
-    return {...config, url, data}
+    return {...config, url, body: data}
 }
 
 
@@ -67,7 +67,6 @@ export class Model extends orm.Model {
     static get apiConfig() {
         return {
             headers: { 'X-CSRFToken': Cookies.get('csrftoken') },
-            delete: true,
         }
     }
 
@@ -107,11 +106,7 @@ export class Model extends orm.Model {
         if(!id && config.dataKey === undefined)
             config.dataKey = 'results'
 
-        return this.api().get(url, config).then(r => {
-            if(200 <= r < 400 && !r.entities)
-                this.insertOrUpdate({data: r.response.data})
-            return r
-        })
+        return this.api().get(url, config)
     }
 
     /**
@@ -147,18 +142,14 @@ export class Model extends orm.Model {
         let {data, method, url, ...config_} = getSubmitConfig(config)
         method = method.toLowerCase()
 
-        return this.constructor.api()[method](url, data, config_).then(r => {
-            let db = this.$db()
-            for(let entity in r.entities)
-                db.model(entity).insertOrUpdate({ data: r.entities[entity] })
-            return r
-        })
+        return this.constructor.api()[method](url, data, config_)
     }
 
     /**
      * Delete item from server and return promise
      */
     delete(config) {
+        config.delete = true
         if(this.$url)
             return this.constructor.api().delete(this.$url, config).then(r => {
                 this.constructor.delete(this.$id)
@@ -227,12 +218,10 @@ export class Context extends Model {
     }
 
     static _validate_roles(value) {
-        for(var k in value)
-            if(typeof k == 'string') {
-                value[parseInt(k)] = value[k]
-                delete value[k]
-            }
-        return value
+        const roles = {}
+        for(var role of Object.values(value))
+            roles[role.access] = role
+        return roles
     }
 
     /**
@@ -257,7 +246,6 @@ export class Context extends Model {
 
 export class Accessible extends Model {
     static get entity() { return 'accessible' }
-    static get contextModel() { return Context }
 
     static fields() {
         return { ...super.fields(),
@@ -309,7 +297,7 @@ export class Owned extends Accessible {
      * Related owner object
      */
     get owner() {
-        return Context.find(this.owner_id)
+        return null; // Context.find(this.owner_id)
     }
 }
 

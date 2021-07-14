@@ -1,5 +1,3 @@
-import { Owned } from './models'
-
 
 export default class Action {
     constructor(name, permissions, exec=null) {
@@ -13,8 +11,8 @@ export default class Action {
         return role.isGranted(this.permissions, item)
     }
 
-    trigger(item, ...args) {
-        let role = item.context && item.context.role
+    trigger(context, item, ...args) {
+        let role = context && context.role
         if(role && this.isGranted(role, item))
             this.exec(item, ...args)
     }

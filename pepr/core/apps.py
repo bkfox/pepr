@@ -117,5 +117,5 @@ class PeprAppConfig(AppConfig):
 class PeprCoreConfig(PeprAppConfig):
     name = 'pepr.core'
     label = 'pepr_core'
-    url_prefix = 'pepr/core'
+    url_prefix = 'pepr'
 

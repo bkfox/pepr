@@ -107,10 +107,10 @@ class RoleDescriptionSerializer(serializers.Serializer):
 
 class ContextSerializer(BaseSerializer):
     """ Serializer for Context.  """
+    roles = serializers.SerializerMethodField()
     role = serializers.SerializerMethodField()
     subscription = serializers.SerializerMethodField()
     n_subscriptions = serializers.SerializerMethodField()
-    roles = serializers.DictField(child=RoleDescriptionSerializer())
 
     class Meta:
         model = Context
@@ -120,9 +120,7 @@ class ContextSerializer(BaseSerializer):
             'subscription_accept_role',
             'subscription_default_role',
             'subscription_default_access',
-            'role', 'subscription',
-            'n_subscriptions',
-            'roles',
+            'roles', 'role', 'subscription', 'n_subscriptions',
         )
 
     view_name = 'api:context-detail'
@@ -132,18 +130,22 @@ class ContextSerializer(BaseSerializer):
         # field = self.fields['subscription']
         # field.user, field.role = self.user, self.role
 
-    def get_n_subscriptions(self, obj):
-        return obj.subscription_set.identity(self.identity).subscribed().count()
-
-    def get_subscription(self, obj):
-        role = obj.get_role(self.identity)
-        return role.subscription.pk if role and role.subscription else None
+    def get_roles(self, obj):
+        roles = obj.roles.values()
+        return RoleDescriptionSerializer(instance=roles, many=True).data
 
     def get_role(self, obj):
         if not self.identity:
             return
         role = obj.get_role(self.identity)
         return RoleSerializer(instance=role, context=obj).data
+
+    def get_n_subscriptions(self, obj):
+        return obj.subscription_set.identity(self.identity).subscribed().count()
+
+    def get_subscription(self, obj):
+        role = obj.get_role(self.identity)
+        return role.subscription.pk if role and role.subscription else None
 
 
 class AccessibleSerializer(BaseSerializer):

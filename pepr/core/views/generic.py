@@ -271,6 +271,8 @@ class ServiceMixin(PermissionMixin):
         if service is None:
             service = self.get_service(service_pk, service_slug, throw=True)
         self.service = service
-        return super().dispatch(request, *args, service=service, context_pk=service.context_id, **kwargs)
+
+        kwargs.setdefault('context_pk', service.context_id)
+        return super().dispatch(request, *args, service=service, **kwargs)
 
 

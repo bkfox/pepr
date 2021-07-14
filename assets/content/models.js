@@ -16,6 +16,7 @@ export class Container extends Context {
 
 export class Content extends Owned {
     static get entity() { return 'content' }
+    static get contextEntity() { return 'container' }
     static get baseURL() { return '/pepr/content/content/' }
 
     static fields() {

@@ -10,7 +10,7 @@ export function useModel({entity=null, item=null}={}) {
     const model = computed(() =>
         (entity && entity.value) ? useStore().$db().model(entity.value)
                                  : item && item.value
-                                 ? item.value.constructor : null)
+                                     ? item.value.constructor : null)
     return { model, entity }
 }
 
@@ -64,22 +64,15 @@ export function getOrFetch(id, entity) {
  */
 export function useContext(context=null) {
     let do_provide = context != null
-    if(context==null) {
-        console.log('inject context')
+    if(context==null)
         context = inject('context')
-        watch(context, (v) => console.log(context, v))
-    }
 
     const role = computed(() => context.value && context.value.role)
     const roles = computed(() => context.value && context.value.roles)
     const subscription = computed(() => context.value && context.value.subscription)
 
-    if(do_provide) {
+    if(do_provide)
         provide('context', readonly(context))
-        provide('roles', readonly(roles))
-        provide('role', readonly(role))
-        provide('subscription', readonly(subscription))
-    }
 
     return { context, role, roles, subscription }
 }

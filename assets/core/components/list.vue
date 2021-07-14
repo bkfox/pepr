@@ -20,11 +20,11 @@ export default {
     setup(props) {
         let propsRefs = toRefs(props)
         let modelComp = composables.useModel(propsRefs)
-        let listComp = composables.getList({...props, ...modelComp})
+        let listComp = composables.getList({...propsRefs, ...modelComp})
         let fetchComp = composables.fetchList(listComp)
 
-        watch(propsRefs.url, (url) => propsRefs.fetchAuto.value && fetchComp.fetch({url}))
-        watch(propsRefs.filters, (filters) => propsRefs.fetchAuto.value && fetchComp.fetch({filters}))
+        watch(propsRefs.url, (url) => props.fetchAuto && fetchComp.fetch({url}))
+        watch(propsRefs.filters, (filters) => props.fetchAuto && fetchComp.fetch({filters}))
         return {...listComp, ...fetchComp}
     },
 

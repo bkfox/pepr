@@ -26,7 +26,7 @@ export default {
     setup(props) {
         const errors = inject('errors')
         const error = computed(() => errors && errors[props.name])
-        return { error, controlClass }
+        return { error }
     },
 }
 </script>

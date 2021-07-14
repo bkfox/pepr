@@ -12,9 +12,9 @@
                 </small>
             </div>
             <div v-if="!edit">{{ item.text }}</div>
-            <div v-else @done="edit=false">
-                <slot name="form" :item="item">
-                    <p-content-form :initial="item" @done="edit=false">
+            <div v-else>
+                <slot name="form" :item="item" :edit="edit">
+                    <p-content-form :initial="item" @cancel="edit=false" @success="edit=false">
                         <template v-if="$slots.formFields" v-slot:fields="{item,model}">
                             <slot name="formFields" :item="item"></slot>
                         </template>

@@ -1,5 +1,5 @@
 <template>
-    <form ref="form" @submit="submit" :action="data.$url" :method="data.$id ? 'PUT' : 'POST'">
+    <form ref="form" @submit="submit" :action="data.$fullUrl" :method="data.$id ? 'PUT' : 'POST'">
         <slot :data="data" :context="context">
             <input type="hidden" name="context_id" :value="context && context.$id" />
             <div class="field">
@@ -22,7 +22,7 @@
                             <button type="submit" class="button is-link">Publish</button>
                         </p>
                         <p class="control">
-                            <button v-if="data" type="button" @click="$emit('done')" class="button is-link is-light">
+                            <button v-if="data" type="button" @click="$emit('cancel')" class="button is-link is-light">
                                 Cancel</button>
                             <button v-else type="reset" class="button is-link is-light">
                                 Reset</button>
@@ -39,6 +39,7 @@ import * as composables from 'pepr/core/composables'
 import { PField, PFieldRow, PSelectRole} from 'pepr/core/components'
 
 export default {
+    emits: [...composables.form.emits, 'cancel'],
     props: {
         ...composables.useModel.props({entity:'content'}),
         ...composables.form.props({commit:true}),

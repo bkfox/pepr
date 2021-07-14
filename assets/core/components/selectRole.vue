@@ -1,11 +1,11 @@
 <template>
     <div class="control has-icons-left">
         <div class="select">
-            <select v-bind="$attrs" @change="computedValue=$event.target.value"
+            <select v-bind="$attrs" @change="computedValue=Number($event.target.value)"
                     :value="computedValue">
                 <template v-for="role of options">
-                    <option :value="role.access">
-                        {{ role.name }}
+                    <option :value="role.access" :selected="role.access == computedValue">
+                    {{ role.name }}
                     </option>
                 </template>
             </select>
@@ -21,19 +21,26 @@ import * as composables from '../composables'
 
 export default {
     inheritAttrs: false,
+    emits: ['update:value'],
+
+    props: {
+        value: { type: [Number,String], default: null },
+        roles: { type: Array, default: null },
+        filter: { type: Function, default: null },
+    },
 
     setup(props) {
-        const {filter} = toRefs(props)
+        const {roles, filter} = toRefs(props)
         const contextComp = composables.useContext()
-        const value = ref(props.value)
+        const value = ref(Number(props.value))
         const options = computed(() => {
+            var roles_ = roles.value ? role.value : contextComp.roles.value
             if(!filter.value)
-                return contextComp.roles.value
+                return roles_
 
-            const roles = contextComp.roles.value
             const options = []
             if(roles) {
-                for(var role of Object.values(roles)) {
+                for(var role of Object.values(roles_)) {
                     if(filter.value(role))
                         options.push(role)
                 }
@@ -42,11 +49,6 @@ export default {
             return options
         })
         return { ...contextComp, value, options }
-    },
-
-    props: {
-        // value: [Number,String],
-        filter: { type: Function, default: null },
     },
 
     computed: {

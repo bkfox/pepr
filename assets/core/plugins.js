@@ -20,6 +20,7 @@ export const modelsPlugin = {
 
         storeConfig.plugins = [ ...(storeConfig.plugins || []), VuexORM.install(database) ]
         const store = createStore(storeConfig)
+        store['baseURL'] = baseURL.toString()
         app.use(store)
 
         // getters

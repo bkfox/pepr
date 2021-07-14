@@ -3,7 +3,7 @@ import { Context, Owned, Subscription } from 'pepr/core/models'
 
 export class Container extends Context {
     static get entity() { return 'container' }
-    static get baseURL() { return '/pepr/content/container/' }
+    static get url() { return '/pepr/content/container/' }
 
     static fields() {
         return { ...super.fields(),
@@ -17,7 +17,7 @@ export class Container extends Context {
 export class Content extends Owned {
     static get entity() { return 'content' }
     static get contextEntity() { return 'container' }
-    static get baseURL() { return '/pepr/content/content/' }
+    static get url() { return '/pepr/content/content/' }
 
     static fields() {
         return { ...super.fields(),

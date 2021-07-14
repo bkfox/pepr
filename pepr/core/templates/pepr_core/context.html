@@ -62,7 +62,7 @@
 <template #settings>
     <button class="delete float-right" @click="$refs.appDeck.select()"></button>
     <h2 class="title is-3">{% trans "Settings" %}</h2>
-    {# <p-context-form :initial="context" @done="$refs.appDeck.select()"></p-context-form> #}
+    <p-context-form :initial="context" @success="$refs.appDeck.select()"></p-context-form>
 </template>
 
 <template #subscriptions>

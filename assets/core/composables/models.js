@@ -1,4 +1,4 @@
-import { computed, inject, provide, readonly, watch } from 'vue'
+import { computed, inject, provide, readonly, toRefs, watch } from 'vue'
 import { useStore } from 'vuex'
 
 import { makeProps } from './utils'
@@ -63,16 +63,19 @@ export function getOrFetch(id, entity) {
  *  @param {Ref(Model)} context
  */
 export function useContext(context=null) {
-    let do_provide = context != null
+    if(context != null) {
+        const { role, roles, subscription } = toRefs(context)
+        // FIXME context is a reactive object, break api with other case
+        provide('context', readonly(context))
+        return { context, role, roles, subscription }
+    }
+
     if(context==null)
         context = inject('context')
 
     const role = computed(() => context.value && context.value.role)
     const roles = computed(() => context.value && context.value.roles)
     const subscription = computed(() => context.value && context.value.subscription)
-
-    if(do_provide)
-        provide('context', readonly(context))
 
     return { context, role, roles, subscription }
 }

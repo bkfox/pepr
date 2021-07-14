@@ -1,5 +1,6 @@
 <template>
-    <form ref="form" @submit="submit" @reset="reset">
+    <form ref="form" @submit="submit" :action="data.$fullUrl"
+            :method="data.$id ? 'PUT' : 'POST'">
         <h4 class="subtitle is-4">Main settings</h4>
 
         <p-field-row label="Title">
@@ -13,7 +14,7 @@
 
         <p-field-row label="Publications' default visibility">
             <p-field name="default_access">
-                <p-select-role :roles="roles" v-model:value="data.default_access" />
+                <p-select-role v-model:value="data.default_access" />
             </p-field>
         </p-field-row>
 
@@ -32,7 +33,7 @@
         <p-field-row label="Accept subscriptions">
             <p-field name="subscription_accept_role">
                 <p-select-role
-                    :roles="subscriptionRoleChoices"
+                    :roles="data.roles"
                     v-model:value="data.subscription_accept_role" />
                 <template #help>
                 Subscription requests will not need moderator approval for
@@ -49,7 +50,7 @@
         <p-field-row label="Default role">
             <p-field name="subscription_default_role">
                 <p-select-role
-                    :roles="subscriptionRoleChoices"
+                    :roles="data.roles"
                     v-model:value="data.subscription_default_role" />
             </p-field>
         </p-field-row>
@@ -58,7 +59,7 @@
         <p-field-row label="Default visibility">
             <p-field name="subscription_default_access">
                 <p-select-role
-                    :roles="subscriptionAccessChoices"
+                    :roles="data.roles"
                     v-model:value="data.subscription_default_access" />
             </p-field>
         </p-field-row>

@@ -61,7 +61,7 @@ export class Model extends orm.Model {
     /**
      * Default model's api entry point
      */
-    static get baseURL() { return '' }
+    static get url() { return '' }
 
     static get primaryKey() { return 'pk' }
     static get apiConfig() {
@@ -81,8 +81,13 @@ export class Model extends orm.Model {
      * Item's url (PUT or POST url)
      */
     get $url() {
-        return this.$id ? `${this.constructor.baseURL}${this.$id}/`
-                        :  this.constructor.baseURL;
+        return this.$id ? `${this.constructor.url}${this.$id}/`
+                        :  this.constructor.url;
+    }
+
+    get $fullUrl() {
+        const url = this.$store.baseURL;
+        return url ? `${url}/${this.$url}` : this.$url
     }
 
     /**
@@ -98,7 +103,7 @@ export class Model extends orm.Model {
      */
     static fetch({id='', url=null, urlParams=null, ...config}={}) {
         if(!url)
-            url = id ? `${this.baseURL}${id}/` : this.baseURL
+            url = id ? `${this.url}${id}/` : this.url
         if(urlParams)
             url = `${url}?${urlParams.toString()}`
 
@@ -137,12 +142,12 @@ export class Model extends orm.Model {
         }
         if(!config.method)
             config.method = self.$id ? 'PUT': 'POST'
-        config.url = config.url || this.$url
+        config.url = this.$url
 
-        let {data, method, url, ...config_} = getSubmitConfig(config)
+        let {body, method, url, ...config_} = getSubmitConfig(config)
         method = method.toLowerCase()
 
-        return this.constructor.api()[method](url, data, config_)
+        return this.constructor.api()[method](url, body, config_)
     }
 
     /**
@@ -199,8 +204,7 @@ export class Role {
 
 export class Context extends Model {
     static get entity() { return 'context' }
-    static get baseURL() { return '/pepr/core/context/' }
-
+    static get url() { return '/pepr/core/context/' }
 
     static fields() {
         return { ...super.fields(),
@@ -303,7 +307,7 @@ export class Owned extends Accessible {
 
 export class Subscription extends Owned {
     static get entity() { return 'subscription' }
-    static get baseURL() { return '/pepr/core/subscription/' }
+    static get url() { return '/pepr/core/subscription/' }
 
     static fields() {
         return { ...super.fields(),

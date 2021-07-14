@@ -1,0 +1,26 @@
+{% extends template_base|default:"pepr_core/base.html" %}
+{% load i18n %}
+
+{% block nav-menu-user %}
+{% if request.GET.next %}
+<a class="navbar-item" href="{{ request.GET.next|urlencode }}">
+    <span class="icon">
+        <i class="mdi mdi-arrow-left"></i>
+    </span>
+    <span>{% trans "Go back" %}</span>
+</a>
+{% endif %}
+{% endblock %}
+
+{% block app-container %}
+<div class="columns is-desktop">
+    <div class="column"></div>
+    <div class="column is-one-third" id="form-container">
+        {% block app-body %}
+        {% endblock %}
+    </div>
+    <div class="column"></div>
+</div>
+{% endblock %}
+
+

@@ -34,7 +34,7 @@ export default {
         const contextComp = composables.useContext()
         const value = ref(Number(props.value))
         const options = computed(() => {
-            var roles_ = roles.value ? role.value : contextComp.roles.value
+            var roles_ = roles.value ? roles.value : contextComp.roles.value
             if(!filter.value)
                 return roles_
 

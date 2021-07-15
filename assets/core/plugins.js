@@ -5,6 +5,9 @@ import axios from 'axios'
 import VuexORM from '@vuex-orm/core'
 import VuexORMAxios from '@vuex-orm/plugin-axios'
 
+import { Context } from './models'
+
+
 /**
  * Create Vuex ORM database using provided models. Add model getters to
  * application global properties.
@@ -29,6 +32,23 @@ export const modelsPlugin = {
             let model = models[key]
             if(!target[model.name])
                 target[model.name] = target.$store.$db().model(model.entity)
+        }
+    }
+}
+
+
+/**
+ * Perform initialization of provided models
+ */
+export const initModelsPlugin = {
+    install(app, {models={}}) {
+        const target = app.config.globalProperties
+        for(let model of models) {
+            model = target.$store.$db().model(model.entity)
+            if(!model)
+                throw `model '${model.entity}' is not declared on app`
+            if(model.prototype instanceof Context)
+                model.fetchRoles()
         }
     }
 }

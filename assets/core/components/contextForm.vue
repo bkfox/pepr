@@ -33,7 +33,7 @@
         <p-field-row label="Accept subscriptions">
             <p-field name="subscription_accept_role">
                 <p-select-role
-                    :roles="data.roles"
+                    :roles="subscriptionRoleChoices"
                     v-model:value="data.subscription_accept_role" />
                 <template #help>
                 Subscription requests will not need moderator approval for
@@ -50,7 +50,7 @@
         <p-field-row label="Default role">
             <p-field name="subscription_default_role">
                 <p-select-role
-                    :roles="data.roles"
+                    :roles="subscriptionRoleChoices"
                     v-model:value="data.subscription_default_role" />
             </p-field>
         </p-field-row>
@@ -59,7 +59,7 @@
         <p-field-row label="Default visibility">
             <p-field name="subscription_default_access">
                 <p-select-role
-                    :roles="data.roles"
+                    :roles="subscriptionAccessChoices"
                     v-model:value="data.subscription_default_access" />
             </p-field>
         </p-field-row>
@@ -87,15 +87,21 @@ import PSelectRole from './selectRole'
 
 export default {
     props: {
-        ...composables.form.props({commit:true, constructor: 'context'}),
+        ...composables.useModel.props({entity:'container'}),
+        ...composables.form.props({commit:true}),
     },
 
     setup(props, context_) {
         const propsRefs = toRefs(props)
-        const formComp  = composables.form(propsRefs, context_)
-        const contextComp = composables.useContext(formComp.data)
+        // const contextComp = composables.useContext()
+        const modelComp = composables.useModel(propsRefs);
+        const formComp  = composables.form({...propsRefs, ...modelComp}, context_)
 
-        const {role, roles} = contextComp;
+        const context = formComp.data
+        const role = computed(() => context && context.role)
+        const roles = computed(() => context && context.roles)
+        const subscription = computed(() => context && context.subscription)
+
         const subscriptionRoleChoices = computed(() =>
             role.value && Subscription.roleChoices(Object.values(roles.value), role.value)
         )
@@ -103,7 +109,8 @@ export default {
             role.value && Subscription.accessChoices(Object.values(roles.value), role.value)
         )
 
-        return {...formComp, ...contextComp, subscriptionRoleChoices, subscriptionAccessChoices }
+        return {...modelComp, ...formComp, role, roles, subscription,
+                subscriptionRoleChoices, subscriptionAccessChoices }
     },
 
     components: { PField, PFieldRow, PSelectRole },

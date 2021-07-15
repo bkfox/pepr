@@ -62,6 +62,7 @@ export class Model extends orm.Model {
      * Default model's api entry point
      */
     static get url() { return '' }
+    static get fullUrl() { return `${this.store().baseURL}${this.url}`.replace('//','/') }
 
     static get primaryKey() { return 'pk' }
     static get apiConfig() {
@@ -181,6 +182,15 @@ export class Role {
        }
     } */
 
+    static subclass(name, statics, prototype={}) {
+        class ChildClass extends this {}
+        for(var key in statics)
+            ChildClass[key] = statics[key]
+
+        ChildClass.prototype = {...ChildClass.prototype, ...prototype}
+        return ChildClass
+    }
+
     constructor(data=null) {
         data && Object.assign(this, data)
     }
@@ -217,13 +227,23 @@ export class Context extends Model {
             subsciptions: this.hasMany(Subscription, 'context'),
             n_subscriptions: this.number(0),
             role: this.attr(null, value => new Role(value)),
-            roles: this.attr(null, this._validate_roles),
         }
     }
 
+    static fetchRoles() {
+        if(this.roles !== undefined)
+            return this.roles
+        const url = `${this.fullUrl}roles/`
+        fetch(url).then(r => r.json())
+                  .then(r => { this.roles = this._validate_roles(r) })
+    }
+
     static _validate_roles(value) {
+        if(!value)
+            return {}
+
         const roles = {}
-        for(var role of Object.values(value))
+        for(var role of value)
             roles[role.access] = role
         return roles
     }
@@ -243,6 +263,10 @@ export class Context extends Model {
         let id = this.role && this.role.identity_id
         return id && this.$model('subscription').query()
             .where({ context_id: this.$id, owner_id: id }).first()
+    }
+
+    get roles() {
+        return this.constructor.roles
     }
 }
 

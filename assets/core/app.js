@@ -4,7 +4,7 @@ import { createStore } from 'vuex'
 import * as components from './components'
 import * as composables from './composables'
 import { importDatabase } from './models'
-import { modelsPlugin } from './plugins'
+import { modelsPlugin, initModelsPlugin } from './plugins'
 
 
 /**
@@ -39,8 +39,10 @@ export default {
  */
 export function createApp(app, {baseURL='/api', models=null, storeConfig={}}={}) {
     app = vCreateApp(app)
-    if(models !== null)
+    if(models !== null) {
         app.use(modelsPlugin, {baseURL, models, storeConfig})
+        app.use(initModelsPlugin, {models})
+    }
     return app
 }
 

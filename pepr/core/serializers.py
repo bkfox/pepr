@@ -107,7 +107,6 @@ class RoleDescriptionSerializer(serializers.Serializer):
 
 class ContextSerializer(BaseSerializer):
     """ Serializer for Context.  """
-    roles = serializers.SerializerMethodField()
     role = serializers.SerializerMethodField()
     subscription = serializers.SerializerMethodField()
     n_subscriptions = serializers.SerializerMethodField()
@@ -120,7 +119,7 @@ class ContextSerializer(BaseSerializer):
             'subscription_accept_role',
             'subscription_default_role',
             'subscription_default_access',
-            'roles', 'role', 'subscription', 'n_subscriptions',
+            'role', 'subscription', 'n_subscriptions',
         )
 
     view_name = 'api:context-detail'
@@ -129,10 +128,6 @@ class ContextSerializer(BaseSerializer):
         super().__init__(*args, **kwargs)
         # field = self.fields['subscription']
         # field.user, field.role = self.user, self.role
-
-    def get_roles(self, obj):
-        roles = obj.roles.values()
-        return RoleDescriptionSerializer(instance=roles, many=True).data
 
     def get_role(self, obj):
         if not self.identity:

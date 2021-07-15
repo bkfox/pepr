@@ -57,12 +57,12 @@ export function getOrFetch(id, entity) {
  *  - roles: available roles (injected from App)
  *
  *  Provide:
- *  - context: current context
- *  - role: current role
+ *  - context: provided context (if any)
  *
- *  @param {Ref(Model)} context
+ *  @param {Ref({})} [context=null]
  */
 export function useContext(context=null) {
+    // TODO: context as Model or reactive
     if(context != null) {
         const { role, roles, subscription } = toRefs(context)
         // FIXME context is a reactive object, break api with other case

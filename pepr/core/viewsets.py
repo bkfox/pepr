@@ -10,7 +10,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from .models import Context, Subscription
 from .permissions import *
 from .serializers import AccessibleSerializer, OwnedSerializer, \
-        ContextSerializer, SubscriptionSerializer
+        ContextSerializer, SubscriptionSerializer, RoleDescriptionSerializer
 from .views import generic
 
 
@@ -40,6 +40,12 @@ class ContextViewSet(generic.ContextMixin, viewsets.ModelViewSet):
         extra = SubscriptionViewSet.get_api_actions(role)
         actions += ['subscription.' + a for a in extra]
         return actions
+
+    @action(detail=False)
+    def roles(self, request, **kwargs):
+        model = self.queryset.model if self.queryset else getattr(self, 'model', None)
+        return Response([RoleDescriptionSerializer(instance=role).data
+                            for role in model.roles.values()] if model else [])
 
     def get_serializer(self, *args, **kwargs):
         kwargs.setdefault('identity', self.request.identity)

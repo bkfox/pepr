@@ -10,15 +10,13 @@
             </p-field>
         </p-field-row>
 
-        <slot name="main"></slot>
+        <slot name="main" :data="data"></slot>
 
         <p-field-row label="Publications' default visibility">
             <p-field name="default_access">
                 <p-select-role v-model:value="data.default_access" />
             </p-field>
         </p-field-row>
-
-        <slot name="main" :data="data"></slot>
 
         <h4 class="subtitle is-4">Subscriptions</h4>
 
@@ -95,7 +93,8 @@ export default {
         const propsRefs = toRefs(props)
         // const contextComp = composables.useContext()
         const modelComp = composables.useModel(propsRefs);
-        const formComp  = composables.form({...propsRefs, ...modelComp}, context_)
+        const defaults = computed(() => {})
+        const formComp  = composables.form({...propsRefs, ...modelComp, defaults}, context_)
 
         const context = formComp.data
         const role = computed(() => context && context.role)
@@ -103,10 +102,10 @@ export default {
         const subscription = computed(() => context && context.subscription)
 
         const subscriptionRoleChoices = computed(() =>
-            role.value && Subscription.roleChoices(Object.values(roles.value), role.value)
+            role.value && Subscription.roleChoices(Object.values(roles.value))
         )
         const subscriptionAccessChoices = computed(() =>
-            role.value && Subscription.accessChoices(Object.values(roles.value), role.value)
+            role.value && Subscription.accessChoices(Object.values(roles.value))
         )
 
         return {...modelComp, ...formComp, role, roles, subscription,

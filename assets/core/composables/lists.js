@@ -58,7 +58,7 @@ export class Filters {
     }
 
     urlParams(params=null) {
-        params = new URLSearchParams()
+        params = params || new URLSearchParams()
         for(let [key, filter] of Object.entries(this.all))
             params.set(key, filter.value)
         return params
@@ -122,13 +122,16 @@ export function fetchList({model, listFilters, url=null}) {
     })
 
     function fetch({filters=null, ...config}={}) {
+        if(!config.url && url && url.value)
+            config.url = url.value
+
+        config.urlParams = new URLSearchParams(config.url ? (new URL(config.url)).search
+                                                          : undefined)
         if(listFilters.length) {
             if(filters)
                 listFilters.setValues(filters)
-            config.urlParams = listFilters.urlParams()
+            listFilters.urlParams(config.urlParams)
         }
-        if(!config.url && url && url.value)
-            config.url = url.value
 
         return model.value.fetch({ ...config }).then(r => {
             const data = r.response.data
@@ -139,12 +142,12 @@ export function fetchList({model, listFilters, url=null}) {
         })
     }
 
-    function fetchNext({...config}) {
+    function fetchNext(config={}) {
         return pagination.next ? fetch({...config, url: pagination.next})
                                : new Promise((resolve) => resolve(null))
     }
 
-    function fetchPrev({...config}) {
+    function fetchPrev(config={}) {
         return pagination.prev ? fetch({...config, url: pagination.prev})
                                : new Promise((resolve) => resolve(null))
     }

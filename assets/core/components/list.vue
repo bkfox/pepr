@@ -1,8 +1,14 @@
 <template>
     <template v-if="list">
+        <slot name="top" :list="list" :pagination='pagination'
+            :fetch='fetch' :fetchNext='fetchNext' :fetchPrev='fetchPrev'></slot>
         <template v-for="(item, index) in list">
-            <slot name="item" :index="index" :item="item" :list="list"></slot>
+            <slot name="item" :index="index" :item="item" :list="list"
+                :pagination='pagination'
+                :fetch='fetch' :fetchNext='fetchNext' :fetchPrev='fetchPrev'></slot>
         </template>
+        <slot name="bottom" :list="list" :pagination='pagination'
+            :fetch='fetch' :fetchNext='fetchNext' :fetchPrev='fetchPrev'></slot>
     </template>
 </template>
 <script>

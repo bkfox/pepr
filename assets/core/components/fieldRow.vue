@@ -16,7 +16,6 @@ export default {
     props: {
         label: String,
         name: String,
-        horizontal: { type: Boolean, default: false },
     },
 
     setup(props) {

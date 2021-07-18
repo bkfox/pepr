@@ -103,7 +103,17 @@ class BaseAccessible(models.Model):
     )
     objects = BaseAccessibleQuerySet.as_manager()
 
-    basename = ''
+    basename = None
+    """ Overrides default class basename."""
+
+    @classmethod
+    def get_basename(cls):
+        """
+        Return class' basename.
+        It is used as common entity name between server and client side.
+        """
+        return cls.basename if cls.basename else \
+                cls._meta.label_lower.split('.',1)[1]
 
     @property
     def api_list_url(self):
@@ -266,7 +276,6 @@ class Context(BaseAccessible):
     Current identity role (which is the last one get using `get_role`.
     """
     objects = ContextQuerySet.as_manager()
-    basename = 'context'
 
     roles = {role.access: role for role in default_roles}
 
@@ -468,7 +477,6 @@ class Subscription(Owned):
     )
 
     objects = SubscriptionQuerySet.as_manager()
-    basename = 'subscription'
 
     class Meta:
         unique_together = ('context', 'owner')
@@ -519,8 +527,6 @@ class Authorization(Accessible):
         default=False,
     )
 
-    basename = 'authorization'
-
 
 class Service(Accessible):
     """
@@ -537,8 +543,6 @@ class Service(Accessible):
     Service position in menus. Home page use it to select the first
     accessible service.
     """
-
-    basename = 'service'
 
     def get_absolute_url(self, **kwargs):
         """ Url to service's index """

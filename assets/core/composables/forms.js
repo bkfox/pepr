@@ -24,8 +24,10 @@ export function form({initial: initial_, defaults = null,
                       model = null, commit=false,
                       submitConfig={}, ...ctx}, { emit })
 {
+    // TODO: include usage of optional 'action' props
     const initial = computed(() => initial_.value || (defaults && defaults.value) || {})
-    const constructor = computed(() => model && model.value ? model.value : initial.value.constructor)
+    const constructor = computed(() => model && model.value ? model.value
+                                                            : initial.value.constructor)
     const data = reactive(new constructor.value({...initial.value}))
     const errors = reactive({})
     provide('errors', errors)
@@ -108,4 +110,6 @@ export function singleSelect(props, emit) {
     }
     return { selected, select }
 }
+
+singleSelect.emits = ['select']
 

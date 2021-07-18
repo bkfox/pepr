@@ -342,6 +342,8 @@ export class Subscription extends Owned {
     }
 
     static accessChoices(roles, role=null) {
+        if(roles.prototype instanceof Context)
+            roles = roles.roles
         return super.accessChoices(roles, role)
                     .filter(role => role.status != 'moderator' && role.status != 'admin')
     }

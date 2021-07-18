@@ -5,6 +5,7 @@ import { h, ref } from 'vue'
 import { singleSelect } from '../composables'
 
 export default {
+    emits: singleSelect.emits,
     props: {
         default: { type: String, default: 'default' },
     },

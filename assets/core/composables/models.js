@@ -9,8 +9,7 @@ import { makeProps } from './utils'
 export function useModel({entity=null, item=null}={}) {
     const model = computed(() =>
         (entity && entity.value) ? useStore().$db().model(entity.value)
-                                 : item && item.value
-                                     ? item.value.constructor : null)
+                                 : item && item.value ? item.value.constructor : null)
     return { model, entity }
 }
 

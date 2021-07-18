@@ -1,0 +1,85 @@
+{% load i18n %}
+
+<template v-slot:default="{data}">
+    {% block fields %}
+    <h4 class="subtitle is-4">{% trans "Main settings" %}</h4>
+    {% block main %}
+    {% block main-title %}
+    <p-field-row label="{% trans "Title" %}">
+        <p-field name="title">
+            <component is="input" name="title" type="text" v-model:value="data.title"
+                placeholder="{% trans "Title" %}" />
+        </p-field>
+    </p-field-row>
+    {% endblock %}
+
+    {% block main-extra %}
+    <p-field-row label="{% trans "Publications' default visibility" %}">
+        <p-field name="default_access">
+            <p-select-role v-model:value="data.default_access"
+                :roles="Subscription.accessChoices(data.constructor)" />
+        </p-field>
+    </p-field-row>
+    {% endblock %}
+    {% endblock %}
+
+    <h4 class="subtitle is-4">{% trans "Subscriptions" %}</h4>
+    {% block subscriptions %}
+    <p-field-row label="{% trans "Allow subscription request" %}">
+        <p-field name="allow_subscription_request">
+            <component is="input" type="checkbox" name="allow_subscription_request"
+                v-model:value="data.allow_subscription_request" />
+        </p-field>
+    </p-field-row>
+
+    <!-- subscription_accept_role -->
+    <p-field-row label="{% trans "Accept subscriptions" %}">
+        <p-field name="subscription_accept_role">
+            <p-select-role
+                :roles="Subscription.roleChoices(data.constructor)"
+                v-model:value="data.subscription_accept_role" />
+            <template #help>
+            {% trans "Subscription requests will not need moderator approval for" %}
+            <i><template v-for="role of subscriptionRoleChoices">
+                    <template v-if="role.access <= data.subscription_accept_role">
+                    {{ role.name }}
+                    </template>
+                </template></i>
+            </template>
+        </p-field>
+    </p-field-row>
+
+    <!-- subscription_default_role -->
+    <p-field-row label="{% trans "Default role" %}">
+        <p-field name="subscription_default_role">
+            <p-select-role
+                :roles="Subscription.roleChoices(data.constructor)"
+                v-model:value="data.subscription_default_role" />
+        </p-field>
+    </p-field-row>
+
+    <!-- subscription_default_role -->
+    <p-field-row label="{% trans "Default visibility" %}">
+        <p-field name="subscription_default_access">
+            <p-select-role
+                :roles="Subscription.accessChoices(data.constructor)"
+                v-model:value="data.subscription_default_access" />
+        </p-field>
+    </p-field-row>
+    {% endblock %}
+    {% endblock %}
+
+    {% block extra %}{% endblock %}
+
+    <div class="field is-grouped is-grouped-right">
+        {% block buttons %}
+        <p class="control">
+            <button class="button is-link">{% trans "Save" %}</button>
+        </p>
+        <p class="control">
+            <button v-if="data" type="button" @click="reset() || $emit('done')" class="button is-link is-light">
+                {% trans "Cancel" %}</button>
+        </p>
+        {% endblock %}
+    </div>
+</template>

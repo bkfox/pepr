@@ -1,14 +1,18 @@
 <template>
-    <div :class="{field: true, 'has-ico': horizontal}">
+    <div :class="{field: true}">
         <label class="label" v-if="label">{{ label }}</label>
-        <div class="{control: true, hasIconsLeft: leftIcons, hasIconsRight: rightIcons">
+        <div :class="{control: true, hasIconsLeft: leftIcons, hasIconsRight: rightIcons}">
             <slot :field='name' :error="error"></slot>
-            <span v-if="leftIcons" v-for="icon of leftIcons" class="icon is-small is-left">
-                <i :class="icon"></i>
-            </span>
-            <span v-if="rightIcons" v-for="icon of rightIcons" class="icon is-small is-right">
-                <i :class="icon"></i>
-            </span>
+            <template v-if="leftIcons">
+                <span v-for="icon in leftIcons" class="icon is-small is-left">
+                    <i :class="icon"></i>
+                </span>
+            </template>
+            <template v-if="rightIcons">
+                <span v-for="icon in rightIcons" class="icon is-small is-right">
+                    <i :class="icon"></i>
+                </span>
+            </template>
         </div>
         <span v-if="error" class="help is-danger">{{ error }}</span>
         <slot name="help"></slot>
@@ -21,6 +25,8 @@ export default {
     props: {
         label: String,
         name: String,
+        leftIcons: Array,
+        rightIcons: Array,
     },
 
     setup(props) {

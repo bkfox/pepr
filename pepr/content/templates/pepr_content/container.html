@@ -5,8 +5,8 @@
     <h2 class="subtitle">{% block subtitle %}{{ context.headline|default:'' }}{% endblock %}</h2>
 {% endblock %}
 
-{% block app-settings %}
-<p-container-form :initial="context" @success="$refs.appDeck.select()"></p-container-form>
+{% block app-settings-form %}
+{% include "./forms/container.html" %}
 {% endblock %}
 
 

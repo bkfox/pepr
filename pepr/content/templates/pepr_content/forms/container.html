@@ -1,0 +1,14 @@
+{% extends "pepr_core/forms/context.html" %}
+{% load i18n %}
+
+{% block main-title %}
+{{ block.super }}
+
+<p-field-row label="{% trans "Headline" %}">
+    <p-field name="headline">
+        <component is="input" name="headline" type="text" v-model:value="data.headline"
+            placeholder="{% trans "Headline" %}" />
+    </p-field>
+</p-field-row>
+{% endblock %}
+

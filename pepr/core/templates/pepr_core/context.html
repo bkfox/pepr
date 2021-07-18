@@ -56,12 +56,16 @@
     </p-context>
 </template>
 <template #settings>
-    <p-context context-id="{{ role.context.pk }}" context-entity="{{ role.context.basename }}">
+    <p-context context-id="{{ role.context.pk }}" context-entity="{{ role.context.get_basename }}">
         <template v-slot:default="{context,role,roles,subscription}">
             <button class="delete float-right" @click="$refs.appDeck.select()"></button>
             <h2 class="title is-3">{% trans "Settings" %}</h2>
             {% block app-settings %}
-            <p-context-form :initial="context" @success="$refs.appDeck.select()"></p-context-form>
+            <p-form :initial="context" @success="$refs.appDeck.select()">
+                {% block app-settings-form %}
+                {% include "./forms/context.html" %}
+                {% endblock %}
+            </p-form>
             {% endblock %}
         </template>
     </p-context>
@@ -74,9 +78,12 @@
             {% block app-subscriptions %}
             <p-list entity="subscription" :filters="{context_id: context.$id}">
                 <template v-slot:item="{item}">
+                    {% block app-subscriptions-item %}
                     <p-subscription :id="item.pk" :item="item"/>
+                    {% endblock %}
                 </template>
                 <template v-slot:bottom="{pagination,fetchNext}">
+                    {% block app-subscriptions-pagination %}
                     <div class="has-text-centered" v-if="pagination.next">
                         <button class="button has-icons is-link is-light" @click="fetchNext()">
                             <span class="icon is-small">
@@ -85,6 +92,7 @@
                             <span>{% trans "More Subscriptions" %}</span>
                         </button>
                     </div>
+                    {% endblock %}
                 </template>
             </p-list>
             {% endblock %}

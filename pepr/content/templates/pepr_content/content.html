@@ -1,0 +1,18 @@
+{% load humanize i18n %}
+
+<div class="media">
+    <div class="media-content">
+        {% block header %}
+        <div>
+            {% if object.owner %}
+            <strong>{{ object.owner.title }}</strong>
+            {% else %}
+            <strong>{% trans "Anonymous" %}</strong>
+            {% endif %}
+            <small>{{ object.modified|naturaltime }}</small>
+        </div>
+        {% endblock %}
+        <div>{% block content %}{{ object.text }}{% endblock %}</div>
+        <div>{% block footer %}{% endblock %}</div>
+    </div>
+</div>

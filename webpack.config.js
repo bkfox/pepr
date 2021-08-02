@@ -1,62 +1,82 @@
 const path = require('path');
 const webpack = require('webpack');
 
-const BundleTracker = require('webpack-bundle-tracker');
 const MiniCssExtractPlugin = require("mini-css-extract-plugin");
-const { createLodashAliases } = require('lodash-loader');
+// const { createLodashAliases } = require('lodash-loader');
 const { VueLoaderPlugin } = require('vue-loader');
-//const VuetifyLoaderPlugin = require('vuetify-loader/lib/plugin')
-//const StylusLoaderPlugin = require('stylus-loader');
 
-module.exports = {
+
+module.exports = (env, argv) => Object({
     context: __dirname,
-    entry: './assets/index',
+    entry: {
+        core: './assets/core/index',
+        content: './assets/content/index',
+    },
 
     output: {
-        path: path.resolve('./assets/bundles/'),
-        filename: "[name]-[hash].js",
-        chunkFilename: "[name]-[hash].js",
+        path: path.resolve('pepr/core/static/pepr/'),
+        filename: '[name].js',
+        chunkFilename: '[name].js',
     },
 
     optimization: {
+        //usedExports: true,
+        // concatenateModules: argv.mode == 'production' ? true : false,
+
         splitChunks: {
             cacheGroups: {
+                /*core: {
+                    name: 'core', chunks: 'initial', enforce: true,
+                    test: /[\\/]assets[\\/]core[\\/]/,
+                },
+                content: {
+                    name: 'content', chunks: 'initial', enforce: true,
+                    test: /[\\/]assets[\\/]content[\\/]/,
+                },*/
                 vendor: {
-                    name: 'vendor',
-                    chunks: 'initial',
-                    enforce: true,
+                    name: 'vendor', chunks: 'initial', enforce: true,
 
                     test: /[\\/]node_modules[\\/]/,
-                    // FIXME: splitting bundles => django-webpack need name manually in template
-                    /*name(module) {
-                          const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)([\\/]|$)/)[1];
-
-                          return `npm.${packageName.replace('@', '')}`;
-                    },*/
                 },
+                /*admin: {
+                    name: 'admin',
+                    chunks: 'initial',
+                    enforce: false,
+                    test: /assets[\\/]admin[\\/]/,
+                },*/
+
+                /*noscript: {
+                    name: 'noscript',
+                    chunks: 'initial',
+                    enforce: true,
+                    test: /noscript/,
+                }*/
             }
         }
     },
 
     plugins: [
-        new BundleTracker({filename: './webpack-stats.json'}),
         new MiniCssExtractPlugin({
             filename: "[name].css",
-            chunkFilename: "[id].css"
+            chunkFilename: "[name].css"
         }),
         new VueLoaderPlugin(),
-        //new VuetifyLoaderPlugin(),
     ],
 
     module: {
         rules: [
+            { test: /\.vue$/, loader: 'vue-loader' },
             {
-                test: /\.css$/,
-                use: [ { loader: MiniCssExtractPlugin.loader },
-                       'css-loader' ]
+                test: /\/node_modules\//,
+                sideEffects: false
             },
             {
-                // TODO: remove ttf eot svg
+                test: /\.(c|sa|sc)?ss$/,
+                use: [ { loader: MiniCssExtractPlugin.loader },
+                       { loader: 'css-loader' },
+                       { loader: 'sass-loader' , options: { sourceMap: true }} ],
+            },
+            {
                 test: /\.(ttf|eot|svg|woff2?)$/,
                 use: [{
                     loader: 'file-loader',
@@ -66,32 +86,18 @@ module.exports = {
                     }
                 }],
             },
-            { test: /\.vue$/, use: 'vue-loader' },
-            /*{ test: /\.styl$/,
-              use: [ { loader: "style-loader" },
-                     { loader: "css-loader" },
-                     { loader: "stylus-loader" }] }*/
-            // { test: /\.js$/,  use: "babel-loader!lodash-loader" },
         ],
     },
 
     resolve: {
         alias: {
-            ...createLodashAliases(),
-            pepr: path.resolve(__dirname, 'assets/js'),
-            vue: 'vue/dist/vue.esm.browser.js',
-            vuex: 'vuex/dist/vuex.esm.browser.js',
-            // we have a modified version with v-runtime-template/pull/33
-            'v-runtime-template': '../vue/v-runtime-template.js',
-            'vuetify-css': 'vuetify/dist/vuetify.css',
+            pepr: path.resolve('./assets/'),
+            vue: 'vue/dist/vue.esm-browser.js',
         },
         modules: [
-            './assets/css',
-            './assets/js',
-            './assets/vue',
             './node_modules',
         ],
-        extensions: ['.js', '.vue', '.css', '.styl', '.ttf']
+        extensions: ['.js', '.vue', '.css', '.scss', '.styl', '.ttf']
     },
-}
+})
 

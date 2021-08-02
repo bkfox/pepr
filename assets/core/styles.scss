@@ -1,0 +1,32 @@
+@charset "utf-8";
+@import "~@mdi/font/css/materialdesignicons.css";
+@import "~bulma";
+
+html {
+    height: 100%;
+    background-color: #f0f0f0;
+}
+
+body {
+    height: 100%;
+    background-color: #f0f0f0;
+}
+
+.float-right { float: right; }
+.float-left { float: left; }
+
+.navbar {
+    margin-bottom: 1em;
+}
+
+.app-header {
+    margin-bottom: 1em;
+}
+
+.app-menu {
+    float: left;
+    padding: $box-padding;
+}
+
+
+

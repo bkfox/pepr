@@ -1,80 +1,40 @@
-import uuid
-
 from django.db import models
-from django.db.models import Q
-from django.contrib.auth import models as auth
-from django.utils.text import slugify
 from django.utils.translation import ugettext_lazy as _
 
+from model_utils.managers import InheritanceQuerySetMixin
 from model_utils.models import TimeStampedModel
 from rest_framework.reverse import reverse
 
-from ..perms.models import Context, Accessible, Owned, \
-        OwnedQuerySet
-from ..ui.components import Component, Slots, Widgets
-from ..ui.models import UserWidget
-from ..utils.fields import ReferenceField
-
-from .widgets import DeleteActionWidget
+from pepr.core import models as core
 
 
-class Container(Context):
-    # POLICY_EVERYONE = 0x00
-    # POLICY_ON_REQUEST = 0x01
-    # POLICY_ON_INVITE = 0x02
-    # POLICY_CHOICES = (
-    #    (POLICY_EVERYONE, _('everyone')),
-    #    (POLICY_ON_REQUEST, _('on request')),
-    #    (POLICY_ON_INVITE, _('on Invite')),
-    # )
-    # subscription_policy = models.SmallIntegerField(
-    #    _('subscription policy'),
-    #    choices = POLICY_CHOICES,
-    # )
-    slug = models.SlugField(
-        _('slug'),
-        null=True, blank=True,
-        max_length=64,
-        unique=True,
-        help_text=_(
-            'Slug is used to generate url to this content. '
-            'It can only contain alphanumeric characters and "_-".'
-        )
-    )
-    # TODO: image & cover
-    description = models.TextField(
-        _('description'),
-        blank=True, null=True,
-        max_length=256,
+__all__ = ('Container', 'ContentQuerySet', 'Content', 'ContentService')
+
+
+class Container(core.Context):
+    """ Context for content. """
+    headline = models.CharField(
+        _('Headline'), max_length=128,
+        blank=True, null=True
     )
 
-    @property
-    def service_set(self):
-        return Service.objects.context(self)
-
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.title)
-        return super().save(*args, **kwargs)
+    basename = 'container'
 
 
-class ContentQuerySet(OwnedQuerySet):
-    def _get_user_q(self, user):
-        if not user.is_anonymous:
-            return super()._get_user_q(user) | Q(modifier=user)
-        return super()._get_user_q(user)
+class ContentQuerySet(InheritanceQuerySetMixin, core.OwnedQuerySet):
+    def get_identity_q(self, identity):
+        if identity:
+            return super().get_identity_q(identity) | models.Q(modifier=identity)
+        return super().get_identity_q(identity)
 
 
-class Content(Owned, TimeStampedModel):
-    """
-    Content can be any kind of content created by user and published in
-    a Container (or Context).
-
-    Content is a component rendered inside a Container or Service view.
-    """
+class Content(core.Owned, TimeStampedModel):
+    """ Content published by users. """
     # modifier read-only field
     modifier = models.ForeignKey(
-        auth.User,
+        # TODO: filter is_identity
+        core.Context,
+        limit_choices_to=core.ContextQuerySet.get_identities_q(),
         on_delete=models.SET_NULL,
         verbose_name=_('modified by'),
         null=True, blank=True,
@@ -84,43 +44,39 @@ class Content(Owned, TimeStampedModel):
         verbose_name=_('text'),
         null=True, blank=True,
     )
-    # TODO: text format: raw, markdown, safe html, rst?
 
+    basename = 'content'
     objects = ContentQuerySet.as_manager()
 
     class Meta:
         ordering = ('-modified',)
 
     api_basename = 'content'
+    template_name = 'pepr_content/content.html'
+    form_template_name = 'pepr_content/content_form.html'
 
-    def get_api_url(self, url_name='', *args, **kwargs):
-        """ Reverse api url for this model """
-        url_name = '{}-{}'.format(self.api_basename, url_name)
-        return reverse(url_name, *args, **kwargs)
+    def get_component_class(self):
+        from .components import Component
+        return Component
 
-    @property
-    def api_list_url(self):
-        """ Get list url for this object's model """
-        return self.get_api_url('list')
+    def as_component(self, component_class=None, **kwargs):
+        """ Return component rendering content instance. """
+        comp_class = component_class or self.get_component_class()
+        kwargs.setdefault('template_name', self.template_name)
+        kwargs.setdefault('object', self)
+        return comp_class(template_name=self.template_name, object=self)
 
-    @property
-    def api_detail_url(self):
-        """ Get detail url for this object """
-        return self.get_api_url('detail', kwargs={'pk': str(self.pk)})
+    def get_component_form_class(self):
+        from .components import ContentFormComp
+        return ContentFormComp
 
-    @property
-    def is_saved(self):
-        # FIXME: not the most sure ever but beyond our possibilities
-        return self.modifier is not None
-
-    @classmethod
-    def get_component_class(cls):
-        from .components import ContentComp
-        return ContentComp
-
-    def as_component(self):
-        """ Return component that renders self. """
-        return self.get_component_class()(object=self)
+    def as_component_form(self, **kwargs):
+        """ Return component rendering content instance. """
+        if not 'component_class' in kwargs:
+            kwargs['component_class'] = self.get_component_form_class()
+        if not 'template_name' in kwargs:
+            kwargs['template_name'] = self.form_template_name
+        return self.as_component(**kwargs)
 
     @classmethod
     def get_serializer_class(cl):
@@ -132,40 +88,21 @@ class Content(Owned, TimeStampedModel):
         from .serializers import ContentSerializer
         return ContentSerializer
 
+    def get_serializer(self, serializer_class=None, **kwargs):
+        ser_class = serializer_class or self.get_serializer_class()
+        return ser_class(self, **kwargs)
+
     def save_by(self, role):
         super().save_by(role)
         # `modifier` must be updated to the given role's user. we do it
         # after cauz' there is no need to do it before.
-        if not role.user.is_anonymous:
-            self.modifier = role.user
+        if not role.is_anonymous:
+            self.modifier = role.identity
 
 
-class Service(UserWidget):
-    """
-    A Service offers end-user level's application, that is enabled on a
-    per-container level.
-    """
-    slug = models.SlugField(_('slug'), blank=True, max_length=64)
-    view = ReferenceField(_('view'))
+class ContentService(core.Service):
+    """ Service handling content (list & detail) display. """
+    service_url_name = 'content-list'
+    # basename='content_list'
 
-    is_default = models.BooleanField(
-        _('default'), default=False,
-        help_text=_(
-            'use this as service shown by default on container'
-        )
-    )
-
-    icon='fa-align-justify fa'
-
-    def as_view(self):
-        """ Return view function for this request.  """
-        import inspect
-        if inspect.isclass(self.view):
-            return self.view.as_view()
-        return self.view
-
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.text)
-        super().save(*args, **kwargs)
 

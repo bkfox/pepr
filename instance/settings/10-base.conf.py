@@ -6,23 +6,18 @@ try: a = DEBUG
 except NameError: DEBUG = True
 
 
+SITE_ID = 1
+
 ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
-    'pepr.bootstrap',
-    'pepr.users',
-    'pepr.api',
-    'pepr.perms',
-    'pepr.ui',
-    'pepr.content',
+    'django.contrib.sites',
 
-    # FIXME: put them in their respective files
-    #'django_assets'
-    'webpack_loader',
-    'widget_tweaks',
+    'pepr.content',
+    'pepr.core',
+
     'rest_framework',
     'django_filters',
-
     'channels',
 
     'django.contrib.admin',
@@ -41,7 +36,10 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'django.contrib.sites.middleware.CurrentSiteMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    'pepr.core.middleware.IdentityMiddleware',
 ]
 
 ROOT_URLCONF = 'instance.urls'
@@ -95,4 +93,5 @@ USE_TZ = True
 STATIC_URL = '/static/'
 MEDIA_ROOT = BASE_DIR + '/media/'
 MEDIA_URL = '/media/'
+
 

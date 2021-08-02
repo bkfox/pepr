@@ -1,0 +1,28 @@
+{% extends "pepr_content/container.html" %}
+{% load static i18n pepr_core pepr_content %}
+
+{% block head %}
+{{ block.super }}
+<script src="{% static "pepr/content.js" %}"></script>
+{% endblock %}
+
+{% block init-script %}
+{{ block.super }}
+var app = pepr.content.createApp({
+    baseURL: "{% url "api-base-url" %}",
+})
+var vm = app.mount('#app')
+{% endblock %}
+
+{% block service %}
+<p-content-form constructor="content" v-if="role"></p-content-form>
+<p-list entity="content"
+        :filters="{ context_id: '{{ context.pk }}'}"
+        url="{% url "api:content-list" %}">
+    <template v-slot:item="{index,item}">
+        <p-content :id="item.pk" :item="item"></p-content>
+    </template>
+</p-content-list>
+{% endblock %}
+
+

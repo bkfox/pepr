@@ -7,17 +7,48 @@ from django.utils.translation import ugettext_lazy as _
 logger = logging.getLogger(__name__)
 
 
+class ReferenceValue(str):
+    def __new__(cls, value, *args, target=None, **kwargs):
+        if target is not None:
+            value = cls.from_target(target)
+        obj = str.__new__(cls, value, *args, **kwargs)
+        return obj
+
+    @property
+    def target(self):
+        """ Return reference's target """
+        if self:
+            try:
+                module, name = self.rsplit('.', 1)
+                module = import_module(module)
+                return getattr(module, name, None)
+            except ModuleNotFoundError as e:
+                logger.debug('could not import reference from ', self, ':', e)
+
+    @staticmethod
+    def from_target(target):
+        """ Return a ``str`` from the given target object.  """
+        if target is None:
+            return ''
+
+        if not hasattr(target, '__name__'):
+            raise ValueError(
+                "ReferenceValue's target does not have a `__name__`.")
+        return target.__module__ + '.' + getattr(target, '__name__')
+
+
 # TODO: fix this shit
 class ReferenceField(models.CharField):
     """
-    This fields stores a reference to an object (as long it has a
-    ``__m̀odule__`` and a ``__name__``).
+    Store a reference to a module's object with a ``__m̀odule__`` and a
+    ``__name__``. The mapped object is an instance of ReferenceValue,
+    whose referenced object is available as ``field.target``.
     """
     description = _('Reference to an element of a module.')
 
     def __init__(self, *args, choices=None, targets=None, **kwargs):
         """
-        :param iterable target: iterable of modules' objects that can
+        :param iterable targets: iterable of modules' objects that can
             be the target of this field. If given, overrides `choices`
             value.
         """
@@ -34,10 +65,8 @@ class ReferenceField(models.CharField):
         super().__init__(*args, choices=choices, **kwargs)
 
     def get_choices(self, targets):
-        return list(
-            (target.__name__, self.get_prep_value(target))
-            for target in targets
-        )
+        return [(target.__name__, ReferenceValue.from_target(target))
+                for target in targets]
 
     def deconstruct(self):
         name, path, args, kwargs = super().deconstruct()
@@ -47,20 +76,7 @@ class ReferenceField(models.CharField):
         return name, path, args, kwargs
 
     def to_python(self, value):
-        if not isinstance(value, str):
-            return value
-
-        if not value:
-            return None
-
-        try:
-            module, name = value.rsplit('.', 1)
-            module = import_module(module)
-            value = getattr(module, name, None)
-            return value
-        except ModuleNotFoundError as e:
-            logger.debug('could not import reference from ', value, ':', e)
-            return None
+        return ReferenceValue(super().to_python(value))
 
     def from_db_value(self, value, *args, **kwargs):
         return self.to_python(value)
@@ -73,16 +89,9 @@ class ReferenceField(models.CharField):
         pass
 
     def get_prep_value(self, value):
-        if isinstance(value, str):
-            return value
-        if value is None:
-            return ''
-
-        if not hasattr(value, '__name__'):
-            logger.warning('get_prep_value: missing attr `__name__` on '
-                           "`value`. Use the module's one.")
-            return value.__module__
-        return value.__module__ + '.' + getattr(value, '__name__')
+        if isinstance(value, (str, None)):
+            return ReferenceValue(value or '')
+        return ReferenceValue(target=value)
 
     def formfield(self, *args, instance=None, **kwargs):
         # value=self.get_prep_value(instance), 

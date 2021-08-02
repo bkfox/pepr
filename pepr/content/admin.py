@@ -1,7 +1,7 @@
 from django.contrib import admin
 
-from .models import Container, Content, Service
+from . import models
 
-admin.site.register(Container)
-admin.site.register(Content)
-admin.site.register(Service)
+admin.site.register(models.Container)
+admin.site.register(models.Content)
+admin.site.register(models.ContentService)

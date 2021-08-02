@@ -1,49 +1,30 @@
-from django.contrib.auth import models as auth
-
 from rest_framework import serializers
 
-from ..perms.serializers import ContextSerializer, OwnedSerializer
+from pepr.core import serializers as core
 
-from .models import Container, Content, Service
+from . import models
 
-__all__ = ['ContentAuthorSerializer', 'ContentSerializer',
-           'ContainerSerializer', ]
+__all__ = ('ContainerSerializer', 'ContentSerializer',)
 
 
-# TODO: move to 'content' application
-class OwnerSerializer(serializers.ModelSerializer):
-    """
-    Serializer class for the owner of an Owned object.
-    """
+class ContainerSerializer(core.ContextSerializer):
     class Meta:
-        model = auth.User
-        fields = ('id', 'username')
+        model = models.Container
+        fields = core.ContextSerializer.Meta.fields + ('title', 'headline')
 
-
-
-class ContentAuthorSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = auth.User
-        fields = ('id', 'username')
-
-
-class ContentSerializer(OwnedSerializer):
+class ContentSerializer(core.OwnedSerializer):
     html = serializers.SerializerMethodField(required=False)
     # owner = serializers.HyperlinkedIdentityField(view_name = 'user')
-    modifier = ContentAuthorSerializer(required=False)
+    # modifier = ContentAuthorSerializer(required=False)
 
     class Meta:
-        model = Content
-        fields = (
-            'pk', 'id',
-            'created', 'owner',
-            'modified', 'modifier',
-            'context', 'text',
-            'access',
-            'html', '_actions', '_type'
+        model = models.Content
+        fields = core.OwnedSerializer.Meta.fields + (
+            'created', 'modified', 'modifier_id',
+            'access', 'text', 'html', 'meta'
         )
-        read_only_fields = ('pk', 'created', 'owner',
-                            'modified', 'modifier')
+        read_only_fields = core.OwnedSerializer.Meta.read_only_fields + (
+            'api_url', 'created', 'modified', 'modifier_id')
 
     def __init__(self, *args, render=True, **kwargs):
         super().__init__(*args, **kwargs)
@@ -52,18 +33,12 @@ class ContentSerializer(OwnedSerializer):
     def get_html(self, obj):
         if not self.render:
             return
-        role = self.get_role(obj.get_context())
+        role = obj.get_role(self.identity)
         return obj.as_component().render(role)
 
     # Rule: content access is limited to its role.
     #       TODO: enforce at a Permission level
     def before_change(self, role, instance, validated):
         validated['access'] = min(role.access, validated['access'])
-
-
-class ContainerSerializer(ContextSerializer):
-    class Meta:
-        model = Container
-        fields = ContextSerializer.Meta.fields + ('title', 'description')
 
 

@@ -1,0 +1,119 @@
+{% load static i18n %}
+<html>
+    <head>
+        {% block head %}
+        <link rel="stylesheet" href="{% static "pepr/core.css" %}" />
+        <link rel="stylesheet" href="{% static "pepr/vendor.css" %}" />
+        <script src="{% static "pepr/vendor.js" %}"></script>
+        <script src="{% static "pepr/core.js" %}"></script>
+        <title>
+            {% block head_title %}
+            {% if role %}
+                {{ role.context.title }}
+                {% if site_role %}
+                &mdash; {{ site_role.context.head_title }}
+                {% endif %}
+            {% elif site_role %}
+                {{ site_role.context.head_title }}
+            {% endif %}
+            {% endblock %}
+        </title>
+        {% endblock %}
+    </head>
+    <body onload="peprInitScript()">
+        {% block body-script %}
+        {% if app_props %}
+        {{ app_props|json_script:"app-props" }}
+        {% endif %}
+
+        <script>
+            function peprInitScript() {
+                {% block init-script %}{% endblock %}
+            }
+        </script>
+        {% endblock %}
+
+        <nav class="navbar is-dark" role="navigation" aria-label="main navigation">
+            <div class="navbar-brand">{% block nav-brand %}{% endblock %}</div>
+            <div class="navbar-menu">
+                {% block nav-menu %}
+                <div class="navbar-start">
+                {% block nav-menu-start %}
+                {% endblock %}
+                </div>
+                <div class="navbar-end">
+                {% block nav-menu-end %}
+                    {% block nav-menu-user %}
+                    {% if not user.is_authenticated %}
+                    <a class="navbar-item"
+                            href="{% url 'login' %}?next={{ request.path|urlencode }}">
+                        <span class="icon">
+                            <i class="mdi mdi-account"></i>
+                        </span>
+                        <span>{% trans "Login" %}</span>
+                    </a>
+                    {% else %}
+                    <div class="navbar-item has-dropdown is-hoverable">
+                        <a class="navbar-link" href="">
+                            <span class="icon">
+                                <i class="mdi mdi-account"></i>
+                            </span>
+                            <span>
+                                {% if role.identity %}
+                                {{ role.identity.title }}
+                                {% elif user.is_authenticated %}
+                                {{ request.user.username }}
+                                {% endif %}
+                            </span>
+                        </a>
+                        <div class="navbar-dropdown is-boxed">
+                            <a class="navbar-item"
+                                href="{% url 'logout' %}?next={{ request.path|urlencode }}">
+                                {% trans "Logout" %}</a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endblock %}
+                {% endblock %}
+                </div>
+                {% endblock %}
+            </div>
+        </nav>
+
+        <main id="app">
+        {% block app %}
+            <header class="app-header header">
+                <div class="columns">
+                    <div class="column"></div>
+                    <div class="column is-three-quarters">
+                        {% block app-header %}
+                        <h1 class="title">{% block title %}{{ context.title }}{% endblock %}</h1>
+                        {% endblock app-header %}
+                        {% block app-actions %}{% endblock %}
+                    </div>
+                    <div class="column"></div>
+                </div>
+            </header>
+            {% block app-container %}
+            <div class="columns">
+                <div class="column app-menu">
+                    <p-nav ref="appNav" class="menu" @select='$refs.appDeck.select($event)'>
+                        {% block app-menu %}{% endblock %}
+                    </p-nav>
+                </div>
+                <div class="column is-three-quarters app-body">
+                    {% block app-body %}
+                    <div class="box">
+                        <p-deck ref="appDeck" @select='$refs.appNav.select($event)'>
+                            {% block app-deck %}{% endblock %}
+                        </p-deck>
+                    </div>
+                    {% endblock %}
+                </div>
+                <div class="column"></div>
+            </div>
+            {% endblock %}
+        {% endblock %}
+        </main>
+    </body>
+</html>

@@ -1,5 +1,21 @@
 # FIXME: optimize -> set property as value, add __prop_method on value
 
+__all__ = ('cached_result', 'cached_method', 'class_property', 'bind_property')
+
+
+def cached_result(func):
+    """
+    Cache result of function call (that does not take calling arguments).
+
+    Add extra `reset()` method to clear cache.
+    """
+    def decorator():
+        if not hasattr(decorator, 'result'):
+            setattr(decorator, 'result', func())
+        return getattr(decorator, 'result')
+    decorator.reset = lambda: delattr(decorator, 'result')
+    return decorator
+
 
 def cached_method(func):
     """

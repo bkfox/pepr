@@ -1,13 +1,12 @@
-PEPR Content
+Pepr Content
 ============
 
-This application offers base classes for content and container management. There
-are three main elements:
+Content publication inside a Context.
 
-- ``Content``: object that has content and can be posted on a ``Container`` (e.g.: post, article, event, etc.);
-- ``Container``: a Context that is used to regroup content (e.g.: space, user page, message thread);
-- ``Service``: configure a view used to render Content objects on a Container (e.g.: stream, calendar, etc.);
+Goals:
 
-They both are ``Accessible`` object in order to correctly handle access and permissions.
+- Self-rendering content, allowing subclasses to render differently in the same list/view;
+- Attach medias to content;
+- Integrated comment and threading system;
 
 

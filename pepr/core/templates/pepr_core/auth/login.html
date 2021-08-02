@@ -1,0 +1,44 @@
+{% extends "pepr_core/base_form.html" %}
+{% load i18n %}
+
+{% block title %}
+{% trans "Login into your account" %}
+{% endblock %}
+
+{% block app-body %}
+<form method="post" action="" class="box">
+    {% csrf_token %}
+    {% if form.non_field_errors %}
+    <p class="has-text-danger">{{ form.non_field_errors|join:'<br>' }}</p>
+    {% endif %}
+    <div class="field">
+        <label class="label">{{ form.username.label }}</label>
+        <div class="control">
+            <input type="text" name="username" value="{{ form.username.value|default:'' }}"
+                   placeholder="{{ form.username.label }}" class="input" />
+            {% if form.errors.username %}
+            <p class="help is-error">{{ form.errors.username }}</p>
+            {% endif %}
+        </div>
+    </div>
+    <div class="field">
+        <label class="label">{{ form.password.label }}</label>
+        <div class="control">
+            <input type="password" name="password" value="{{ form.password.value|default:'' }}"
+                   placeholder="{{ form.password.label }}" class="input" />
+            {% if form.errors.password %}
+            <p class="help is-error">{{ form.errors.password }}</p>
+            {% endif %}
+        </div>
+    </div>
+    <div class="field is-grouped is-grouped-right">
+        <div class="control">
+            <button class="button is-primary">{% trans "Login" %}</button>
+        </div>
+        <div class="control">
+            <a class="button has-text-link" href="{% url 'password_reset' %}?next={{ request.GET.next|default:''|urlencode }}">{% trans "Forgotten password?" %}</a>
+        </div>
+    </div>
+</form>
+{% endblock %}
+

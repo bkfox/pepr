@@ -13,7 +13,6 @@ import PSelectRole from './selectRole'
 import PSubscription from './subscription'
 import PSubscriptionButton from './subscriptionButton'
 import PSubscriptionForm from './subscriptionForm'
-import PSubscriptionList from './subscriptionList'
 
 export function copyProps(source, override) {
     const props = {}
@@ -34,5 +33,5 @@ export {
     PList, PModal, PNav, PNavItem, PRuntimeTemplate,
 
     PContext, PSelectRole,
-    PSubscription, PSubscriptionButton, PSubscriptionForm, PSubscriptionList
+    PSubscription, PSubscriptionButton, PSubscriptionForm
 }

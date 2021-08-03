@@ -11,14 +11,18 @@ from .models import Context, Subscription
 from .permissions import *
 from .serializers import AccessibleSerializer, OwnedSerializer, \
         ContextSerializer, SubscriptionSerializer, RoleDescriptionSerializer
-from .views import generic
+from .views import generics
 
 
-__all__ = ('ContextViewSet', 'AccessibleViewSet', 'OwnedViewSet',
+__all__ = ('BaseViewSet', 'ContextViewSet', 'AccessibleViewSet', 'OwnedViewSet',
            'SubscriptionViewSet')
 
 
-class ContextViewSet(generic.ContextMixin, viewsets.ModelViewSet):
+class BaseViewSet(generics.PermissionMixin, viewsets.ModelViewSet):
+    pass
+
+
+class ContextViewSet(generics.ContextMixin, BaseViewSet):
     action_permissions = {
         'retrieve': (CanAccess,),
         # 'create': (CanCreate,),
@@ -32,15 +36,6 @@ class ContextViewSet(generic.ContextMixin, viewsets.ModelViewSet):
     serializer_class = ContextSerializer
     queryset = Context.objects.all()
 
-    @classmethod
-    def get_api_actions(cls, role, obj):
-        actions = super().get_api_actions(role, obj)
-
-        # role permissions for subscriptions edition
-        extra = SubscriptionViewSet.get_api_actions(role)
-        actions += ['subscription.' + a for a in extra]
-        return actions
-
     @action(detail=False)
     def roles(self, request, **kwargs):
         model = self.queryset.model if self.queryset else getattr(self, 'model', None)
@@ -52,7 +47,7 @@ class ContextViewSet(generic.ContextMixin, viewsets.ModelViewSet):
         return super().get_serializer(*args, **kwargs)
 
 
-class AccessibleViewSet(generic.AccessibleMixin, viewsets.ModelViewSet):
+class AccessibleViewSet(generics.AccessibleMixin, BaseViewSet):
     """
     This mixin enforce permissions checks on the accessible elements.
     It uses a``.serializer.AccessibleSerializer`` (sub-)class.

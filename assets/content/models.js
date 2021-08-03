@@ -1,7 +1,7 @@
-import { Context, Owned, Subscription } from 'pepr/core/models'
+import * as models from 'pepr/core/models'
 
 
-export class Container extends Context {
+export class Container extends models.Context {
     static get entity() { return 'container' }
     static get url() { return '/pepr/content/container/' }
 
@@ -14,7 +14,7 @@ export class Container extends Context {
 }
 
 
-export class Content extends Owned {
+export class Content extends models.Owned {
     static get entity() { return 'content' }
     static get contextEntity() { return 'container' }
     static get url() { return '/pepr/content/content/' }
@@ -39,6 +39,10 @@ export class Content extends Owned {
     }
 }
 
+
+export class Subscription extends models.Subscription {
+    static get contextEntity() { return 'container' }
+}
 
 export default { Subscription, Container, Content }
 

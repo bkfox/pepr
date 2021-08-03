@@ -41,14 +41,14 @@ export const modelsPlugin = {
  * Perform initialization of provided models
  */
 export const initModelsPlugin = {
-    install(app, {models={}}) {
+    install(app, {models={}, tasks=[]}) {
         const target = app.config.globalProperties
         for(let model of models) {
             model = target.$store.$db().model(model.entity)
             if(!model)
                 throw `model '${model.entity}' is not declared on app`
             if(model.prototype instanceof Context)
-                model.fetchRoles()
+                tasks.push(model.fetchRoles())
         }
     }
 }

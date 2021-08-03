@@ -1,4 +1,4 @@
-import { computed, inject, provide, readonly, toRefs, watch } from 'vue'
+import { computed, inject, nextTick, provide, readonly, toRefs, watch } from 'vue'
 import { useStore } from 'vuex'
 
 import { makeProps } from './utils'
@@ -32,15 +32,15 @@ export function getObject(id, entity) {
 export function getOrFetch(id, entity) {
     const { model, object } = getObject(id, entity)
 
-    function fetch(id) {
+    function fetch(id, force=false) {
         if(!id.value || !model.value)
             return
         var obj = model.value.find(id.value)
-        if(obj == null || obj.value == null)
+        if(force || obj == null || obj.value == null)
             model.value.fetch({id: id.value})
     }
     watch(id, fetch)
-    fetch(id)
+    nextTick().then(() => fetch(id))
 
     return { model, object }
 }

@@ -1,11 +1,8 @@
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.urls import reverse
 
 from rest_framework import serializers
-from rest_framework.validators import UniqueTogetherValidator
 from rest_framework.reverse import reverse
 
-from .views.generic import PermissionMixin
 from .models import Context, Subscription
 from .roles import ModeratorRole
 
@@ -74,28 +71,11 @@ class BaseSerializer(serializers.ModelSerializer):
         try:
             return reverse(self.view_name, kwargs={'pk': obj.pk})
         except:
-            pass
+            return None
 
-    def get_api_actions(self, obj):
-        """
-        Return actions of the related api_action that are granted for the
-        given role on obj as a list of string.
-        """
-        if self.viewset:
-            if isinstance(self.viewset, (list, tuple)):
-                return self.viewset
-            viewset = self.viewset
-        else:
-            viewset = self._context.get('view')
-
-        return {} if not isinstance(viewset, PermissionMixin) else \
-            viewset.get_api_actions(obj.get_role(self.identity), obj)
-
-    def get_meta(self, obj):
-        return {
-            'action': self.get_api_actions(obj),
-            'type': obj._meta.verbose_name,
-        }
+    def get_meta(self, obj, **kwargs):
+        kwargs.setdefault('type', obj._meta.verbose_name)
+        return kwargs
 
 
 class RoleDescriptionSerializer(serializers.Serializer):

@@ -52,21 +52,23 @@ import PSelectRole from './selectRole'
 
 export default {
     props: {
-        ...composables.form.props({commit:true, constructor:'subscription'}),
+        ...composables.useModel.props({entity:'subscription'}),
+        ...composables.form.props({commit:true}),
     },
 
-    setup(props, context) {
+    setup(props, context_) {
         const propsRefs = toRefs(props)
-        const formComp = composables.form(propsRef, context_)
-        const contextComp = composables.useParentContext(form.data)
+        const contextComp = composables.useContext()
+        const modelComp = composables.useModel(propsRefs);
+        const formComp = composables.form({...propsRefs, ...modelComp}, context_)
 
         const model = formComp.constructor
         const {role, roles} = contextComp;
         const accessChoices = computed(
-            () => role.value && model.value.accessChoices(role.value, roles.value)
+            () => role.value && model.value.accessChoices(roles.value, role.value)
         )
         const roleChoices = computed(
-            () => role.value && model.value.roleChoices(role.value, roles.value)
+            () => role.value && model.value.roleChoices(roles.value, role.value)
         )
 
         return {...formComp, ...contextComp, accessChoices, roleChoices }

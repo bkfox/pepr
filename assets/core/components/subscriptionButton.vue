@@ -9,25 +9,26 @@
                 :initial="subscription"></p-subscription-form>
         </div>
     </p-modal>
-    <div class="dropdown is-hoverable is-right" v-if="roles">
+    <div class="dropdown is-hoverable" v-if="roles">
         <div class="dropdown-trigger">
             <div class="field has-addons">
                 <div class="control">
-                    <button v-if="!subscription" class="button is-link" @click="subscribe"
-                            :title="`Subscribe as ${roles[context.subscription_default_role]}`">
+                    <button v-if="!subscription" :class="['button is-link', isSmall && 'is-small']" @click="subscribe"
+                            :title="`Subscribe as ${roles[context.subscription_default_role].name}`">
                         <span class="icon"><i class="mdi mdi-account-multiple"></i></span>
-                        <span>Subscribe</span>
+                        <span v-if="!noText">Subscribe</span>
                     </button>
-                    <button v-else-if="subscription.isSubscribed" class="button is-info" @click="edit">
+                    <button v-else-if="subscription.isSubscribed"
+                            :class="['button is-info', isSmall && 'is-small']" @click="edit">
                         <span class="icon"><i class="mdi mdi-account-multiple"></i></span>
-                        <span>{{ roles[context.role.access].name }}</span>
+                        <span v-if="!noText">{{ roles[context.role.access].name }}</span>
                     </button>
-                    <button v-else class="button is-info" @click="edit">
+                    <button v-else :class="['button is-info', isSmall && 'is-small']" @click="edit">
                         <span class="icon"><i class="mdi mdi-account-question"></i></span>
-                        <span>Request sent</span>
+                        <span v-if="!noText">Request sent</span>
                     </button>
                 </div>
-                <div class="control">
+                <div class="control" v-if="!noText">
                     <button class="button is-white">
                         {{ context.n_subscriptions }}
                     </button>
@@ -46,12 +47,16 @@
 </template>
 <script>
 import PSubscriptionForm from './subscriptionForm'
-import PSubscriptionList from './subscriptionList'
 import * as composables from '../composables'
 import PModal from './modal'
 
 
 export default {
+    props: {
+        noText: { type: Boolean, default: false },
+        isSmall: { type: Boolean, default: false },
+    },
+
     setup() {
         const contextComp = composables.useContext()
         return { ...contextComp }
@@ -70,12 +75,12 @@ export default {
             }).save()
         },
 
-        unsubscribe() {http://127.0.0.1:8000/default/payment_failed?ref=B2C2105-000066
+        unsubscribe() {
             confirm(`Unsubscribe from ${this.context.title}?`) &&
                 this.subscription.delete()
         },
     },
 
-    components: { PSubscriptionForm, PSubscriptionList, PModal },
+    components: { PSubscriptionForm, PModal },
 }
 </script>

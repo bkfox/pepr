@@ -31,12 +31,7 @@ export default {
 
         watch(propsRefs.url, (url) => props.fetchAuto && fetchComp.fetch({url}))
         watch(propsRefs.filters, (filters) => props.fetchAuto && fetchComp.fetch({filters}))
-        return {...listComp, ...fetchComp}
-    },
-
-    mounted() {
-        if(this.fetchAuto && (this.url || this.model))
-            this.fetch()
+        return {...modelComp, ...listComp, ...fetchComp}
     },
 }
 </script>

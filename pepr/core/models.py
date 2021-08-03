@@ -103,17 +103,15 @@ class BaseAccessible(models.Model):
     )
     objects = BaseAccessibleQuerySet.as_manager()
 
-    basename = None
-    """ Overrides default class basename."""
-
     @classmethod
     def get_basename(cls):
         """
         Return class' basename.
         It is used as common entity name between server and client side.
         """
-        return cls.basename if cls.basename else \
-                cls._meta.label_lower.split('.',1)[1]
+        if not getattr(cls, 'basename', None):
+            setattr(cls ,'basename', cls._meta.label_lower.split('.',1)[1])
+        return cls.basename
 
     @property
     def api_list_url(self):
@@ -313,7 +311,7 @@ class Context(BaseAccessible):
                 subscription = Subscription.objects.filter(
                     context=self, owner=identity).first()
                 if subscription and role is None:
-                    self.role = subscription.get_role()
+                    self.role = subscription.get_role(context=self)
                     return self.role
                 role = settings.roles.get(DefaultRole.access)
         else:
@@ -381,9 +379,10 @@ class Accessible(BaseAccessible):
     context = models.ForeignKey(Context, on_delete=models.CASCADE)
     objects = AccessibleQuerySet.as_manager()
 
-    def get_role(self, identity, force=False):
+    def get_role(self, identity, context=None, force=False):
         """ Return role for identity on accessible. """
-        return self.context.get_role(identity, force)
+        context = context or self.context
+        return context.get_role(identity, force)
 
     class Meta:
         abstract = True
@@ -493,13 +492,15 @@ class Subscription(Owned):
     def is_subscribed(self):
         return self.status == self.STATUS_SUBSCRIBED
 
-    def get_role(self, identity=None, force=False):
+    def get_role(self, context=None, identity=None, force=False):
+        context = context or self.context
+
         # role for subscription owner
         if not identity or identity.pk == self.owner_id:
             role = self.role if self.is_subscribed else DefaultRole.access
             cls = settings.roles.get(role) or AnonymousRole
-            return cls(self.context, self.owner, self)
-        return super().get_role(identity, *args)
+            return cls(context, self.owner, self)
+        return super().get_role(identity, context, force)
 
 
 Subscription._meta.get_field('access').choices=subscription_access_choices

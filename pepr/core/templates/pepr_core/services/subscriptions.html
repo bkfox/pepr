@@ -1,0 +1,51 @@
+{% load i18n %}
+
+<p-context context-id="{{ role.context.pk }}" context-entity="{{ role.context.get_basename }}">
+    <template v-slot:default="{context,role,roles,subscription}">
+        <button class="delete float-right" @click="$refs.appDeck.select()"></button>
+        <h2 class="title is-3">{% trans "Subscriptions" %}</h2>
+        {% block app-subscriptions %}
+        <p-tabs class="tabs" ref="subscriptionsNav" @select="$refs.subscriptionsDeck.select($event)">
+            <p-tab class="tab" target="default" icon="mdi mdi-account-multiple">
+                {% trans "Subscriptions" %}
+            </p-tab>
+            <p-tab class="tab" target="requests" icon="mdi mdi-account-question"
+                  v-if="role && role.isGranted('pepr_core_subscription.accept_subscription')">
+                {% trans "Requests" %}
+            </p-tab>
+            <p-tab class="tab" target="invites" icon="mdi mdi-account-plus"
+                        v-if="role && role.isGranted('pepr_core_subscription.subscribe')">
+                {% trans "Invites" %}
+            </p-tab>
+            <p-tab class="tab" target="subscription" icon="mdi mdi-account">
+                {% trans "My Subscription" %}
+            </p-tab>
+        </p-tabs>
+        <p-deck ref="subscriptionsDeck" @select="$refs.subscriptionsNav.select($event)">
+            <template #default>
+                <p-list entity="subscription" :filters="{context_id: context.$id, status: 3}"
+                        url="{% url "api:subscription-list" %}">
+                    <template v-slot:item="{item}">
+                        {% block app-subscriptions-item %}
+                        {% include "../lists/subscription.html" %}
+                        {% endblock %}
+                    </template>
+                    <template v-slot:bottom="{pagination,fetchNext}">
+                        {% block app-subscriptions-pagination %}
+                        <div class="has-text-centered" v-if="pagination.next">
+                            <button class="button has-icons is-link is-light" @click="fetchNext()">
+                                <span class="icon is-small">
+                                    <i class="mdi mdi-plus"></i>
+                                </span>
+                                <span>{% trans "More Subscriptions" %}</span>
+                            </button>
+                        </div>
+                        {% endblock %}
+                    </template>
+                </p-list>
+            </template>
+        </p-deck>
+        {% endblock %}
+    </template>
+</p-context>
+

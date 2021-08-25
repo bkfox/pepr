@@ -36,15 +36,26 @@ export default {
 
 /**
  * Create application setting up plugins etc.
+ *
+ * @return Promise resolving to app.
+ *
+ *  @param {Object}         app                 Vue application config
+ *  @param {String}         config.baseURL      Root URL of api endpoints
+ *  @param {Array[Model]}   config.models       ORM models to declare on the application
+ *  @param {Object}         config.storeConfig  Vuex store's config
+ *  @param {Array[Promise]} config.tasks        Asynchronous tasks to run before application
+ *                                              is ready
  */
-export function createApp(app, {baseURL='/api', models=null, storeConfig={}}={}) {
+export function createApp(app, {baseURL='/api', models=null, storeConfig={}, tasks=[]}={}) {
     app = vCreateApp(app)
     if(models !== null) {
         app.use(modelsPlugin, {baseURL, models, storeConfig})
-        app.use(initModelsPlugin, {models})
+        app.use(initModelsPlugin, {models, tasks})
     }
-    return app
+
+    return Promise.all(tasks).then(() => app)
 }
+
 
 /**
  * Load data from JSON <script> element, matching provided querySelector.

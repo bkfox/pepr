@@ -7,7 +7,7 @@ from django.urls import resolve, reverse
 
 from .. import models
 from ..settings import settings
-from . import generic
+from . import generics
 
 __all__ = ('ConstsView', 'ContextServiceView',)
 
@@ -33,15 +33,16 @@ class BaseContextHomeView(views.View):
         kwargs = dict(match.kwargs)
         # service is fetched again in order to ensure having its real
         # subtype.
-        kwargs.update({ 'context': self.context, 'service_pk': service.pk })
+        # We can't directly pass context and service, because their
+        # subclasses might be used.
+        kwargs['context'] = None
+        kwargs.update({ 'service_pk': service.pk })
         return match.func(request, *args, **kwargs)
 
 
-class ContextHomeView(generic.ServiceMixin, generic.ApplicationMixin, BaseContextHomeView):
+class ContextHomeView(generics.ServiceMixin, generics.ApplicationMixin, BaseContextHomeView):
     """
     Display a context's service based on its pk or slug, handles calling
     the correct view.
     """
-
-
 

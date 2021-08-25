@@ -1,6 +1,6 @@
 <template>
-    <slot v-if="context" :context="context" :role="role" :roles="roles"
-        :subscription="subscription"></slot>
+    <slot v-if="context" :context="context" :role="context.role" :roles="context.roles"
+        :subscription="context.subscription"></slot>
 </template>
 <script>
 import { ref, toRefs, watch } from 'vue'

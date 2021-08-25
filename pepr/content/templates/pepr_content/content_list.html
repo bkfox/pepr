@@ -6,23 +6,29 @@
 <script src="{% static "pepr/content.js" %}"></script>
 {% endblock %}
 
-{% block init-script %}
-{{ block.super }}
-var app = pepr.content.createApp({
-    baseURL: "{% url "api-base-url" %}",
-})
-var vm = app.mount('#app')
+{% block init-script %}{{ block.super }}
+    pepr.content.createApp({
+        baseURL: "{% url "api-base-url" %}",
+    }).then(app => app.mount('#app'))
 {% endblock %}
 
 {% block service %}
+<header class="app-header header p-4">
+    {% block app-header %}
+    <h1 class="title">{% block title %}{{ context.title }}{% endblock %}</h1>
+    <h2 class="subtitle">{% block subtitle %}{{ context.headline|default:'' }}{% endblock %}</h2>
+    {% endblock app-header %}
+</header>
+
 <p-content-form constructor="content" v-if="role"></p-content-form>
-<p-list entity="content"
-        :filters="{ context_id: '{{ context.pk }}'}"
+<p-list entity="content" :filters="{ context_id: '{{ context.pk }}'}"
         url="{% url "api:content-list" %}">
     <template v-slot:item="{index,item}">
+        {% block list-item %}
         <p-content :id="item.pk" :item="item"></p-content>
+        {% endblock %}
     </template>
-</p-content-list>
+</p-list>
 {% endblock %}
 
 

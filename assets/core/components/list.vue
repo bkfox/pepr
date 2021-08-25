@@ -12,7 +12,7 @@
     </template>
 </template>
 <script>
-import { toRefs, watch } from 'vue'
+import { onMounted, toRefs, watch } from 'vue'
 import * as composables from '../composables'
 
 export default {
@@ -30,13 +30,10 @@ export default {
         let fetchComp = composables.fetchList(listComp)
 
         watch(propsRefs.url, (url) => props.fetchAuto && fetchComp.fetch({url}))
-        watch(propsRefs.filters, (filters) => props.fetchAuto && fetchComp.fetch({filters}))
-        return {...listComp, ...fetchComp}
-    },
-
-    mounted() {
-        if(this.fetchAuto && (this.url || this.model))
-            this.fetch()
+        watch(propsRefs.filters, (filters) => props.fetchAuto && filters != propsRefs.filters.value
+                                                && fetchComp.fetch({filters}))
+        onMounted(() => props.fetchAuto && !listComp.list.value.length && fetchComp.fetch())
+        return {...modelComp, ...listComp, ...fetchComp}
     },
 }
 </script>

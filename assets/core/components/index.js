@@ -7,13 +7,14 @@ import PModal from './modal'
 import PNav from './nav'
 import PNavItem from './navItem'
 import PRuntimeTemplate from './runtimeTemplate'
+import PTab from './tab'
+import PTabs from './tabs'
 
 import PContext from './context'
 import PSelectRole from './selectRole'
 import PSubscription from './subscription'
 import PSubscriptionButton from './subscriptionButton'
 import PSubscriptionForm from './subscriptionForm'
-import PSubscriptionList from './subscriptionList'
 
 export function copyProps(source, override) {
     const props = {}
@@ -32,7 +33,8 @@ export function copyProps(source, override) {
 export {
     PField, PFieldRow, PForm, PDeck,
     PList, PModal, PNav, PNavItem, PRuntimeTemplate,
+    PTab, PTabs,
 
     PContext, PSelectRole,
-    PSubscription, PSubscriptionButton, PSubscriptionForm, PSubscriptionList
+    PSubscription, PSubscriptionButton, PSubscriptionForm
 }

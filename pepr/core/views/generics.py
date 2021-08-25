@@ -1,20 +1,17 @@
 """ Generic views and mixins. """
-from django.urls import reverse
 from django.http import Http404
 from django.views.generic import DetailView, ListView
 
 from rest_framework import exceptions
 
-from .. import models
+from .. import models, serializers
 from ..permissions import CanAccess, CanCreate, CanUpdate, CanDestroy
-from ..settings import settings
-from ..roles import display_roles
 
 
 __all__ = ('ApplicationMixin', 'PermissionMixin',
     'AccessibleMixin', 'AccessibleListView', 'AccessibleDetailView',
     'ContextMixin', 'ContextListView', 'ContextDetailView',
-    'BaseServiceMixin', 'ServiceMixin')
+    'ServiceMixin')
 
 
 class ApplicationMixin:
@@ -31,31 +28,21 @@ class ApplicationMixin:
     template_embed = 'pepr_core/base_embed.html'
     """ Extend view's template from it when embed. """
 
-    def get_app_props(self, **kwargs):
-        """ Return dict of data to pass to client application. """
-        if 'baseURL' not in kwargs:
-            kwargs['baseURL'] = reverse('api-base-url')
-        kwargs.setdefault('roles', display_roles())
+    def get_app_store(self, store):
+        site_role = getattr(self.request, 'role', None)
+        if site_role:
+            from ..serializers import ContextSerializer, SubscriptionSerializer
+            store += [
+                ('context', ContextSerializer(
+                    site_role.context, identity=site_role.identity).data),
+            ]
 
-        return self.get_perms_app_props(**kwargs) \
-                if isinstance(self, PermissionMixin) else kwargs
-
-    def get_perms_app_props(self, **kwargs):
-        """
-        Return application properties for PermissionMixin subclasses.
-        """
-        from ..serializers import ContextSerializer, SubscriptionSerializer
-        kwargs.setdefault('contextId', self.role.context.pk)
-        store = kwargs.setdefault('store', {})
-        if self.role.context:
-            ser = ContextSerializer(self.role.context,
-                    identity=self.request.identity)
-            store.setdefault('context', []).append(ser.data)
-        if self.role.subscription:
-            ser = SubscriptionSerializer(self.role.subscription,
-                    identity=self.request.identity)
-            store.setdefault('subscription', []).append(ser.data)
-        return kwargs
+            if site_role.subscription:
+                store += [
+                    ('subscription', SubscriptionSerializer(
+                        site_role.subscription, identity=site_role.identity).data),
+                ]
+        return store
 
     def get_context_data(self, **kwargs):
         if not kwargs.get('template_base'):
@@ -63,8 +50,7 @@ class ApplicationMixin:
                 kwargs['template_base'] = self.template_embed
             else:
                 kwargs['template_base'] = self.template_base
-        if not kwargs.get('app_props'):
-            kwargs['app_props'] = self.get_app_props()
+        kwargs['app_store'] = self.get_app_store([])
         return super().get_context_data(**kwargs)
 
 
@@ -95,9 +81,8 @@ class PermissionMixin:
     ``viewset.action``).
     """
     context_model = models.Context
-    """
-    Model used as context
-    """
+    """ Model used as context """
+    context_serializer = serializers.ContextSerializer
     role = None
     """ Current user role on current context. """
 
@@ -114,13 +99,6 @@ class PermissionMixin:
                 action, permission_classes
             )
         return [perm() for perm in permission_classes]
-
-    @classmethod
-    def get_api_actions(cls, role, obj=None):
-        """ Return a list of api actions key allowed for this role. """
-        actions = getattr(cls, 'action_permissions', {}).keys()
-        return [a for a in actions if cls.can(role, a)] if obj is None else \
-            [a for a in actions if cls.can_obj(role, obj, a)]
 
     # TODO: action mandatory, but can be None (as first argument?)
     #       => ensure identity does not have it to 'None' by mistake
@@ -177,12 +155,11 @@ class PermissionMixin:
         """ Ensure 'role' and 'roles' are in resulting context """
         kwargs.setdefault('role', self.role)
         kwargs.setdefault('context', self.role.context)
-        kwargs.setdefault('roles', settings.roles )
         kwargs.setdefault('site_role', self.request.role)
         return super().get_context_data(**kwargs)
 
     def dispatch(self, request, *args, context=None, context_pk=None, **kwargs):
-        if context is None:
+        if not isinstance(context, self.get_context_model()):
             context = self.get_context(request.identity, context_pk) \
                         if context_pk else None
         if context:

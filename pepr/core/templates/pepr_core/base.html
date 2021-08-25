@@ -82,37 +82,30 @@
 
         <main id="app">
         {% block app %}
-            <header class="app-header header">
-                <div class="columns">
-                    <div class="column"></div>
-                    <div class="column is-three-quarters">
-                        {% block app-header %}
-                        <h1 class="title">{% block title %}{{ context.title }}{% endblock %}</h1>
-                        {% endblock app-header %}
-                        {% block app-actions %}{% endblock %}
-                    </div>
-                    <div class="column"></div>
-                </div>
-            </header>
-            {% block app-container %}
-            <div class="columns">
-                <div class="column app-menu">
-                    <p-nav ref="appNav" class="menu" @select='$refs.appDeck.select($event)'>
+        <div class="columns">
+            <div class="column pt-0 is-one-fifth app-menu">
+                <p-nav ref="appNav" class="menu" @select='$refs.appDeck.select($event)'>
+                    <ul class="menu">
+                        <li class="menu-item p-2 is-size-7">
+                            {% block app-menu-actions %}{% endblock %}
+                        </li>
+                        <li class="menu-label title is-5">
+                            {% block app-menu-title %}{{ context.title }}{% endblock %}
+                        </li>
                         {% block app-menu %}{% endblock %}
-                    </p-nav>
-                </div>
-                <div class="column is-three-quarters app-body">
-                    {% block app-body %}
-                    <div class="box">
-                        <p-deck ref="appDeck" @select='$refs.appNav.select($event)'>
-                            {% block app-deck %}{% endblock %}
-                        </p-deck>
-                    </div>
-                    {% endblock %}
-                </div>
-                <div class="column"></div>
+                    </ul>
+                </p-nav>
             </div>
-            {% endblock %}
+            <div class="column pt-0 app-body">
+                {% block app-body %}
+                <div class="p-4">
+                    <p-deck ref="appDeck" @select='$refs.appNav.select($event)'>
+                        {% block app-deck %}{% endblock %}
+                    </p-deck>
+                </div>
+                {% endblock %}
+            </div>
+        </div>
         {% endblock %}
         </main>
     </body>

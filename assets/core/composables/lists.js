@@ -27,6 +27,7 @@ export class Filter {
 
         this.path = path
         this.pred = filters[last]
+        this.key = key
         this.value = value
     }
 
@@ -69,15 +70,16 @@ export class Filters {
             [this.all, this._length] = [{}, 0]
 
         if(filters)
-            for(let [key, filter] of Object.entries(filters))
-                this.all[key] = new Filter(key, filter)
+            for(let [key, value] of Object.entries(filters))
+                if(!this.all[key] || this.all[key].value != value)
+                    this.all[key] = new Filter(key, value)
 
         this._length = filters ? Object.keys(filters).length : 0
     }
 
     setValues(values) {
         for(let [key, value] of Object.entries(values))
-            if(this.all[key])
+            if(this.all[key] && this.all[key] != value)
                 this.all[key].value = value
     }
 }

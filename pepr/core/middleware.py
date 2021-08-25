@@ -38,13 +38,6 @@ class IdentityMiddleware:
 
         request.identity, request.identities = identity, identities
 
-    def create_site_context(self, site, save=True, **kwargs):
-        """ Create context for request's site. """
-        context = SiteContext(site=site, **kwargs)
-        if save:
-            context.save()
-        return context
-
     def get_role(self, request):
         """ Get user's role for current site. """
         if not hasattr(request, 'site'):
@@ -55,4 +48,12 @@ class IdentityMiddleware:
         if context is None:
             context = self.create_site_context(request.site)
         request.role = context and context.get_role(request.identity)
+
+    def create_site_context(self, site, save=True, **kwargs):
+        """ Create context for request's site. """
+        context = SiteContext(site=site, **kwargs)
+        if save:
+            context.save()
+        return context
+
 

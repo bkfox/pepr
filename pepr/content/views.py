@@ -1,6 +1,6 @@
 from django.views.generic import DetailView
 
-from pepr.core.views.generic import AccessibleListView, ServiceMixin
+from pepr.core.views.generics import AccessibleListView, ServiceMixin
 from pepr.core.models import Subscription
 from pepr.core.serializers import ContextSerializer, SubscriptionSerializer
 

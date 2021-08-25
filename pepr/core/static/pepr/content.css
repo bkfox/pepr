@@ -10198,6 +10198,14 @@ a.has-text-danger-dark:hover, a.has-text-danger-dark:focus {
   padding: 3rem 1.5rem 6rem;
 }
 
+.float-right {
+  float: right;
+}
+
+.float-left {
+  float: left;
+}
+
 html {
   height: 100%;
   background-color: #f0f0f0;
@@ -10208,12 +10216,12 @@ body {
   background-color: #f0f0f0;
 }
 
-.float-right {
-  float: right;
+#app {
+  height: calc(100% - 3.25rem);
 }
 
-.float-left {
-  float: left;
+#app > .columns, #app > .columns > .column {
+  height: 100%;
 }
 
 .navbar {
@@ -10225,6 +10233,11 @@ body {
 }
 
 .app-menu {
-  float: left;
   padding: 1.25rem;
+  background-color: #fafafa;
+  border-right: 1px #ededed solid;
+}
+
+.app-body {
+  background-color: #fefefe;
 }

@@ -204,6 +204,9 @@ export class Role {
         if(item && item instanceof Owned && this.identity == item.owner)
             return true
 
+        if(typeof permissions == 'string')
+            permissions = [permissions]
+
         for(var name of permissions)
             if(!this.permissions[name])
                 return false
@@ -232,10 +235,10 @@ export class Context extends Model {
 
     static fetchRoles() {
         if(this.roles !== undefined)
-            return this.roles
+            return new Promise(resolve => resolve(this.roles))
         const url = `${this.fullUrl}roles/`
-        fetch(url).then(r => r.json())
-                  .then(r => { this.roles = this._validate_roles(r) })
+        return fetch(url).then(r => r.json(), r => console.error(r))
+                         .then(r => { this.roles = this._validate_roles(r) })
     }
 
     static _validate_roles(value) {

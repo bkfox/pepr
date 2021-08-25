@@ -137,7 +137,7 @@ class Role:
             perm = perm.label
         if model:
             model = model if isinstance(model, str) else model._meta.db_table
-            return f'{perm}.{model}'
+            return f'{model}.{perm}'
         return perm
 
     def __init__(self, context, identity, subscription=None):

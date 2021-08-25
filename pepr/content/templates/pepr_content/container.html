@@ -1,10 +1,5 @@
 {% extends "pepr_core/context.html" %}
 
-{% block app-header %}
-    {{ block.super }}
-    <h2 class="subtitle">{% block subtitle %}{{ context.headline|default:'' }}{% endblock %}</h2>
-{% endblock %}
-
 {% block app-settings-form %}
 {% include "./forms/container.html" %}
 {% endblock %}

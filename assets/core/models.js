@@ -204,6 +204,9 @@ export class Role {
         if(item && item instanceof Owned && this.identity == item.owner)
             return true
 
+        if(typeof permissions == 'string')
+            permissions = [permissions]
+
         for(var name of permissions)
             if(!this.permissions[name])
                 return false

@@ -1,7 +1,6 @@
-import { computed, provide, reactive, ref, watch } from 'vue'
-import { useStore } from 'vuex'
+import { computed, nextTick, onMounted, provide, reactive, ref, watch } from 'vue'
 
-import { submit, Model } from '../models'
+import { submit } from '../models'
 import { makeProps } from './utils'
 
 /**
@@ -100,9 +99,15 @@ form.props = makeProps({
  * Select item
  */
 export function singleSelect(props, emit) {
-    const selected = ref(props.default)
+    function getValue(value) {
+        return value === null || value === undefined ?
+            props.initial || 'default' : value
+    }
+
+    const selected = ref(getValue(props.initial))
+
     function select(value=null) {
-        value = value === null ? props.default : value
+        value = getValue(value)
         if(value != selected.value) {
             selected.value = value
             emit('select', selected.value)
@@ -112,4 +117,7 @@ export function singleSelect(props, emit) {
 }
 
 singleSelect.emits = ['select']
+singleSelect.props = makeProps({
+    initial: { type: String, default: 'default' },
+})
 

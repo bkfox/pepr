@@ -72,33 +72,7 @@
     </p-context>
 </template>
 <template #subscriptions>
-    <p-context context-id="{{ role.context.pk }}" context-entity="{{ role.context.basename }}">
-        <template v-slot:default="{context,role,roles,subscription}">
-            <button class="delete float-right" @click="$refs.appDeck.select()"></button>
-            <h2 class="title is-3">{% trans "Subscriptions" %}</h2>
-            {% block app-subscriptions %}
-            <p-list entity="subscription" :filters="{context_id: context.$id}">
-                <template v-slot:item="{item}">
-                    {% block app-subscriptions-item %}
-                    {% include "./lists/subscription.html" %}
-                    {% endblock %}
-                </template>
-                <template v-slot:bottom="{pagination,fetchNext}">
-                    {% block app-subscriptions-pagination %}
-                    <div class="has-text-centered" v-if="pagination.next">
-                        <button class="button has-icons is-link is-light" @click="fetchNext()">
-                            <span class="icon is-small">
-                                <i class="mdi mdi-plus"></i>
-                            </span>
-                            <span>{% trans "More Subscriptions" %}</span>
-                        </button>
-                    </div>
-                    {% endblock %}
-                </template>
-            </p-list>
-            {% endblock %}
-        </template>
-    </p-context>
+    {% include "./services/subscriptions.html" %}
 </template>
 {% endblock %}
 

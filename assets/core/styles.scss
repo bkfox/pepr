@@ -2,6 +2,10 @@
 @import "~@mdi/font/css/materialdesignicons.css";
 @import "~bulma";
 
+.float-right { float: right; }
+.float-left { float: left; }
+
+
 html {
     height: 100%;
     background-color: #f0f0f0;
@@ -12,8 +16,13 @@ body {
     background-color: #f0f0f0;
 }
 
-.float-right { float: right; }
-.float-left { float: left; }
+#app {
+    height: calc(100% - #{$navbar-height})
+}
+
+#app > .columns, #app > .columns > .column {
+    height: 100%;
+}
 
 .navbar {
     margin-bottom: 1em;
@@ -24,8 +33,13 @@ body {
 }
 
 .app-menu {
-    float: left;
     padding: $box-padding;
+    background-color: #fafafa;
+    border-right: 1px $grey-lightest solid;
+}
+
+.app-body {
+    background-color: #fefefe;
 }
 
 

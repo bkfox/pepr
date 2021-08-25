@@ -88,8 +88,8 @@ useContext.props = makeProps({
  * Use context by id.
  */
 export function useContextById({contextId: id, contextEntity: entity, fetch=false}) {
-    const { object: context } = fetch ? getOrFetch(id, entity) : getObject(id, entity)
-    return useContext(context)
+    const { object: context, ...comp } = fetch ? getOrFetch(id, entity) : getObject(id, entity)
+    return { ...comp, ...useContext(context) }
 }
 
 useContextById.props = makeProps({

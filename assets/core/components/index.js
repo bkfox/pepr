@@ -7,6 +7,8 @@ import PModal from './modal'
 import PNav from './nav'
 import PNavItem from './navItem'
 import PRuntimeTemplate from './runtimeTemplate'
+import PTab from './tab'
+import PTabs from './tabs'
 
 import PContext from './context'
 import PSelectRole from './selectRole'
@@ -31,6 +33,7 @@ export function copyProps(source, override) {
 export {
     PField, PFieldRow, PForm, PDeck,
     PList, PModal, PNav, PNavItem, PRuntimeTemplate,
+    PTab, PTabs,
 
     PContext, PSelectRole,
     PSubscription, PSubscriptionButton, PSubscriptionForm

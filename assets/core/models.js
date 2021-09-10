@@ -1,44 +1,7 @@
 import Cookies from 'js-cookie'
 
 import * as orm from '@vuex-orm/core'
-
-
-export function getSubmitConfig({url=null, data={}, form=null, ...config}) {
-    url = url || form && form.getAttribute('action')
-
-    if(!Object.keys(data).length)
-        data = new FormData(form)
-    else if(!(data instanceof FormData)) {
-        const formData = new FormData()
-        for(let key in data)
-            formData.append(key, data[key])
-        data = formData
-    }
-
-    config.method = config.method || form.getAttribute('method') || 'POST'
-    config.headers = {...(config.headers || {}),
-        'Content-Type': 'multipart/form-data',
-        'X-CSRFToken': Cookies.get('csrftoken'),
-    }
-    return {...config, url, body: data}
-}
-
-
-
-/**
- * Submit data to server.
- */
-export function submit({bodyType='json', ...config}) {
-    const { url, ...config_ } = getSubmitConfig(config)
-    return fetch(url, config_).then(
-        r => r[bodyType]().then(d => {
-            d = { status: r.status, data: d, response: r }
-            if(400 <= d.status)
-                throw(d)
-            return d
-        })
-    )
-}
+import {submit, getSubmitConfig} from './api'
 
 
 /**
@@ -58,13 +21,32 @@ export function importDatabase(store, data) {
  * Base model class
  */
 export class Model extends orm.Model {
-    /**
-     * Default model's api entry point
-     */
-    static get url() { return '' }
-    static get fullUrl() { return `${this.store().baseURL}${this.url}`.replace('//','/') }
+	/**
+	 * Django AppConfig's application label.
+	 */
+    static get appLabel() { return 'pepr_core' }
 
-    static get primaryKey() { return 'pk' }
+	/**
+	 * Model's label (equivalent to Django's `model._meta.label_lower`).
+	 */
+    static get label() { return this.appLabel + '.' + this.entity }
+
+    /**
+     * Default model's api entry point.
+     * Defaults to `/app/label/entity/` (for `appLabel=app_label`)
+     */
+    static get url() {
+        return `/${this.appLabel.replace('_','/')}/${this.entity}/`
+    }
+
+    /**
+     * Real url of API's entry point (including store's baseURL).
+     */
+    static get fullUrl() {
+        return `${this.store().baseURL}${this.url}`.replace('//','/')
+    }
+
+	static get primaryKey() { return 'pk' }
     static get apiConfig() {
         return {
             headers: { 'X-CSRFToken': Cookies.get('csrftoken') },
@@ -79,20 +61,24 @@ export class Model extends orm.Model {
     }
 
     /**
-     * Item's url (PUT or POST url)
+     * Item's url (PUT or POST url).
      */
     get $url() {
         return this.$id ? `${this.constructor.url}${this.$id}/`
                         :  this.constructor.url;
     }
 
+	/**
+	 * Item's real url (including store's baseURL).
+	 */
     get $fullUrl() {
         const url = this.$store.baseURL;
         return url ? `${url}/${this.$url}` : this.$url
     }
 
     /**
-     * Return other model in the same database.
+     * Return model in the same database by name or class.
+	 * @param model [Model|String]
      */
     $model(model) {
         model = model.prototype instanceof Model ? model.entity : model
@@ -166,6 +152,23 @@ export class Model extends orm.Model {
     }
 }
 
+export class BaseAccessible extends Model {
+	static get actions() {
+		return [
+			new Action('delete', 'Delete',
+					   (item) => confirm('Delete?') && item.delete({delete:1}),
+					   {icon: 'mdi mdi-delete'}),
+		]
+	}
+
+	/**
+	 * Available actions on this object
+	 */
+	getActions(role) {
+		return this.constructor.actions.filter(a => a.isGranted(role, this))
+	}
+}
+
 
 export class Role {
     /* static fields() {
@@ -217,7 +220,6 @@ export class Role {
 
 export class Context extends Model {
     static get entity() { return 'context' }
-    static get url() { return '/pepr/core/context/' }
 
     static fields() {
         return { ...super.fields(),
@@ -334,7 +336,6 @@ export class Owned extends Accessible {
 
 export class Subscription extends Owned {
     static get entity() { return 'subscription' }
-    static get url() { return '/pepr/core/subscription/' }
 
     static fields() {
         return { ...super.fields(),

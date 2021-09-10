@@ -136,7 +136,8 @@ class Role:
         if hasattr(perm, 'label'):
             perm = perm.label
         if model:
-            model = model if isinstance(model, str) else model._meta.db_table
+            model = model if isinstance(model, str) else \
+                model._meta.label_lower
             return f'{model}.{perm}'
         return perm
 

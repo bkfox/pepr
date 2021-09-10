@@ -1,4 +1,4 @@
-import { computed, reactive, watch } from 'vue'
+import { computed, onMounted, reactive, watch } from 'vue'
 
 import { makeProps } from './utils'
 
@@ -66,21 +66,24 @@ export class Filters {
     }
 
     set(filters, reset=false) {
+        if(filters == this)
+            return
+
         if(!this.all || reset)
             [this.all, this._length] = [{}, 0]
 
-        if(filters)
-            for(let [key, value] of Object.entries(filters))
-                if(!this.all[key] || this.all[key].value != value)
+        if(filters) {
+            const it = filters instanceof Filters ? Object.entries(filters.all)
+                                                  : Object.entries(filters);
+
+            for(let [key, value] of it)
+                if(!this.all[key])
                     this.all[key] = new Filter(key, value)
+                else if(this.all[key].value != value)
+                    this.all[key].value = value
+        }
 
-        this._length = filters ? Object.keys(filters).length : 0
-    }
-
-    setValues(values) {
-        for(let [key, value] of Object.entries(values))
-            if(this.all[key] && this.all[key] != value)
-                this.all[key].value = value
+        this._length = filters ? Object.keys(self.all).length : 0
     }
 }
 
@@ -118,22 +121,21 @@ getList.props = makeProps({
 })
 
 
-export function fetchList({model, listFilters, url=null}) {
+export function fetchList({model, fetchAuto, list, listFilters, url=null}) {
     const pagination = reactive({
         count: null, next: null, prev:null
     })
 
-    function fetch({filters=null, ...config}={}) {
+    function fetch({filters=null, resetFilters=true, ...config}={}) {
         if(!config.url && url && url.value)
             config.url = url.value
 
         config.urlParams = new URLSearchParams(config.url ? (new URL(config.url)).search
                                                           : undefined)
-        if(listFilters.length) {
-            if(filters)
-                listFilters.setValues(filters)
-            listFilters.urlParams(config.urlParams)
-        }
+        if(filters)
+            listFilters.set(filters, resetFilters)
+        if(listFilters.length)
+            config.urlParams = listFilters.urlParams(config.urlParams)
 
         return model.value.fetch({ ...config }).then(r => {
             const data = r.response.data
@@ -154,10 +156,16 @@ export function fetchList({model, listFilters, url=null}) {
                                : new Promise((resolve) => resolve(null))
     }
 
+    if(fetchAuto) {
+        watch(url, (url) => fetchAuto.value && fetch({url}))
+        onMounted(() => fetchAuto.value && !list.value.length && fetch())
+    }
+
     return { url, pagination, fetch, fetchNext, fetchPrev }
 }
 
 fetchList.props = makeProps({
     url: { type: String, default: null },
+    fetchAuto: { type: Boolean, default: false }
 })
 

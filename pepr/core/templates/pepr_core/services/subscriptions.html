@@ -5,16 +5,20 @@
         <button class="delete float-right" @click="$refs.appDeck.select()"></button>
         <h2 class="title is-3">{% trans "Subscriptions" %}</h2>
         {% block app-subscriptions %}
-        <p-tabs class="tabs" ref="subscriptionsNav" @select="$refs.subscriptionsDeck.select($event)">
-            <p-tab class="tab" target="default" icon="mdi mdi-account-multiple">
+        <p-tabs class="tabs" ref="subscriptionsNav"
+                @select="$refs.subscriptionsDeck.select($event.target)">
+            <p-tab class="tab" target="default" icon="mdi mdi-account-multiple"
+                    :value="{{ Subscription.STATUS_SUBSCRIBED }}">
                 {% trans "Subscriptions" %}
             </p-tab>
-            <p-tab class="tab" target="requests" icon="mdi mdi-account-question"
-                  v-if="role && role.isGranted('pepr_core_subscription.accept_subscription')">
+            <p-tab class="tab" target="default" icon="mdi mdi-account-question"
+                    :value="{{ Subscription.STATUS_REQUEST }}"
+                    v-if="role && role.isGranted('pepr_core_subscription.accept_subscription')">
                 {% trans "Requests" %}
             </p-tab>
-            <p-tab class="tab" target="invites" icon="mdi mdi-account-plus"
-                        v-if="role && role.isGranted('pepr_core_subscription.subscribe')">
+            <p-tab class="tab" target="default" icon="mdi mdi-account-plus"
+                    :value="{{ Subscription.STATUS_INVITE }}"
+                    v-if="role && role.isGranted('pepr_core_subscription.subscribe')">
                 {% trans "Invites" %}
             </p-tab>
             <p-tab class="tab" target="subscription" icon="mdi mdi-account">

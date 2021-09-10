@@ -1,6 +1,6 @@
 import { computed, nextTick, onMounted, provide, reactive, ref, watch } from 'vue'
 
-import { submit } from '../models'
+import { submit } from '../api'
 import { makeProps } from './utils'
 
 /**

@@ -1,14 +1,28 @@
 
+/**
+ * Action available to user (checking on its permissions).
+ *
+ *
+ * Use `name` as permission name when `permissions` is not provided.
+ * Provided permissions' name exclude model's label prefix, as it is
+ * provided by item at the permission check (this allows reuse of
+ * actions instance accross models).
+ */
 export default class Action {
-    constructor(name, permissions, exec=null) {
+    constructor(name, label, exec=null, {icon='', permissions=null, raw=false, ...extra}={}) {
         this.name = name
-        this.permissions = Array.isArray(permissions) ? permissions : [permissions]
-        if(exec)
-            this.exec = exec
+        this.label = label
+        this.permissions = Array.isArray(permissions) ? permissions : [permissions || name]
+        this.exec = exec
+        this.icon = icon
+    	this.extra = extra
     }
 
     isGranted(role, item) {
-        return role.isGranted(this.permissions, item)
+        const label = item && item.constructor.label
+		permissions = label && !this.raw ? this.permissions.map(x => `${label}.${x}`)
+                               	       	 : this.permissions
+        return role.isGranted(permissions, item)
     }
 
     trigger(context, item, ...args) {

@@ -3,7 +3,7 @@ import * as models from 'pepr/core/models'
 
 export class Container extends models.Context {
     static get entity() { return 'container' }
-    static get url() { return '/pepr/content/container/' }
+    static get appLabel() { return 'pepr_content' }
 
     static fields() {
         return { ...super.fields(),
@@ -16,8 +16,8 @@ export class Container extends models.Context {
 
 export class Content extends models.Owned {
     static get entity() { return 'content' }
+    static get appLabel() { return 'pepr_content' }
     static get contextEntity() { return 'container' }
-    static get url() { return '/pepr/content/content/' }
 
     static fields() {
         return { ...super.fields(),

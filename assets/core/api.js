@@ -38,13 +38,13 @@ export function submit({bodyType='json', ...config}) {
 
 
 class ApiPool {
-	constructor() {
-		this.pool = {}
-	}
+    constructor() {
+        this.pool = {}
+    }
 
-	onResponse(response, key=null) {
-		if(key)
-			delete this.pool[key];
+    onResponse(response, key=null) {
+        if(key)
+            delete this.pool[key];
 
         return response.json().then(data => {
             data = { status: response.status, data, response }
@@ -52,44 +52,44 @@ class ApiPool {
                 throw(d)
             return data
         })
-	}
+    }
 
-	fetch(url, config, pool=false) {
-		const key = pool ? url : null;
-		if(!key || !this.pool[key]) {
-			const fut = fetch(url, config)
-			fut.then(r => this.onResponse(r, key))
-			if(key)
-    			this.pool[key] = fut
-			return [fut, true]
-		}
-		return [this.pool[key], false]
-	}
+    fetch(url, config, pool=false) {
+        const key = pool ? url : null;
+        if(!key || !this.pool[key]) {
+            const fut = fetch(url, config)
+            fut.then(r => this.onResponse(r, key))
+            if(key)
+                this.pool[key] = fut
+            return [fut, true]
+        }
+        return [this.pool[key], false]
+    }
 }
 
 class Api {
-	constructor(model) {
-		this.model = model;
-	}
+    constructor(model) {
+        this.model = model;
+    }
 
-	get store() {
-		return this.model.store()
-	}
+    get store() {
+        return this.model.store()
+    }
 
-	get pool() {
-		if(!this.store.apiPool)
-			this.store.apiPool = new ApiPool()
-		return this.store.apiPool
-	}
+    get pool() {
+        if(!this.store.apiPool)
+            this.store.apiPool = new ApiPool()
+        return this.store.apiPool
+    }
 
     normConfig(url, {data={}, form=null, ...config}) {
         // TODO:
         // - multipart only on POST/PUT
         // - body vs data
         if(url && this.store.baseURL)
-        	url = `${this.store.baseURL}${url}`
+            url = `${this.store.baseURL}${url}`
         else if(!url && form)
-        	url = form.getAttribute('action')
+            url = form.getAttribute('action')
 
         if(!Object.keys(data).length)
             data = form ? new FormData(form) : config.body
@@ -102,45 +102,44 @@ class Api {
 
         config.method = config.method || form.getAttribute('method') || 'POST'
         config.headers = {...(config.headers || {}),
-        	'Accept': 'text/json',
+            'Accept': 'text/json',
             'Content-Type': 'multipart/form-data',
             'X-CSRFToken': Cookies.get('csrftoken'),
         }
         return {...config, url, body: data}
     }
 
-	// TODO: handle delete
+    // TODO: handle delete
     fetch(url, {pool=false, commit=false, ...config}={}) {
         ({url, ...config} = this.normConfig(config))
-		const [fut, created] = this.pool.fetch(url, config, pool)
-		if(created && commit)
-			fut.then(({ data, status }) => {
-    			if(200 <= status <= 400)
-    				this.model.insertOrUpdate({data})
-			})
-		return fut
+        const [fut, created] = this.pool.fetch(url, config, pool)
+        if(created && commit)
+            fut.then(({ data, status }) => {
+                if(200 <= status <= 400)
+                    this.model.insertOrUpdate({data})
+            })
+        return fut
     }
 
     get(url, config) {
-		return this.fetch(url, {method: 'GET', pool: true, commit: true, ...config})
+        return this.fetch(url, {method: 'GET', pool: true, commit: true, ...config})
     }
 
     head(url, config) {
-		return this.fetch(url, {method: 'HEAD', pool: true, ...config})
+        return this.fetch(url, {method: 'HEAD', pool: true, ...config})
     }
 
     post(url, config) {
-		return this.fetch(url, {method: 'POST', commit: true, ...config})
+        return this.fetch(url, {method: 'POST', commit: true, ...config})
     }
 
     put(url, config) {
-		return this.fetch(url, {method: 'PUT', commit: true, ...config})
+        return this.fetch(url, {method: 'PUT', commit: true, ...config})
     }
 
     delete(url, config) {
-		return this.fetch(url, {method: 'DELETE', ...config})
+        return this.fetch(url, {method: 'DELETE', ...config})
     }
-
 }
 
 

@@ -15,13 +15,13 @@ export default class Action {
         this.permissions = Array.isArray(permissions) ? permissions : [permissions || name]
         this.exec = exec
         this.icon = icon
-    	this.extra = extra
+        this.extra = extra
     }
 
     isGranted(role, item) {
         const label = item && item.constructor.label
-		permissions = label && !this.raw ? this.permissions.map(x => `${label}.${x}`)
-                               	       	 : this.permissions
+        permissions = label && !this.raw ? this.permissions.map(x => `${label}.${x}`)
+                                         : this.permissions
         return role.isGranted(permissions, item)
     }
 

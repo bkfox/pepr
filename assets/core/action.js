@@ -20,8 +20,8 @@ export default class Action {
 
     isGranted(role, item) {
         const label = item && item.constructor.label
-        permissions = label && !this.raw ? this.permissions.map(x => `${label}.${x}`)
-                                         : this.permissions
+        const permissions = label && !this.raw ? this.permissions.map(x => `${label}.${x}`)
+                                               : this.permissions
         return role.isGranted(permissions, item)
     }
 

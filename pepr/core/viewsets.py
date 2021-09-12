@@ -66,6 +66,11 @@ class AccessibleViewSet(generics.AccessibleMixin, BaseViewSet):
     filterset_fields = ('context', 'access')
     serializer_class = AccessibleSerializer
 
+    def dispatch(self, *args, **kwargs):
+        r = super().dispatch(*args, **kwargs)
+        print(">>", r)
+        return r
+
     def get_serializer(self, *args, **kwargs):
         kwargs.setdefault('identity', self.request.identity)
         return super().get_serializer(*args, **kwargs)

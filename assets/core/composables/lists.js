@@ -83,7 +83,7 @@ export class Filters {
                     this.all[key].value = value
         }
 
-        this._length = filters ? Object.keys(self.all).length : 0
+        this._length = filters ? Object.keys(this.all).length : 0
     }
 }
 
@@ -130,18 +130,18 @@ export function fetchList({model, fetchAuto, list, listFilters, url=null}) {
         if(!config.url && url && url.value)
             config.url = url.value
 
-        config.urlParams = new URLSearchParams(config.url ? (new URL(config.url)).search
-                                                          : undefined)
+        const search = config.url ? config.url.split('?', 2)[1] : undefined
+        config.urlParams = new URLSearchParams(search)
+
         if(filters)
             listFilters.set(filters, resetFilters)
         if(listFilters.length)
-            config.urlParams = listFilters.urlParams(config.urlParams)
+            config.params = listFilters.urlParams(config.urlParams)
 
         return model.value.fetch({ ...config }).then(r => {
-            const data = r.response.data
-            pagination.count = data.count
-            pagination.next = data.next
-            pagination.prev = data.prev
+            pagination.count = r.data.count
+            pagination.next = r.data.next
+            pagination.prev = r.data.prev
             return r
         })
     }

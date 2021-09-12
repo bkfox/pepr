@@ -1,6 +1,6 @@
 import { computed, nextTick, onMounted, provide, reactive, ref, watch } from 'vue'
 
-import { submit } from '../api'
+import Api from '../api'
 import { makeProps } from './utils'
 
 /**
@@ -59,10 +59,9 @@ export function form({initial: initial_, defaults = null,
         }
 
         form = form || ev.target
-        const [url, method] = [form.action, form.getAttribute('method')]
         const res = (commit.value && model && model.value) ?
-            data.save({form, url, method, ...submitConfig}) :
-            submit({form, url, method, ...submitConfig})
+            data.save({form, ...submitConfig}) :
+            new Api(null, {store: useStore()}).fetch({form, ...submitConfig})
 
         return res.then(r => {
             if(200 <= r.status < 300) {

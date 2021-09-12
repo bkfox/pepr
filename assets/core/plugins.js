@@ -6,7 +6,19 @@ import VuexORM from '@vuex-orm/core'
 import VuexORMAxios from '@vuex-orm/plugin-axios'
 
 import { Context } from './models'
+import Api from './api'
 
+
+/**
+ * VuexORM plugin to add api related methods (using 'api.Api'
+ */
+export const apiPlugin = {
+    install(components, options) {
+        components.Model.api = function() {
+            return new Api(this, options)
+        }
+    }
+}
 
 /**
  * Create Vuex ORM database using provided models. Add model getters to
@@ -14,7 +26,7 @@ import { Context } from './models'
  */
 export const modelsPlugin = {
     install(app, {models={}, baseURL='', storeConfig={}}={}) {
-        VuexORM.use(VuexORMAxios, { axios, baseURL })
+        VuexORM.use(apiPlugin, { baseURL })
 
         // store
         const database = new VuexORM.Database()

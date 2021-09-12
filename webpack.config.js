@@ -78,13 +78,7 @@ module.exports = (env, argv) => Object({
             },
             {
                 test: /\.(ttf|eot|svg|woff2?)$/,
-                use: [{
-                    loader: 'file-loader',
-                    options: {
-                        name: '[name].[ext]',
-                        outputPath: 'fonts/',
-                    }
-                }],
+                type: 'asset/resource',
             },
         ],
     },

@@ -28,7 +28,7 @@
         <p-deck ref="subscriptionsDeck" @select="$refs.subscriptionsNav.select($event)">
             <template #default>
                 <p-list entity="subscription" :filters="{context_id: context.$id, status: 3}"
-                        url="{% url "api:subscription-list" %}">
+                        url="{% url "api:subscription-list" %}" fetch-auto>
                     <template v-slot:item="{item}">
                         {% block app-subscriptions-item %}
                         {% include "../lists/subscription.html" %}

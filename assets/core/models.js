@@ -1,5 +1,3 @@
-import Cookies from 'js-cookie'
-
 import * as orm from '@vuex-orm/core'
 import {submit, getSubmitConfig} from './api'
 
@@ -21,7 +19,7 @@ export function importDatabase(store, data) {
  * Base model class
  */
 export class Model extends orm.Model {
-	/**
+    /**
 	 * Django AppConfig's application label.
 	 */
     static get appLabel() { return 'pepr_core' }
@@ -43,15 +41,16 @@ export class Model extends orm.Model {
      * Real url of API's entry point (including store's baseURL).
      */
     static get fullUrl() {
-        return `${this.store().baseURL}${this.url}`.replace('//','/')
+        const url = this.store().baseURL;
+        return (url ? `${url}${this.url}` : this.url).replace('//','/')
     }
 
 	static get primaryKey() { return 'pk' }
-    static get apiConfig() {
+	static get apiConfig() {
         return {
-            headers: { 'X-CSRFToken': Cookies.get('csrftoken') },
+            commit: true,
         }
-    }
+	}
 
     static fields() {
         return {
@@ -73,7 +72,7 @@ export class Model extends orm.Model {
 	 */
     get $fullUrl() {
         const url = this.$store.baseURL;
-        return url ? `${url}/${this.$url}` : this.$url
+        return (url ? `${url}${this.$url}` : this.$url).replace('//','/')
     }
 
     /**
@@ -90,11 +89,9 @@ export class Model extends orm.Model {
      */
     static fetch({id='', url=null, urlParams=null, ...config}={}) {
         if(!url)
-            url = id ? `${this.url}${id}/` : this.url
-        if(urlParams)
-            url = `${url}?${urlParams.toString()}`
+            url = id ? `${this.fullUrl}${id}/` : this.url
 
-        // django drf results
+        // django drf's results
         if(!id && config.dataKey === undefined)
             config.dataKey = 'results'
 
@@ -107,12 +104,7 @@ export class Model extends orm.Model {
     fetch(config) {
         if(!this.$id)
             throw "item is not on server"
-        return this.$id && this.constructor.api().get(this.$url, config)
-            .then(r => {
-                if(200 <= r < 400)
-                    this.constructor.insertOrUpdate({data: r.response.data})
-                return r
-            })
+        return this.$id && this.constructor.api().get(this.$fullUrl, config)
     }
 
     /**
@@ -129,21 +121,19 @@ export class Model extends orm.Model {
         }
         if(!config.method)
             config.method = self.$id ? 'PUT': 'POST'
-        config.url = this.$url
+        const url = config.form && config.form.getAttribute('action')
+       			? null : this.$fullUrl
 
-        let {body, method, url, ...config_} = getSubmitConfig(config)
-        method = method.toLowerCase()
-
-        return this.constructor.api()[method](url, body, config_)
+        const func = config.method.toLowerCase()
+        return this.constructor.api()[func](url, config)
     }
 
     /**
      * Delete item from server and return promise
      */
-    delete(config) {
-        config.delete = true
-        if(this.$url)
-            return this.constructor.api().delete(this.$url, config).then(r => {
+    delete(config={}) {
+        if(this.$fullUrl)
+            return this.constructor.api().delete(this.$fullUrl, config).then(r => {
                 this.constructor.delete(this.$id)
                 return r
             })

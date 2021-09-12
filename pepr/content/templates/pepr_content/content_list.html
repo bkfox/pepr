@@ -22,7 +22,7 @@
 
 <p-content-form constructor="content" v-if="role"></p-content-form>
 <p-list entity="content" :filters="{ context_id: '{{ context.pk }}'}"
-        url="{% url "api:content-list" %}">
+        url="{% url "api:content-list" %}" fetch-auto>
     <template v-slot:item="{index,item}">
         {% block list-item %}
         <p-content :id="item.pk" :item="item"></p-content>

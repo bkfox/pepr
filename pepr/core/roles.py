@@ -195,7 +195,7 @@ class SubscriberRole(Role):
     """ Subscriber role: subscribe to a context. """
     access = 0x20
     status = 'subscriber'
-    name = _('Subscriber')
+    name = _('Follower')
     description = _('They only follow what happens.')
 
 

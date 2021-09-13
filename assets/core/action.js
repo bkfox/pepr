@@ -9,24 +9,21 @@
  * actions instance accross models).
  */
 export default class Action {
-    constructor(name, label, exec=null, {icon='', permissions=null, raw=false, ...extra}={}) {
+    constructor(name, label, exec=null, {icon='', permissions=null, raw=false, help='', css=''}={}) {
         this.name = name
         this.label = label
         this.permissions = Array.isArray(permissions) ? permissions : [permissions || name]
         this.exec = exec
         this.icon = icon
-        this.extra = extra
+        this.help = help
+        this.css = css
     }
 
     isGranted(role, item) {
-        const label = item && item.constructor.label
-        const permissions = label && !this.raw ? this.permissions.map(x => `${label}.${x}`)
-                                               : this.permissions
-        return role.isGranted(permissions, item)
+        return item.isGranted(role, ...this.permissions)
     }
 
-    trigger(context, item, ...args) {
-        let role = context && context.role
+    trigger(role, item, ...args) {
         if(role && this.isGranted(role, item))
             this.exec(item, ...args)
     }

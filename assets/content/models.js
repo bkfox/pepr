@@ -2,8 +2,8 @@ import * as models from 'pepr/core/models'
 
 
 export class Container extends models.Context {
-    static get entity() { return 'container' }
-    static get appLabel() { return 'pepr_content' }
+    static entity = 'container'
+    static appLabel = 'pepr_content'
 
     static fields() {
         return { ...super.fields(),
@@ -15,10 +15,9 @@ export class Container extends models.Context {
 
 
 export class Content extends models.Owned {
-    static get entity() { return 'content' }
-    static get appLabel() { return 'pepr_content' }
-    static get contextEntity() { return 'container' }
-
+    static entity = 'content'
+    static appLabel = 'pepr_content'
+    static contextEntity = 'container'
     static fields() {
         return { ...super.fields(),
             text: this.string(''),
@@ -41,7 +40,7 @@ export class Content extends models.Owned {
 
 
 export class Subscription extends models.Subscription {
-    static get contextEntity() { return 'container' }
+    static contextEntity = 'container'
 }
 
 export default { Subscription, Container, Content }

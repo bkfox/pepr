@@ -2,7 +2,19 @@
 
 <p-context context-id="{{ role.context.pk }}" context-entity="{{ role.context.get_basename }}">
     <template v-slot:default="{context,role,roles,subscription}">
+        <p-modal ref="subscriptionModal">
+            <template v-slot:default="{hide}">
+                <p-form ref="subscriptionForm" class="box"
+                        :initial="{ context_id: context.$id, access: context.default_access, role: context.default_role }"
+                        :entity="subscription"
+                        @success="hide()" @done="hide()">
+                        {% include "../forms/subscription.html" %}
+                </p-form>
+            </template>
+        </p-modal>
+
         <button class="delete float-right" @click="$refs.appDeck.select()"></button>
+
         <h2 class="title is-3">{% trans "Subscriptions" %}</h2>
         {% block app-subscriptions %}
         <p-tabs class="tabs" ref="subscriptionsNav"
@@ -13,12 +25,12 @@
             </p-tab>
             <p-tab class="tab" target="default" icon="mdi mdi-account-question"
                     :value="{{ Subscription.STATUS_REQUEST }}"
-                    v-if="role && role.isGranted('pepr_core_subscription.accept_subscription')">
+                    v-if="role && role.hasPermission('pepr_core_subscription.accept_subscription')">
                 {% trans "Requests" %}
             </p-tab>
             <p-tab class="tab" target="default" icon="mdi mdi-account-plus"
                     :value="{{ Subscription.STATUS_INVITE }}"
-                    v-if="role && role.isGranted('pepr_core_subscription.subscribe')">
+                    v-if="role && role.hasPermission('pepr_core_subscription.subscribe')">
                 {% trans "Invites" %}
             </p-tab>
             <p-tab class="tab" target="subscription" icon="mdi mdi-account">

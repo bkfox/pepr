@@ -1,8 +1,11 @@
 {% load i18n %}
 
 <template v-slot:default="{data}">
-    {% block fields %}
+    {% block title %}
     <h4 class="subtitle is-4">{% trans "Main settings" %}</h4>
+    {% endblock %}
+
+    {% block fields %}
     {% block main %}
     {% block main-title %}
     <p-field-row label="{% trans "Title" %}">

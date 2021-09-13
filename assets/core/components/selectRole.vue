@@ -1,10 +1,9 @@
 <template>
     <div class="control has-icons-left">
         <div class="select">
-            <select v-bind="$attrs" @change="computedValue=Number($event.target.value)"
-                    :value="computedValue">
+            <select v-bind="$attrs" v-model="value">
                 <template v-for="role of options">
-                    <option :value="role.access" :selected="role.access == computedValue">
+                    <option :value="role.access" :selected="role.access == value">
                     {{ role.name }}
                     </option>
                 </template>
@@ -16,7 +15,7 @@
     </div>
 </template>
 <script>
-import { computed, ref, toRefs } from 'vue'
+import { computed, ref, toRefs, watch } from 'vue'
 import * as composables from '../composables'
 
 export default {
@@ -29,10 +28,10 @@ export default {
         filter: { type: Function, default: null },
     },
 
-    setup(props) {
-        const {roles, filter} = toRefs(props)
+    setup(props, { emit }) {
+        const {roles, filter, value} = toRefs(props)
         const contextComp = composables.useContext()
-        const value = ref(Number(props.value))
+        
         const options = computed(() => {
             var roles_ = roles.value ? roles.value : contextComp.roles.value
             if(!filter.value)
@@ -49,18 +48,6 @@ export default {
             return options
         })
         return { ...contextComp, value, options }
-    },
-
-    computed: {
-        computedValue: {
-            get() {
-                return this.value
-            },
-            set(value) {
-                this.value = value;
-                this.$emit('update:value', value)
-            }
-        },
     },
 }
 

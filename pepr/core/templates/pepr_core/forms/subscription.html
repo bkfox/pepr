@@ -1,0 +1,39 @@
+{% load i18n %}
+
+<template v-slot:default="{data}" v-if="roles">
+    {% block title %}
+    <h4 class="subtitle is-4" v-if="data.$id">{% trans "Edit Subscription" %}</h4>
+    <h4 class="subtitle is-4" v-else>{% trans "Subscribe" %}</h4>
+    {% endblock %}
+
+    {% block fields %}
+    <input type="hidden" name="context_id" :value="data.context_id"/>
+    <p-field-row label="{% trans "Subscribe as" %}">
+        <p-field name="role">
+            <p-select-role v-model:value="data.role"
+                :roles="Subscription.roleChoices(roles)" />
+        </p-field>
+    </p-field-row>
+
+    <p-field-row label="{% trans "Who sees you" %}">
+        <p-field name="access">
+            <p-select-role v-model:value="data.access"
+                :roles="Subscription.accessChoices(roles)" />
+        </p-field>
+    </p-field-row>
+    {% endblock %}
+
+    {% block extra %}{% endblock %}
+
+    <div class="field is-grouped is-grouped-right">
+        {% block buttons %}
+        <p class="control">
+            <button class="button is-link">{% trans "Save" %}</button>
+        </p>
+        <p class="control">
+            <button v-if="data" type="button" @click="reset() || $emit('done')" class="button is-link is-light">
+                {% trans "Cancel" %}</button>
+        </p>
+        {% endblock %}
+    </div>
+</template>

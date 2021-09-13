@@ -1,12 +1,20 @@
 {% load i18n %}
-<div>
-    <span>{% verbatim %}
-          {{ (item.owner && item.owner.title) || item.owner_id }}
-          {% endverbatim %}</span>
-    <div class="icon is-large has-text-info">
-        <span v-if="item.isSubscribed" class="mdi mdi-account"></span>
-        <span v-else class="mdi mdi-account-question"
-             title="{% trans "Awaiting for approval" %}"></span>
+<div class="columns">
+    <div class="column is-three-quarters">
+        <span>{% verbatim %}
+              {{ (item.owner && item.owner.title) || item.owner_id }}
+              {% endverbatim %}</span>
+        <div class="icon is-large has-text-info">
+            <span v-if="item.isSubscribed" class="mdi mdi-account"></span>
+            <span v-else class="mdi mdi-account-question"
+                 title="{% trans "Awaiting for approval" %}"></span>
+        </div>
+    </div>
+    <div class="column">
+        <p-actions :item="item"/>
+        <p-action label="{% trans "Edit" %}" icon="mdi mdi-pencil"
+            v-if="item.isGranted(role, 'update')"
+            @trigger="$refs.subscriptionForm.reset(item); $refs.subscriptionModal.show()"/>
     </div>
 </div>
 

@@ -82,7 +82,7 @@ export function form({initial: initial_, defaults = null,
              submit: submitForm }
 }
 
-form.emits = ['success', 'error', 'reset']
+form.emits = ['success', 'done', 'error', 'reset']
 
 /**
  * Return components' props for form

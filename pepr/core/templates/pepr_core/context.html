@@ -3,7 +3,20 @@
 
 {% block app %}
 <p-context context-id="{{ role.context.pk }}" context-entity="{{ role.context.get_basename }}">
-    {{ block.super }}
+    <template v-slot:default="{context,role,roles,subscription}">
+        <p-modal ref="subscriptionModal">
+            <template v-slot:default="{hide}">
+                <p-form ref="subscriptionForm" class="box"
+                        :initial="{ context_id: context.$id, access: context.subscription_default_access, role: context.subscription_default_role }"
+                        entity="subscription"
+                        @success="hide()" @done="hide()">
+                        {% include "./forms/subscription.html" %}
+                </p-form>
+            </template>
+        </p-modal>
+
+        {{ block.super }}
+    </template>
 </p-context>
 {% endblock %}
 
@@ -12,64 +25,52 @@
 {% endblock %}
 
 {% block app-menu %}
-<p-context context-id="{{ role.context.pk }}" context-entity="{{ role.context.get_basename }}">
-    <template v-slot:default="{context,role,roles,subscription}">
-        <ul class="menu-list">
-            {% block app-menu-services %}
-            {% for obj in role.services %}
-            {% if service and obj.pk == service.pk %}
-            <li>
-                <p-nav-item target="default">{{ obj.title }}</p-nav-item>
-            </li>
-            {% else %}
-            <li><a href="{{ obj.get_absolute_url }}">{{ obj.title }}</a></li>
-            {% endif %}
-            {% endfor %}
-            {% endblock %}
-        </ul>
+<ul class="menu-list">
+    {% block app-menu-services %}
+    {% for obj in role.services %}
+    {% if service and obj.pk == service.pk %}
+    <li>
+        <p-nav-item target="default">{{ obj.title }}</p-nav-item>
+    </li>
+    {% else %}
+    <li><a href="{{ obj.get_absolute_url }}">{{ obj.title }}</a></li>
+    {% endif %}
+    {% endfor %}
+    {% endblock %}
+</ul>
 
-        <p class="menu-label">{% trans "Settings" %}</p>
-        <ul class="menu-list">
-            {% block app-menu-settings %}
-            <li>
-                <p-nav-item target="subscriptions" icon="mdi mdi-account-multiple">
-                    {% trans "Subscriptions" %}
-                    ({% verbatim %}{{ context.n_subscriptions }}{% endverbatim %})
-                </p-nav-item>
-            </li>
-            <li>
-                <p-nav-item target="settings" icon="mdi mdi-cog">
-                    {% trans "Settings" %}
-                </p-nav-item>
-            </li>
-            {% endblock %}
-        </ul>
-    </template>
-</p-context>
+<p class="menu-label">{% trans "Settings" %}</p>
+<ul class="menu-list">
+    {% block app-menu-settings %}
+    <li>
+        <p-nav-item target="subscriptions" icon="mdi mdi-account-multiple">
+            {% trans "Subscriptions" %}
+            ({% verbatim %}{{ context.n_subscriptions }}{% endverbatim %})
+        </p-nav-item>
+    </li>
+    <li v-if="context.isGranted(role, 'update')">
+        <p-nav-item target="settings" icon="mdi mdi-cog">
+            {% trans "Settings" %}
+        </p-nav-item>
+    </li>
+    {% endblock %}
+</ul>
 {% endblock %}
 
 {% block app-deck %}
 <template #default>
-    <p-context context-id="{{ role.context.pk }}" context-entity="{{ role.context.get_basename }}">
-        <template v-slot:default="{context,role,roles,subscription}">
-            {% block service %}{% endblock %}
-        </template>
-    </p-context>
+{% block service %}{% endblock %}
 </template>
 <template #settings>
-    <p-context context-id="{{ role.context.pk }}" context-entity="{{ role.context.get_basename }}">
-        <template v-slot:default="{context,role,roles,subscription}">
-            <button class="delete float-right" @click="$refs.appDeck.select()"></button>
-            <h2 class="title is-3">{% trans "Settings" %}</h2>
-            {% block app-settings %}
-            <p-form :initial="context" @success="$refs.appDeck.select()">
-                {% block app-settings-form %}
-                {% include "./forms/context.html" %}
-                {% endblock %}
-            </p-form>
-            {% endblock %}
-        </template>
-    </p-context>
+    <button class="delete float-right" @click="$refs.appDeck.select()"></button>
+    <h2 class="title is-3">{% trans "Settings" %}</h2>
+    {% block app-settings %}
+    <p-form :initial="context" @success="$refs.appDeck.select()">
+        {% block app-settings-form %}
+        {% include "./forms/context.html" %}
+        {% endblock %}
+    </p-form>
+    {% endblock %}
 </template>
 <template #subscriptions>
     {% include "./services/subscriptions.html" %}

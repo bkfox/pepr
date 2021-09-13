@@ -1,4 +1,6 @@
 import * as orm from '@vuex-orm/core'
+
+import Action from './action'
 import {submit, getSubmitConfig} from './api'
 
 
@@ -22,7 +24,11 @@ export class Model extends orm.Model {
     /**
 	 * Django AppConfig's application label.
 	 */
-    static get appLabel() { return 'pepr_core' }
+    static appLabel = 'pepr_core'
+	static primaryKey = 'pk'
+	static apiConfig = {
+        commit: true,
+	}
 
 	/**
 	 * Model's label (equivalent to Django's `model._meta.label_lower`).
@@ -44,13 +50,6 @@ export class Model extends orm.Model {
         const url = this.store().baseURL;
         return (url ? `${url}${this.url}` : this.url).replace('//','/')
     }
-
-	static get primaryKey() { return 'pk' }
-	static get apiConfig() {
-        return {
-            commit: true,
-        }
-	}
 
     static fields() {
         return {
@@ -142,23 +141,6 @@ export class Model extends orm.Model {
     }
 }
 
-export class BaseAccessible extends Model {
-	static get actions() {
-		return [
-			new Action('delete', 'Delete',
-					   (item) => confirm('Delete?') && item.delete({delete:1}),
-					   {icon: 'mdi mdi-delete'}),
-		]
-	}
-
-	/**
-	 * Available actions on this object
-	 */
-	getActions(role) {
-		return this.constructor.actions.filter(a => a.isGranted(role, this))
-	}
-}
-
 
 export class Role {
     /* static fields() {
@@ -189,28 +171,61 @@ export class Role {
     }
 
     /**
-     * True if all permissions are granted for this role
+     * True if all permissions are granted on this role
      */
-    isGranted(permissions, item=null) {
-        if(!this.permissions)
-            return false
-        if(item && item instanceof Owned && this.identity == item.owner)
-            return true
+    hasPermission(permission, prefix='') {
+        return this.permissions &&
+            !!this.permissions[prefix ? `${prefix}.${permission}` : permission]
+    }
 
-        if(typeof permissions == 'string')
-            permissions = [permissions]
-
-        for(var name of permissions)
-            if(!this.permissions[name])
-                return false
-        return true
+    /**
+     * True if all permissions are granted on this role
+     */
+    hasPermissions(permissions, prefix='') {
+        return this.permissions && !permissions.find(
+            p => this.permissions[prefix ? `${prefix}.${p}` : p]
+        )
     }
 }
 
 
-export class Context extends Model {
-    static get entity() { return 'context' }
 
+export class BaseAccessible extends Model {
+    /**
+     * All available actions on model
+     */
+	static actions = [
+		new Action('delete', 'Delete',
+				   (item) => confirm('Delete?') && item.delete({delete:1}),
+				   {icon: 'mdi mdi-delete'}),
+	]
+
+	/**
+	 * Available actions on this model instance
+	 */
+	getActions(role) {
+    	const actions = this.constructor.actions
+		return actions ? actions.filter(a => a.isGranted(role, this)) : []
+	}
+
+    /**
+     * True if all permissions are allowed
+     *
+     * @param {Role} role - user's role to check permission of
+     * @param {...(string|Function)} permissions - permission names or
+     *                               `functions(role, this)` to test
+     */
+	isGranted(role, ...permissions) {
+        return permissions.find(
+            p => p instanceof Function ? !p(role, this)
+                                       : !role.hasPermission(p, this.constructor.label)
+        )
+	}
+}
+
+
+export class Context extends BaseAccessible {
+    static entity = 'context'
     static fields() {
         return { ...super.fields(),
             default_access: this.number(null),
@@ -248,7 +263,7 @@ export class Context extends Model {
      */
     get identity() {
         let id = this.role && this.role.identity_id
-        return id && this.$model('context').find(id)
+        return id && this.constructor.find(id)
     }
 
     /**
@@ -265,11 +280,8 @@ export class Context extends Model {
     }
 }
 
-
-
-export class Accessible extends Model {
-    static get entity() { return 'accessible' }
-
+export class Accessible extends BaseAccessible {
+    static entity = 'accessible'
     static fields() {
         return { ...super.fields(),
             context_id: this.attr(null),
@@ -292,28 +304,21 @@ export class Accessible extends Model {
     get context() {
         return this.context_id && this.constructor.contextModel.find(this.context_id)
     }
-
-    // FIXME: wtf
-    granted(permissions) {
-        let role_perms = this.context.role.permissions
-        if(!Array.isArray(perms))
-            return !!role_perms[permissions]
-
-        for(var permission of permissions)
-            if(!role_perms[permission])
-                return false
-        return true
-    }
 }
 
 export class Owned extends Accessible {
-    static get entity() { return 'owned' }
-
+    static entity = 'owned'
     static fields() {
         return { ...super.fields(),
             owner_id: this.attr(null),
         //    owner: this.belongsTo(Context, 'owner_id'),
         }
+    }
+
+    isGranted(role, ...permissions) {
+        if(this.owner == role.identity)
+            return true
+        return super.isGranted(role, ...permissions)
     }
 
     /**
@@ -325,8 +330,11 @@ export class Owned extends Accessible {
 }
 
 export class Subscription extends Owned {
-    static get entity() { return 'subscription' }
+    static INVITE = 1
+    static REQUEST = 2
+    static SUBSCRIBED = 3
 
+    static entity = 'subscription'
     static fields() {
         return { ...super.fields(),
             status: this.number(),
@@ -334,6 +342,24 @@ export class Subscription extends Owned {
             role: this.number(),
         }
     }
+    static actions = [
+        ...super.actions,
+        /*
+        new Action('update', 'Edit', (item) =>
+            this.$root.$refs.subscriptionModal.show()
+            this.$root.$refs.subscriptionForm.reset(item)
+        }),
+        */
+        new Action('accept_subscription', 'Accept Subscription', (item) => {
+            this.fetch({
+                url: `${this.fullUrl}accept`,
+                method: 'PUT',
+                data: {
+                    'pk': item.$id,
+                },
+            })
+        })
+    ]
 
     static accessChoices(roles, role=null) {
         if(roles.prototype instanceof Context)
@@ -351,13 +377,19 @@ export class Subscription extends Owned {
                                    role.status != 'registered')
     }
 
+    isGranted(role, ...permissions) {
+        if(permissions.indexOf('accept_subscription') != -1 &&
+            this.status == Subscription.SUBSCRIBED ||
+            !role.hasPermission('accept_subscription', this.constructor.label))
+            return false
+        return super.isGranted(role, ...permissions)
+    }
+
     save(config) {
-        return super.save(config).then(
-            r => {
-                this.context && this.context.fetch()
-                return r
-            }
-        )
+        return super.save(config).then(r => {
+            this.context && this.context.fetch()
+            return r
+        })
     }
 
     delete(config) {
@@ -385,9 +417,6 @@ export class Subscription extends Owned {
      */
     get isSubscribed() { return this.status == Subscription.SUBSCRIBED }
 }
-Subscription.INVITE = 1
-Subscription.REQUEST = 2
-Subscription.SUBSCRIBED = 3
 
 
 const defaults = { Context, Subscription }

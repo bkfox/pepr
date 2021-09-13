@@ -9,7 +9,8 @@
                 <p-runtime-template :template="html"></p-runtime-template>
             </template>
             <template v-else>
-                <slot></slot>
+                <slot :isActive="isActive"
+                    :hide="hide" :show="show" :toggle="toggle" :load="load"></slot>
             </template>
         </div>
         <button class="modal-close is-large" aria-label="close" @click="hide()"></button>
@@ -36,14 +37,16 @@ export default {
 
     methods: {
         hide(reset=false) {
-            if(reset) this.html = '';
+            if(reset)
+                this.html = '';
             this.isActive = false;
             this.controller && this.controller.abort()
             this.controller = null;
         },
 
         show(reset=false) {
-            if(reset) this.html = ''
+            if(reset)
+                this.html = ''
             this.isActive = true;
 
             const modal = this.$el;
@@ -67,6 +70,7 @@ export default {
         load(url, config={}) {
             if(this.controller)
                 this.controller.abort();
+
             this.controller = new AbortController();
             fetch(url, config)
                 .resolve(response => response.text())

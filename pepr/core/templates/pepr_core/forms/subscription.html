@@ -17,7 +17,7 @@
         </p-field>
     </p-field-row>
 
-    <p-field-row label="{% trans "Who sees you" %}">
+    <p-field-row v-if="data.access != -666" label="{% trans "Who sees you" %}">
         <p-field name="access">
             <p-select-role name="access" v-model:value="data.access"
                 :roles="Subscription.accessChoices(roles)" />

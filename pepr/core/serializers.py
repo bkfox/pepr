@@ -123,7 +123,7 @@ class AccessibleSerializer(BaseSerializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Rule: context can not be changed once assigned
-        self.fields['access'].read_only = self.instance is not None
+        self.fields['context_id'].read_only = self.instance is not None
 
 
 class OwnedSerializer(AccessibleSerializer):
@@ -170,6 +170,12 @@ class SubscriptionSerializer(OwnedSerializer):
                 self.instance.owner_id != self.identity.pk:
             self.fields['access'].read_only = True
 
+    def to_representation(self, obj):
+        data = super().to_representation(obj)
+        if data['owner_id'] != self.identity.pk:
+            data.pop('access')
+        return data
+        
     def validate_request(self, role, data):
         if data.get('owner_id') and data['owner_id'] != self.identity.pk:
             raise ValidationError({'owner_id': ['not allowed']})

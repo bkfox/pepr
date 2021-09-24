@@ -520,12 +520,8 @@ class Authorization(Accessible):
         verbose_name=_('permission'),
         max_length=32,
     )
-    model = models.ForeignKey(
-        ContentType, on_delete=models.CASCADE,
-    )
-    granted = models.BooleanField(
-        default=False,
-    )
+    model = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    granted = models.BooleanField(default=False)
 
 
 class Service(Accessible):

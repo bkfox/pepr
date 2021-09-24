@@ -84,7 +84,7 @@ class Role:
             context=self.context, access=self.access
         ).select_related('model')
         for p in qs:
-            key = self.perm_key(p)
+            key = self.perm_key(p, p.model_class())
             # Rule: only permissions statically defined on Role can be
             # changed by users through authorizations.
             if key not in perms:
@@ -117,6 +117,10 @@ class Role:
     @classmethod
     def register(cls, model, granted, *perms):
         """ Register a permission for the given model and role. """
+        # ensure we have a copy
+        if not cls.defaults:
+            cls.defaults = {}
+        
         for perm in perms:
             cls.defaults[cls.perm_key(perm, model)] = granted
 
@@ -176,7 +180,7 @@ class AnonymousRole(Role):
     description = _('Unregistered user.')
 
 
-AnonymousRole.register(None, False, CanAccess, CanCreate)
+# AnonymousRole.register(None, False, CanAccess, CanCreate)
 
 
 class DefaultRole(Role):
@@ -187,8 +191,8 @@ class DefaultRole(Role):
     description = _('Registered but not subscribed people.')
 
 
-DefaultRole.register(None, True, CanAccess)
-DefaultRole.register(None, False, CanAccess, CanCreate, CanUpdate, CanDestroy)
+# DefaultRole.register(None, True, CanAccess)
+# DefaultRole.register(None, False, CanAccess, CanCreate, CanUpdate, CanDestroy)
 
 
 class SubscriberRole(Role):
@@ -199,8 +203,8 @@ class SubscriberRole(Role):
     description = _('They only follow what happens.')
 
 
-SubscriberRole.register(None, True, CanAccess, CanCreate)
-SubscriberRole.register(None, False, CanCreate, CanUpdate, CanDestroy)
+# SubscriberRole.register(None, True, CanAccess, CanCreate)
+# SubscriberRole.register(None, False, CanCreate, CanUpdate, CanDestroy)
 
 
 class MemberRole(Role):
@@ -213,8 +217,8 @@ class MemberRole(Role):
     )
 
 
-MemberRole.register(None, True, CanAccess, CanCreate)
-MemberRole.register(None, False, CanUpdate, CanDestroy)
+# MemberRole.register(None, True, CanAccess, CanCreate)
+# MemberRole.register(None, False, CanUpdate, CanDestroy)
 
 
 class ModeratorRole(Role):
@@ -231,7 +235,7 @@ class ModeratorRole(Role):
         return True
 
 
-ModeratorRole.register(None, True, CanAccess, CanCreate, CanUpdate, CanDestroy)
+# ModeratorRole.register(None, True, CanAccess, CanCreate, CanUpdate, CanDestroy)
 # TODO: register subscription related perms
 
 
@@ -254,7 +258,7 @@ class AdminRole(Role):
         return self.defaults
 
 
-AdminRole.register(None, True, CanAccess, CanCreate, CanUpdate, CanDestroy)
+# AdminRole.register(None, True, CanAccess, CanCreate, CanUpdate, CanDestroy)
 
 
 default_roles = (AnonymousRole, DefaultRole, SubscriberRole, MemberRole,

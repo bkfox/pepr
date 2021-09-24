@@ -1,13 +1,14 @@
 {% load i18n %}
 <div class="columns">
     <div class="column is-three-quarters">
-        <span>{% verbatim %}
-              {{ (item.owner && item.owner.title) || item.owner_id }}
-              {% endverbatim %}</span>
-        <div class="icon is-large has-text-info">
-            <span v-if="item.isSubscribed" class="mdi mdi-account"></span>
-            <span v-else class="mdi mdi-account-question"
-                 title="{% trans "Awaiting for approval" %}"></span>
+        <div>{% verbatim %}{{ item.owner?.title || item.owner_id }}{% endverbatim %}</div>
+        <div>
+            <span class="icon is-small has-text-info">
+                <i v-if="item.isSubscribed" class="mdi mdi-account"></i>
+                <i v-else class="mdi mdi-account-question"
+                     title="{% trans "Awaiting for approval" %}"></i>
+            </span>
+            <small>{% verbatim %}{{ context.roles[item.role].name }}{% endverbatim %}</small>
         </div>
     </div>
     <div class="column">

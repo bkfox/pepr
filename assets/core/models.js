@@ -202,7 +202,7 @@ export class Role {
     }
 
     /**
-     * True if all permissions are granted on this role
+     * True if permission is granted on this role
      */
     hasPermission(permission, prefix='') {
         return this.permissions &&
@@ -214,7 +214,7 @@ export class Role {
      */
     hasPermissions(permissions, prefix='') {
         return this.permissions && !permissions.find(
-            p => this.permissions[prefix ? `${prefix}.${p}` : p]
+            p => !!this.permissions[prefix ? `${prefix}.${p}` : p]
         )
     }
 }
@@ -247,8 +247,8 @@ export class BaseAccessible extends Model {
      *                               `functions(role, this)` to test
      */
 	isGranted(role, ...permissions) {
-        return permissions.find(
-            p => p instanceof Function ? !p(role, this)
+    	return !permissions.find(
+        	p => p instanceof Function ? !p(role, this)
                                        : !role.hasPermission(p, this.constructor.label)
         )
 	}
@@ -356,7 +356,7 @@ export class Owned extends Accessible {
     }
 
     isGranted(role, ...permissions) {
-        if(this.owner == role.identity)
+        if(this.owner_id == role.identity_id)
             return true
         return super.isGranted(role, ...permissions)
     }
@@ -377,9 +377,9 @@ export class Subscription extends Owned {
     static entity = 'subscription'
     static fields() {
         return { ...super.fields(),
-            status: this.number(),
-            access: this.number(),
-            role: this.number(),
+            status: this.number(null),
+            access: this.number(-666),
+            role: this.number(null),
         }
     }
     static actions = [

@@ -29,10 +29,6 @@ class ContextViewSet(generics.ContextMixin, BaseViewSet):
         'update': (CanUpdate,),
         'destroy': (CanDestroy,),
     }
-    """
-    [class] Viewset for subscriptions. This is used for to
-    `get_api_action` for subscriptions.
-    """
     serializer_class = ContextSerializer
     queryset = Context.objects.all()
 
@@ -58,10 +54,6 @@ class AccessibleViewSet(generics.AccessibleMixin, BaseViewSet):
         'update': (CanUpdate,),
         'destroy': (CanDestroy,),
     }
-    """
-    Permission to apply for a specific action instead of
-    `self.permissions`.
-    """
     filter_backends = (DjangoFilterBackend,)
     filterset_fields = ('context', 'access')
     serializer_class = AccessibleSerializer
@@ -107,7 +99,7 @@ class SubscriptionViewSet(OwnedViewSet):
 
 
     @action(detail=True, methods=['PUT'])
-    def accept(self, request, pk=None):
+    def accept(self, request, pk=None, **kwargs):
         self.object = obj = self.get_object()
         if not obj:
             raise Http404

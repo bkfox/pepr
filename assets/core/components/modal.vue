@@ -36,7 +36,7 @@ export default {
     },
 
     methods: {
-        hide(reset=false) {
+        hide({reset=false}={}) {
             if(reset)
                 this.html = '';
             this.isActive = false;
@@ -44,9 +44,10 @@ export default {
             this.controller = null;
         },
 
-        show(reset=false) {
+        show({reset=false}={}) {
             if(reset)
                 this.html = ''
+                
             this.isActive = true;
 
             const modal = this.$el;
@@ -57,11 +58,11 @@ export default {
             modal.scrollTop = 0;
         },
 
-        toggle(reset=false) {
+        toggle(opts) {
             if(this.isActive)
-                this.hide(reset)
+                this.hide(opts)
             else
-                this.show(reset)
+                this.show(opts)
         },
 
         /**

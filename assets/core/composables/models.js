@@ -8,9 +8,10 @@ import { makeProps } from './utils'
  */
 export function useModel({entity=null, item=null}={}) {
     const model = computed(() =>
-        (entity && entity.value) ? useStore().$db().model(entity.value)
-                                 : item && item.value ? item.value.constructor : null)
-    return { model, entity }
+        (entity && entity.value)
+            ? useStore().$db().model(entity.value)
+            : item && item.value ? item.value.constructor : null)
+    return { entity, model }
 }
 
 useModel.props = makeProps({
@@ -20,30 +21,41 @@ useModel.props = makeProps({
 /**
  * Get model instance by id. If not present, fetch from remote server.
  */
-export function getObject(id, entity) {
-    const model = computed(() => entity.value && useStore().$db().model(entity.value))
-    const object = computed(() => model.value && model.value.find(id.value))
-    return { model, object }
+export function getObject({pk, model}) {
+    const object = computed(() => model.value && model.value.find(pk.value))
+    return { model, pk, object }
 }
+
+getObject.props = makeProps({
+    pk: [String,Number],
+})
 
 /**
  * Get model instance by id. If not present, fetch from remote server.
  */
-export function getOrFetch(id, entity) {
-    const { model, object } = getObject(id, entity)
+export function getOrFetch({url=null, ...props}) {
+    const { model, entity } = useModel(props)
+    const { object, pk } = getObject({...props, model})
 
     function fetch(id, force=false) {
         if(!id.value || !model.value)
             return
         var obj = model.value.find(id.value)
         if(force || obj == null || obj.value == null)
-            model.value.fetch({id: id.value})
+            model.value.fetch({id: pk.value, url: url && url.value})
     }
-    watch(id, fetch)
-    nextTick().then(() => fetch(id))
+    watch(pk, fetch)
+    watch(model, () => fetch(pk))
+    nextTick().then(() => fetch(pk))
 
     return { model, object }
 }
+
+getOrFetch.props = makeProps({
+    ...useModel.props(),
+    ...getObject.props(),
+    url: String,
+})
 
 
 /**
@@ -60,7 +72,7 @@ export function getOrFetch(id, entity) {
  *
  *  @param {Ref({})} [context=null]
  */
-export function useContext(context=null) {
+export function useContext({context=null}={}) {
     // TODO: context as Model or reactive
     if(context != null) {
         const { role, roles, subscription } = toRefs(context)
@@ -87,14 +99,16 @@ useContext.props = makeProps({
 /**
  * Use context by id.
  */
-export function useContextById({contextId: id, contextEntity: entity, fetch=false}) {
-    const { object: context, ...comp } = fetch ? getOrFetch(id, entity) : getObject(id, entity)
-    return { ...comp, ...useContext(context) }
+export function useContextById({contextId: pk, contextEntity: entity,
+                                fetch=false, contextUrl: url}) {
+    const { object: context, ...comp } = fetch ? getOrFetch({pk, entity, url}) : getObject(id, entity)
+    return { ...comp, ...useContext({context}) }
 }
 
 useContextById.props = makeProps({
     contextId: { type: String, default: null },
     contextEntity: { type: String, default: 'context' },
+    contextUrl: { type: String, default: null },
 })
 
 /**
@@ -102,7 +116,7 @@ useContextById.props = makeProps({
  */
 export function useParentContext(item) {
     const context = computed(() => item.value && item.value.context)
-    return useContext(context)
+    return useContext({context})
 }
 
 

@@ -56,7 +56,7 @@ export default class Api {
                 'Accept': 'application/json',
                 'X-CSRFToken': Cookies.get('csrftoken'),
             },
-            method: config.method || form.getAttribute('method') || 'POST',
+            method: config.method || form && form.getAttribute('method') || 'GET',
         }
 
         if(!url && form)
@@ -65,16 +65,15 @@ export default class Api {
             throw "url is missing (provided by 'url' or 'form')"
 
         if(!config.body) {
-            if(Object.keys(data).length) {
+            if(data && Object.keys(data).length) {
                 const formData = new FormData()
                 for(let key in data)
-                    formData.append(key, data[key])
+                    if(key && data[key])
+                        formData.append(key, data[key])
                 config.body = formData
             }
             else if(form)
                 config.body = new FormData(form)
-            if(config.body)
-                config.headers['Content-Type'] = 'multipart/form-data'
         }
 
         return [url, config]

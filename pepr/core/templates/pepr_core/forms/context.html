@@ -1,6 +1,6 @@
 {% load i18n %}
 
-<template v-slot:default="{data}">
+<template v-slot:default="{data,model}">
     {% block title %}
     <h4 class="subtitle is-4">{% trans "Main settings" %}</h4>
     {% endblock %}
@@ -19,8 +19,8 @@
     {% block main-extra %}
     <p-field-row label="{% trans "Publications' default visibility" %}">
         <p-field name="default_access">
-            <p-select-role v-model:value="data.default_access"
-                :roles="Subscription.accessChoices(data.constructor)" />
+            <p-select-role name="default_access" v-model:value="data.default_access"
+                :roles="Subscription.accessChoices(model)" />
         </p-field>
     </p-field-row>
     {% endblock %}
@@ -38,8 +38,8 @@
     <!-- subscription_accept_role -->
     <p-field-row label="{% trans "Accept subscriptions" %}">
         <p-field name="subscription_accept_role">
-            <p-select-role
-                :roles="Subscription.roleChoices(data.constructor)"
+            <p-select-role name="subscription_accept_role"
+                :roles="Subscription.roleChoices(model)"
                 v-model:value="data.subscription_accept_role" />
             <template #help>
             {% trans "Subscription requests will not need moderator approval for" %}
@@ -55,8 +55,8 @@
     <!-- subscription_default_role -->
     <p-field-row label="{% trans "Default role" %}">
         <p-field name="subscription_default_role">
-            <p-select-role
-                :roles="Subscription.roleChoices(data.constructor)"
+            <p-select-role name="subscription_default_role"
+                :roles="Subscription.roleChoices(model)"
                 v-model:value="data.subscription_default_role" />
         </p-field>
     </p-field-row>
@@ -64,8 +64,8 @@
     <!-- subscription_default_role -->
     <p-field-row label="{% trans "Default visibility" %}">
         <p-field name="subscription_default_access">
-            <p-select-role
-                :roles="Subscription.accessChoices(data.constructor)"
+            <p-select-role name="subscription_default_access"
+                :roles="Subscription.accessChoices(model)"
                 v-model:value="data.subscription_default_access" />
         </p-field>
     </p-field-row>

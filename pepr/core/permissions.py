@@ -89,10 +89,41 @@ class Permission(permissions.BasePermission, metaclass=PermissionMeta):
             obj.context if isinstance(obj, Accessible) else None
 
     @classmethod
+    def can(cls, role, model=None):
+        """
+        Return True if ``role`` is granted for :py:attr:`.model` (or
+        for the provided ``model``).
+        """
+        model = model or cls.model
+        return role.is_admin or role.is_granted(cls, model)
+
+    @classmethod
+    def can_obj(cls, role, obj):
+        """
+        Return True if ``role`` has permission for given obj.
+
+        Default behaviour tests if role is an admin or owner of the
+        object. For Accessible instances, test role access. For all
+        objects, tests role ``is_granted`` for ``obj``.
+        """
+        from .models import Accessible, Context, Owned
+        # Rule: action allowed only for role in same context as object
+        if isinstance(obj, Context) and obj.pk != role.context.pk or \
+                isinstance(obj, Accessible) and obj.context_id != role.context.pk:
+            print(obj.pk, role.context.pk, obj.context_id)
+            raise ValueError('Role and obj context are different')
+
+        if isinstance(obj, Context):
+            return cls.test_context(role, obj)
+        if isinstance(obj, Owned):
+            return cls.test_owned(role, obj)
+        if isinstance(obj, Accessible):
+            return cls.test_accessible(role, obj)
+        return role.is_granted(cls, type(obj))
+
+    @classmethod
     def test_accessible(cls, role, obj):
-        """
-        Test wether role has access to object.
-        """
+        """ Test wether role has access to object. """
         return role.is_granted(cls, type(obj)) if role.has_access(obj.access) else False
 
     @classmethod
@@ -122,38 +153,6 @@ class Permission(permissions.BasePermission, metaclass=PermissionMeta):
     def test_context(cls, role, obj):
         return role.is_granted(cls, type(obj)) if role.has_access(obj.access) else \
                 False
-
-    @classmethod
-    def can(cls, role, model=None):
-        """
-        Return True if ``role`` is granted for :py:attr:`.model` (or
-        for the provided ``model``).
-        """
-        model = model or cls.model
-        return role.is_admin or role.is_granted(cls, model)
-
-    @classmethod
-    def can_obj(cls, role, obj):
-        """
-        Return True if ``role`` has permission for given obj.
-
-        Default behaviour tests if role is an admin or owner of the
-        object. For Accessible instances, test role access. For all
-        objects, tests role ``is_granted`` for ``obj``.
-        """
-        from .models import Accessible, Context, Owned
-        # Rule: action allowed only for role in same context as object
-        if isinstance(obj, Context) and obj.pk != role.context.pk or \
-                isinstance(obj, Accessible) and obj.context_id != role.context.pk:
-            raise ValueError('Role and obj context are different')
-
-        if isinstance(obj, Context):
-            return cls.test_context(role, obj)
-        if isinstance(obj, Owned):
-            return cls.test_owned(role, obj)
-        if isinstance(obj, Accessible):
-            return cls.test_accessible(role, obj)
-        return role.is_granted(cls, type(obj))
 
     def has_permission(self, request, view):
         """
@@ -210,9 +209,9 @@ class CanAccess(Permission):
 
     @classmethod
     def can_obj(cls, role, obj):
-        from .models import BaseAccessible
-        if isinstance(obj, BaseAccessible) and role.has_access(obj.access):
-            return True
+        from .models import BaseAccessible, Owned
+        return (isinstance(obj, BaseAccessible) and role.has_access(obj.access)) \
+            or (isinstance(obj, Owned) and obj.is_owner(role))
 
 
 class CanCreate(Permission):
@@ -288,7 +287,7 @@ class CanAcceptSubscription(Permission):
     Invite).
     """
     name = _('Accept subscription requests')
-    label = 'accept_subscription'
+    label = 'accept'
 
     @classmethod
     def can_obj(cls, role, obj):

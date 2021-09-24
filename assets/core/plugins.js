@@ -25,7 +25,7 @@ export const apiPlugin = {
  * application global properties.
  */
 export const modelsPlugin = {
-    install(app, {models={}, baseURL='', storeConfig={}}={}) {
+    install(app, {models={}, baseURL='', getters=true, storeConfig={}}={}) {
         VuexORM.use(apiPlugin, { baseURL })
 
         // store
@@ -38,7 +38,10 @@ export const modelsPlugin = {
         store['baseURL'] = baseURL.toString()
         app.use(store)
 
-        // getters
+        getters && this.installGetters(app, models)
+    },
+
+    installGetters(app, models) {
         const target = app.config.globalProperties;
         for(let key in models) {
             let model = models[key]
@@ -46,6 +49,8 @@ export const modelsPlugin = {
                 target[model.name] = target.$store.$db().model(model.entity)
         }
     }
+
+
 }
 
 

@@ -19,6 +19,8 @@
     </div>
 </template>
 <script>
+// TODO:
+// - set/get name from/to inner control input/select/button
 import {computed, inject} from 'vue'
 
 export default {

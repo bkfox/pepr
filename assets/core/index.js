@@ -4,8 +4,9 @@ import '@mdi/font/fonts/materialdesignicons-webfont.ttf';
 import Action from './action'
 import App, {createApp, getScriptData} from './app'
 import * as components from './components'
-import models, {importDatabase, Role} from './models'
+import models, {importDatabase} from './models'
 import { modelsPlugin } from './plugins'
+import Role from './role'
 
 
 export {

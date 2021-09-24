@@ -11,10 +11,11 @@
         </div>
     </div>
     <div class="column">
-        <p-actions :item="item"/>
-        <p-action label="{% trans "Edit" %}" icon="mdi mdi-pencil"
-            v-if="item.isGranted(role, 'update')"
-            @trigger="$refs.subscriptionForm.reset(item); $refs.subscriptionModal.show()"/>
+        <p-actions :item="item" no-text>
+            <p-action label="{% trans "Edit" %}" icon="mdi mdi-pencil" no-text
+                v-if="item.isGranted(role, 'update')"
+                @trigger="$refs.subscriptionModalForm.show({data: item})"/>
+        </p-action>
     </div>
 </div>
 

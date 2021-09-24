@@ -4,7 +4,7 @@ from django.views.generic import DetailView, ListView
 
 from rest_framework import exceptions
 
-from .. import models, serializers
+from .. import models
 from ..permissions import CanAccess, CanCreate, CanUpdate, CanDestroy
 
 
@@ -28,29 +28,12 @@ class ApplicationMixin:
     template_embed = 'pepr_core/base_embed.html'
     """ Extend view's template from it when embed. """
 
-    def get_app_store(self, store):
-        site_role = getattr(self.request, 'role', None)
-        if site_role:
-            from ..serializers import ContextSerializer, SubscriptionSerializer
-            store += [
-                ('context', ContextSerializer(
-                    site_role.context, identity=site_role.identity).data),
-            ]
-
-            if site_role.subscription:
-                store += [
-                    ('subscription', SubscriptionSerializer(
-                        site_role.subscription, identity=site_role.identity).data),
-                ]
-        return store
-
     def get_context_data(self, **kwargs):
         if not kwargs.get('template_base'):
             if kwargs.pop('embed', None) or self.request.GET.get('embed'):
                 kwargs['template_base'] = self.template_embed
             else:
                 kwargs['template_base'] = self.template_base
-        kwargs['app_store'] = self.get_app_store([])
         return super().get_context_data(**kwargs)
 
 
@@ -82,7 +65,6 @@ class PermissionMixin:
     """
     context_model = models.Context
     """ Model used as context """
-    context_serializer = serializers.ContextSerializer
     role = None
     """ Current user role on current context. """
 

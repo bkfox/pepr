@@ -157,8 +157,8 @@ export function fetchList({model, fetchAuto, list, listFilters, url=null}) {
     }
 
     if(fetchAuto) {
-        watch(url, (url) => fetchAuto.value && fetch({url}))
-        onMounted(() => fetchAuto.value && !list.value.length && fetch())
+        url && watch(url, (url) => fetchAuto.value && fetch({url}))
+        onMounted(() => fetchAuto.value && fetch())
     }
 
     return { url, pagination, fetch, fetchNext, fetchPrev }

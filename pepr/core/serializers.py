@@ -82,13 +82,12 @@ class RoleDescriptionSerializer(serializers.Serializer):
     access = serializers.IntegerField()
     status = serializers.CharField()
     name = serializers.CharField()
-    description = serializers.CharField
+    description = serializers.CharField()
 
 
 class ContextSerializer(BaseSerializer):
     """ Serializer for Context.  """
     role = serializers.SerializerMethodField()
-    subscription = serializers.SerializerMethodField()
     n_subscriptions = serializers.SerializerMethodField()
 
     class Meta:
@@ -99,15 +98,8 @@ class ContextSerializer(BaseSerializer):
             'subscription_accept_role',
             'subscription_default_role',
             'subscription_default_access',
-            'role', 'subscription', 'n_subscriptions',
+            'role', 'n_subscriptions', 'title'
         )
-
-    view_name = 'api:context-detail'
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # field = self.fields['subscription']
-        # field.user, field.role = self.user, self.role
 
     def get_role(self, obj):
         if not self.identity:
@@ -117,10 +109,6 @@ class ContextSerializer(BaseSerializer):
 
     def get_n_subscriptions(self, obj):
         return obj.subscription_set.identity(self.identity).subscribed().count()
-
-    def get_subscription(self, obj):
-        role = obj.get_role(self.identity)
-        return role.subscription.pk if role and role.subscription else None
 
 
 class AccessibleSerializer(BaseSerializer):
@@ -132,11 +120,10 @@ class AccessibleSerializer(BaseSerializer):
         fields = BaseSerializer.Meta.fields + ('context_id', 'access')
         read_only_fields = BaseSerializer.Meta.read_only_fields
 
-    def validate(self, data):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         # Rule: context can not be changed once assigned
-        if self.instance and self.instance.context_id != data['context'].pk:
-            raise ValidationError("Can't change item's context")
-        return super().validate(data)
+        self.fields['access'].read_only = self.instance is not None
 
 
 class OwnedSerializer(AccessibleSerializer):
@@ -157,20 +144,19 @@ class OwnedSerializer(AccessibleSerializer):
 
     def create(self, validated):
         owner = validated.get('owner_id')
-        if not 'owner_id' in validated and self.identity is not None:
+        if 'owner_id' not in validated and self.identity is not None:
             validated['owner_id'] = self.identity.pk
         return super().create(validated)
 
     def update(self, instance, validated):
         owner = validated.get('owner_id')
-        if not 'owner_id' in validated and self.identity is not None:
+        if 'owner_id' not in validated and self.identity is not None:
             validated['owner_id'] = self.identity.pk
         return super().update(instance, validated)
 
 
 class SubscriptionSerializer(OwnedSerializer):
     """ Serializer class for Subscription instances. """
-
     class Meta:
         model = Subscription
         fields = OwnedSerializer.Meta.fields + ('role', 'status')
@@ -179,6 +165,10 @@ class SubscriptionSerializer(OwnedSerializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['status'].read_only = self.instance is None
+        # Rule: can not change access when updating other's subscriptions
+        if isinstance(self.instance, self.Meta.model) and \
+                self.instance.owner_id != self.identity.pk:
+            self.fields['access'].read_only = True
 
     def validate_request(self, role, data):
         if data.get('owner_id') and data['owner_id'] != self.identity.pk:

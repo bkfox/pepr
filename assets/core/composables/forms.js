@@ -25,12 +25,9 @@ export function form({initial: initial_, defaults = null,
 {
     // TODO: include usage of optional 'action' props
     const initial = computed(() => initial_.value || (defaults && defaults.value) || {})
-    const constructor = computed(() => model && model.value ? model.value
-                                                            : initial.value.constructor)
-    const data = reactive(new constructor.value({...initial.value}))
+    const data = reactive({...initial.value})
     const errors = reactive({})
     provide('errors', errors)
-
 
     function reset(value=null) {
         for(var k in data)
@@ -52,16 +49,10 @@ export function form({initial: initial_, defaults = null,
         }
     }
 
-    function submitForm(ev, form=null) {
-        if(ev) {
-            ev.preventDefault()
-            ev.stopPropagation()
-        }
-
-        form = form || ev.target
+    function submitForm({form, event=null, ...config}={}) {
         const res = (commit.value && model && model.value) ?
-            data.save({form, ...submitConfig}) :
-            new Api(null, {store: useStore()}).fetch({form, ...submitConfig})
+            model.value.fetch({method: 'POST', form, id: data.$id, commit: true, ...config}) :
+            new Api(null, {store: useStore()}).fetch({form, ...config})
 
         return res.then(r => {
             if(200 <= r.status < 300) {
@@ -74,11 +65,8 @@ export function form({initial: initial_, defaults = null,
         })
     }
 
-    reset()
     watch(initial, reset)
-    watch(constructor, reset)
-    return { ...ctx, initial, data, errors, reset, resetErrors,
-             constructor: constructor,
+    return { ...ctx, initial, data, errors, model, reset, resetErrors,
              submit: submitForm }
 }
 

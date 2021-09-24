@@ -4,24 +4,18 @@
 {% block app %}
 <p-context context-id="{{ role.context.pk }}" context-entity="{{ role.context.get_basename }}">
     <template v-slot:default="{context,role,roles,subscription}">
-        <p-modal ref="subscriptionModal">
-            <template v-slot:default="{hide}">
-                <p-form ref="subscriptionForm" class="box"
-                        :initial="{ context_id: context.$id, access: context.subscription_default_access, role: context.subscription_default_role }"
-                        entity="subscription"
-                        @success="hide()" @done="hide()">
-                        {% include "./forms/subscription.html" %}
-                </p-form>
-            </template>
-        </p-modal>
-
+        <p-object v-if="role" entity="subscription" :pk="role.subscription_id"></p-object>
+        <p-modal-form ref="subscriptionModalForm" form-class="box"
+                entity="subscription" @success="hide()" @done="hide()">
+            {% include "./forms/subscription.html" %}
+        </p-modal-form>
         {{ block.super }}
     </template>
 </p-context>
 {% endblock %}
 
 {% block app-menu-actions %}
-<p-subscription-button no-text is-small></p-subscription-button>
+<p-subscription-button no-text :modal="$refs.subscriptionModalForm"/>
 {% endblock %}
 
 {% block app-menu %}

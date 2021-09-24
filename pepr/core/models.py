@@ -492,15 +492,14 @@ class Subscription(Owned):
     def is_subscribed(self):
         return self.status == self.STATUS_SUBSCRIBED
 
-    def get_role(self, context=None, identity=None, force=False):
+    def get_role(self, identity=None, force=False, context=None):
         context = context or self.context
-
         # role for subscription owner
         if not identity or identity.pk == self.owner_id:
             role = self.role if self.is_subscribed else DefaultRole.access
             cls = settings.roles.get(role) or AnonymousRole
             return cls(context, self.owner, self)
-        return super().get_role(identity, context, force)
+        return super().get_role(identity, force)
 
 
 Subscription._meta.get_field('access').choices=subscription_access_choices

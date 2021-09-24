@@ -30,6 +30,13 @@ export class Model extends orm.Model {
         commit: true,
 	}
 
+    static fields() {
+        return {
+            pk: this.string(null),
+            access: this.number(null),
+        }
+    }
+
 	/**
 	 * Model's label (equivalent to Django's `model._meta.label_lower`).
 	 */
@@ -47,15 +54,8 @@ export class Model extends orm.Model {
      * Real url of API's entry point (including store's baseURL).
      */
     static get fullUrl() {
-        const url = this.store().baseURL;
-        return (url ? `${url}${this.url}` : this.url).replace('//','/')
-    }
-
-    static fields() {
-        return {
-            pk: this.string(null),
-            access: this.number(null),
-        }
+        const baseURL = this.store().baseURL
+        return (baseURL ? `${baseURL}${this.url}` : this.url).replace('//', '/')
     }
 
     /**
@@ -70,8 +70,17 @@ export class Model extends orm.Model {
 	 * Item's real url (including store's baseURL).
 	 */
     get $fullUrl() {
-        const url = this.$store.baseURL;
-        return (url ? `${url}${this.$url}` : this.$url).replace('//','/')
+        return this.$id ? `${this.constructor.fullUrl}${this.$id}/`
+                        : this.constructor.fullUrl
+    }
+
+    /**
+     * Return model in the same database by name or class.
+	 * @param model [Model|String]
+     */
+    static model(model) {
+        model = model.prototype instanceof Model ? model.entity : model
+        return this.store().$db().model(model)
     }
 
     /**
@@ -79,52 +88,64 @@ export class Model extends orm.Model {
 	 * @param model [Model|String]
      */
     $model(model) {
-        model = model.prototype instanceof Model ? model.entity : model
-        return this.$store().$db().model(model)
+        return this.constructor.model(model)
+    }
+
+    /**
+     * Return instance data (based on declared fields and their default
+     * values).
+     */
+    $data(defaults=true) {
+        const data = {}
+        for(const [key, field] of Object.entries(this.$fields()))
+            if(field instanceof orm.Type)
+                data[key] = defaults && this[key] === undefined
+                                ? field.value : this[key]
+        return data
+    }
+
+    /**
+     * Update ORM database for this object
+     */
+    $update(data) {
+        Object.assign(this, data)
+        this.constructor.update({ where: this.$id, data })
     }
 
     /**
      * Fetch one or more entities from server.
      */
-    static fetch({id='', url=null, urlParams=null, ...config}={}) {
+    static fetch({id='', url=null, action='', data=null, ...config}={}) {
+        if(!id && data)
+            id = data.$id
         if(!url)
-            url = id ? `${this.fullUrl}${id}/` : this.url
+            url = id ? `${this.fullUrl}${id}/` : this.fullUrl
+        if(action)
+            url += `${action}/`
 
         // django drf's results
         if(!id && config.dataKey === undefined)
             config.dataKey = 'results'
 
-        return this.api().get(url, config)
+        return this.api().fetch(url, {data, ...config})
     }
 
     /**
-     * Reload item from the server
+     * Fetch item from the server
      */
     fetch(config) {
         if(!this.$id)
             throw "item is not on server"
-        return this.$id && this.constructor.api().get(this.$fullUrl, config)
+        return this.constructor.fetch({id: this.$id, ...config})
     }
 
     /**
      * Save item to server and return promise
      */
     save(config = {}) {
-        if(!config.data && !config.form) {
-            // FIXME: exclude relations / use data
-            config.data = {}
-            const fields = this.constructor.fields()
-            for(var key in fields)
-                if(this[key] !== undefined)
-                    config.data[key] = this[key]
-        }
-        if(!config.method)
-            config.method = self.$id ? 'PUT': 'POST'
-        const url = config.form && config.form.getAttribute('action')
-       			? null : this.$fullUrl
-
-        const func = config.method.toLowerCase()
-        return this.constructor.api()[func](url, config)
+        config.data = config.data || this.$data(false)
+        config.method = config.method || (config.data.$id ? 'PUT' : 'POST')
+        return this.constructor.fetch(config)
     }
 
     /**
@@ -170,6 +191,16 @@ export class Role {
         data && Object.assign(this, data)
     }
 
+    get name() {
+        const roles = this.context.roles
+        return roles[this.access].name
+    }
+
+    get description() {
+        const roles = this.context.roles
+        return roles[this.access].description
+    }
+
     /**
      * True if all permissions are granted on this role
      */
@@ -191,21 +222,21 @@ export class Role {
 
 
 export class BaseAccessible extends Model {
+
     /**
      * All available actions on model
      */
 	static actions = [
-		new Action('delete', 'Delete',
-				   (item) => confirm('Delete?') && item.delete({delete:1}),
-				   {icon: 'mdi mdi-delete'}),
+		new Action({label: 'Delete', permissions:'delete',
+				    exec: (item) => confirm('Delete?') && item.delete({delete:1}),
+				    icon: 'mdi mdi-delete'}),
 	]
 
 	/**
 	 * Available actions on this model instance
 	 */
 	getActions(role) {
-    	const actions = this.constructor.actions
-		return actions ? actions.filter(a => a.isGranted(role, this)) : []
+		return this.constructor.actions?.filter(a => a.isGranted(role, this)) || []
 	}
 
     /**
@@ -239,6 +270,7 @@ export class Context extends BaseAccessible {
             role: this.attr(null, value => new Role(value)),
         }
     }
+    // static actions = [ ]
 
     static fetchRoles() {
         if(this.roles !== undefined)
@@ -262,7 +294,7 @@ export class Context extends BaseAccessible {
      * Return user's identity
      */
     get identity() {
-        let id = this.role && this.role.identity_id
+        let id = this.role?.identity_id
         return id && this.constructor.find(id)
     }
 
@@ -270,7 +302,7 @@ export class Context extends BaseAccessible {
      * Return user's subscription
      */
     get subscription() {
-        let id = this.role && this.role.identity_id
+        const id = this.role?.identity_id
         return id && this.$model('subscription').query()
             .where({ context_id: this.$id, owner_id: id }).first()
     }
@@ -282,6 +314,7 @@ export class Context extends BaseAccessible {
 
 export class Accessible extends BaseAccessible {
     static entity = 'accessible'
+    static contextEntity = 'context'
     static fields() {
         return { ...super.fields(),
             context_id: this.attr(null),
@@ -289,6 +322,13 @@ export class Accessible extends BaseAccessible {
         }
     }
 
+    /**
+     * Model of Accessible's context
+     */
+    static get contextModel() {
+        return this.model(this.contextEntity)
+    }
+    
     /**
      * Available choices for 'access' attribute.
      */
@@ -343,22 +383,18 @@ export class Subscription extends Owned {
         }
     }
     static actions = [
-        ...super.actions,
-        /*
-        new Action('update', 'Edit', (item) =>
-            this.$root.$refs.subscriptionModal.show()
-            this.$root.$refs.subscriptionForm.reset(item)
+        new Action({
+            label: 'Accept Subscription',
+            exec: (item) => item.fetch({action: 'accept', method: 'PUT', commit: true})
+                                .then(r => {
+                                    const context = item.context
+                                    context.$update({n_subscriptions: context.n_subscriptions+1})
+                                }),
+            icon: 'mdi mdi-account-check',
+            css: 'is-success',
+            permissions: ['accept', (r, i) => i.status == Subscription.REQUEST]
         }),
-        */
-        new Action('accept_subscription', 'Accept Subscription', (item) => {
-            this.fetch({
-                url: `${this.fullUrl}accept`,
-                method: 'PUT',
-                data: {
-                    'pk': item.$id,
-                },
-            })
-        })
+        ...super.actions,
     ]
 
     static accessChoices(roles, role=null) {
@@ -378,9 +414,9 @@ export class Subscription extends Owned {
     }
 
     isGranted(role, ...permissions) {
-        if(permissions.indexOf('accept_subscription') != -1 &&
-            this.status == Subscription.SUBSCRIBED ||
-            !role.hasPermission('accept_subscription', this.constructor.label))
+        if(permissions.indexOf('accept') != -1 &&
+            (this.status != Subscription.REQUEST ||
+             !role.hasPermission('accept', this.constructor.label)))
             return false
         return super.isGranted(role, ...permissions)
     }

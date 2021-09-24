@@ -10,7 +10,8 @@ __all__ = ('ContainerSerializer', 'ContentSerializer',)
 class ContainerSerializer(core.ContextSerializer):
     class Meta:
         model = models.Container
-        fields = core.ContextSerializer.Meta.fields + ('title', 'headline')
+        fields = core.ContextSerializer.Meta.fields + ('headline',)
+
 
 class ContentSerializer(core.OwnedSerializer):
     html = serializers.SerializerMethodField(required=False)

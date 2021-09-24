@@ -9,10 +9,12 @@
  * actions instance accross models).
  */
 export default class Action {
-    constructor(name, label, exec=null, {icon='', permissions=null, raw=false, help='', css=''}={}) {
-        this.name = name
+    constructor({label, exec=null, permissions=null, icon='',
+                 help='', css=''}={})
+    {
         this.label = label
-        this.permissions = Array.isArray(permissions) ? permissions : [permissions || name]
+        this.permissions = Array.isArray(permissions) ? permissions :
+                                permissions ? [permissions] : null
         this.exec = exec
         this.icon = icon
         this.help = help
@@ -20,11 +22,11 @@ export default class Action {
     }
 
     isGranted(role, item) {
-        return item.isGranted(role, ...this.permissions)
+        return this.permissions ? item.isGranted(role, ...this.permissions) : true
     }
 
     trigger(role, item, ...args) {
-        if(role && this.isGranted(role, item))
+        if(role && this.exec && this.isGranted(role, item))
             this.exec(item, ...args)
     }
 }

@@ -13,6 +13,7 @@ ALLOWED_HOSTS = []
 INSTALLED_APPS = [
     'django.contrib.sites',
 
+    'pepr.caps',
     'pepr.content',
     'pepr.core',
 

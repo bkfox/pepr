@@ -227,7 +227,7 @@ export class BaseAccessible extends Model {
      * All available actions on model
      */
 	static actions = [
-		new Action({label: 'Delete', permissions:'delete',
+		new Action({label: 'Delete', permissions:'destroy',
 				    exec: (item) => confirm('Delete?') && item.delete({delete:1}),
 				    icon: 'mdi mdi-delete'}),
 	]

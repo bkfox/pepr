@@ -505,9 +505,9 @@ class Subscription(Owned):
 Subscription._meta.get_field('access').choices=subscription_access_choices
 
 MemberRole.register(Subscription, False, CanSubscribe)
-ModeratorRole.register(Subscription, True, CanSubscribe,
+ModeratorRole.register(Subscription, True, CanUpdate, CanDestroy, CanSubscribe,
     CanAcceptSubscription, CanUnsubscribe)
-AdminRole.register(Subscription, True, CanSubscribe,
+AdminRole.register(Subscription, True, CanUpdate, CanDestroy, CanSubscribe,
     CanAcceptSubscription, CanUnsubscribe)
 
 

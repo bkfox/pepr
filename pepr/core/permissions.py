@@ -110,7 +110,6 @@ class Permission(permissions.BasePermission, metaclass=PermissionMeta):
         # Rule: action allowed only for role in same context as object
         if isinstance(obj, Context) and obj.pk != role.context.pk or \
                 isinstance(obj, Accessible) and obj.context_id != role.context.pk:
-            print(obj.pk, role.context.pk, obj.context_id)
             raise ValueError('Role and obj context are different')
 
         if isinstance(obj, Context):

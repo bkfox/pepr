@@ -12,19 +12,21 @@ from django.contrib.contenttypes.models import ContentType
 
 
 from .agent import Agent
-from .capabilities import Capabilities
+from .capability import Capability
+from .capability_set import BaseCapabilitySet
 
 
-__all__ = ('Reference',)
+__all__ = ('ReferenceQuerySet', 'Reference',)
 
 
 class ReferenceQuerySet(models.QuerySet):
+    Agents: Union[Agent, Iterable[Agent]]
+
     def subsets(self, reference: Reference) -> ReferenceQuerySet:
         """ Return references shared from provided one. """
         return self.filter(origin=reference)
 
-    def emitter(self, agents: Union[Agent, Iterable[Agent]]) \
-            -> ReferenceQuerySet:
+    def emitter(self, agents: Agents) -> ReferenceQuerySet:
         """
         References for the provided Agent emitter
         :param Agent agents: single Agent or iterable of Agents .
@@ -33,8 +35,7 @@ class ReferenceQuerySet(models.QuerySet):
             return self.filter(emitter=agents)
         return self.filter(emitter__in=agents)
 
-    def receiver(self, agents: Union[Agent, Iterable[Agent]]) \
-            -> ReferenceQuerySet:
+    def receiver(self, agents: Agents) -> ReferenceQuerySet:
         """
         References for the provided Agent receiver
         :param Agent agents: single Agent or iterable of Agents .
@@ -43,13 +44,12 @@ class ReferenceQuerySet(models.QuerySet):
             return self.filter(receiver=agents)
         return self.filter(receiver__in=agents)
 
-    def ref(self, receiver: Union[Agent, Iterable[Agent]],
-            ref: uuid.UUID) -> ReferenceQuerySet:
+    def ref(self, receiver: Agents, ref: uuid.UUID) -> ReferenceQuerySet:
         """ References for the external ref. """
         return self.filter(ref=ref).receiver(receiver)
 
 
-class Reference(Capabilities):
+class Reference(BaseCapabilitySet):
     """
     Holds a reference to an object with capabilities.
 
@@ -76,3 +76,22 @@ class Reference(Capabilities):
     """ Target object model. """
     target = GenericForeignKey('target_model', 'target_id')
     """ Target. """
+
+    def is_derived(self, other: Reference) -> bool:
+        if other.depth < self.depth or self.target != other.target:
+            return False
+        return super().is_derived(other)
+
+    def derive(self, receiver: Agent, items: BaseCapabilitySet.DeriveItems) \
+            -> Reference:
+        """
+        Derive this `CapabilitySet` from `self`.
+        """
+        capabilities = self.derive_caps(items)
+        capabilities = Capability.objects.bulk_create(capabilities)
+        subset = type(self)(capabilities, origin=self, depth=self.depth+1,
+                            emitter=self.receiver, receiver=receiver,
+                            target=self.target)
+        subset.save()
+        subset.capabilities.add(**capabilities)
+        return super().derive(items, )

@@ -14,7 +14,7 @@ __all__ = ('AgentQuerySet', 'Agent')
 class AgentQuerySet(models.QuerySet):
     def user(self, user: User) -> AgentQuerySet:
         """ Filter by user or its groups. """
-        return self.filter(Q(user=user) | Q(group__in=user.groups))
+        return self.filter(Q(user=user) | Q(group__in=user.groups)).distinct()
 
     def group(self, group: Group) -> AgentQuerySet:
         """ Filter by group. """
